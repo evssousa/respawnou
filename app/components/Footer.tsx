@@ -1,12 +1,12 @@
 import { Link } from "react-router";
-import { NAV, PLATFORMS, SITE } from "~/lib/site";
+import { DOC_PAGES, NAV, PLATFORMS, SITE } from "~/lib/site";
 import { Logo } from "./Header";
 
 export function Footer() {
   return (
     <footer className="mt-20 border-t border-line">
-      <div className="mx-auto grid max-w-[1280px] grid-cols-2 gap-x-6 gap-y-8 px-4 pt-10 sm:px-6 md:grid-cols-[2fr_1fr_1fr_1fr]">
-        <div className="col-span-2 flex max-w-sm flex-col gap-4 md:col-span-1">
+      <div className="mx-auto grid max-w-[1280px] grid-cols-2 gap-x-6 gap-y-8 px-4 pt-10 sm:px-6 md:grid-cols-4 lg:grid-cols-[1.6fr_1fr_1fr_1fr_1fr]">
+        <div className="col-span-2 flex max-w-sm flex-col gap-4 md:col-span-4 lg:col-span-1">
           <Link to="/" aria-label={`${SITE.name} — página inicial`} className="py-1 hover:text-paper">
             <Logo />
           </Link>
@@ -14,16 +14,13 @@ export function Footer() {
         </div>
         <FooterCol title="Módulos" links={NAV} />
         <FooterCol title="Plataformas" links={PLATFORMS.map((p) => ({ to: `/plataforma/${p.slug}`, label: p.label }))} />
+        <FooterCol title="Institucional" links={DOC_PAGES.filter((d) => d.group === "site")} />
         <FooterCol
-          title="Base"
-          links={[
-            { to: "/sobre", label: "Sobre" },
-            { to: "/contato", label: "Contato" },
-            { to: "/privacidade", label: "Privacidade" },
-          ]}
+          title="Legal"
+          links={DOC_PAGES.filter((d) => d.group === "legal")}
           extra={
             <a href="/rss.xml" className="py-2.5 text-sm text-body hover:text-acc md:py-1.5">
-              RSS
+              Feed RSS
             </a>
           }
         />

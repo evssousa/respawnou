@@ -60,7 +60,8 @@ As páginas só falam com `app/lib/content.server.ts` (`listPosts`, `getPost`, `
 | `/plataforma/:slug` | Conteúdo e próximos lançamentos por plataforma |
 | `/lancamentos` | Calendário de lançamentos |
 | `/busca?q=` | Busca em matérias e jogos |
-| `/sobre`, `/contato`, `/privacidade` | Institucionais |
+| `/sobre`, `/contato`, `/faq`, `/politica-editorial`, `/como-avaliamos`, `/anuncie` | Institucionais (lista em `DOC_PAGES`, `app/lib/site.ts`) |
+| `/termos`, `/privacidade`, `/cookies`, `/acessibilidade`, `/mapa-do-site` | Legais (textos-base: revisar com advogado antes do lançamento) |
 | `/sitemap.xml`, `/rss.xml`, `/robots.txt` | SEO e feed |
 
 ## Próximos passos

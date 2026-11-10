@@ -1,5 +1,5 @@
 import { getAllGames, getAllPosts, postUrl } from "~/lib/content.server";
-import { absoluteUrl, PLATFORMS, SECTIONS } from "~/lib/site";
+import { absoluteUrl, DOC_PAGES, PLATFORMS, SECTIONS } from "~/lib/site";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -12,9 +12,7 @@ export async function loader() {
     ...PLATFORMS.map((p) => ({ loc: `/plataforma/${p.slug}`, changefreq: "daily" })),
     ...posts.map((p) => ({ loc: postUrl(p), lastmod: p.updatedAt ?? p.publishedAt })),
     ...games.map((g) => ({ loc: `/jogos/${g.slug}`, changefreq: "weekly" })),
-    { loc: "/sobre" },
-    { loc: "/contato" },
-    { loc: "/privacidade" },
+    ...DOC_PAGES.map((d) => ({ loc: d.to, lastmod: d.updated, changefreq: "yearly" })),
   ];
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

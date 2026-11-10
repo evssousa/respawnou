@@ -17,6 +17,14 @@ export default [
   route("sobre", "routes/about.tsx"),
   route("contato", "routes/contact.tsx"),
   route("privacidade", "routes/privacy.tsx"),
+  route("termos", "routes/terms.tsx"),
+  route("cookies", "routes/cookies.tsx"),
+  route("politica-editorial", "routes/editorial.tsx"),
+  route("como-avaliamos", "routes/review-policy.tsx"),
+  route("anuncie", "routes/advertise.tsx"),
+  route("faq", "routes/faq.tsx"),
+  route("acessibilidade", "routes/accessibility.tsx"),
+  route("mapa-do-site", "routes/sitemap-page.tsx"),
 
   // Recursos para buscadores e leitores de feed.
   route("sitemap.xml", "routes/sitemap.ts"),

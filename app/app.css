@@ -170,3 +170,55 @@ body {
     animation: none !important;
   }
 }
+
+/* Listas numeradas e tabelas nas páginas institucionais */
+.article-body ol {
+  margin: 0 0 1.25em;
+  padding-left: 1.5em;
+  list-style: decimal-leading-zero;
+  color: var(--color-body);
+  font-size: 1.125rem;
+  line-height: 1.7;
+}
+.article-body ol li::marker {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+.article-body li + li {
+  margin-top: 0.35em;
+}
+.article-body strong {
+  color: var(--color-paper);
+  font-weight: 600;
+}
+.table-wrap {
+  margin: 0 0 1.5em;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+}
+.table-wrap table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.table-wrap th {
+  padding: 0.7em 1em;
+  background: var(--color-ink-3);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: left;
+  color: var(--color-acc);
+}
+.table-wrap td {
+  padding: 0.8em 1em;
+  border-top: 1px solid var(--color-line);
+  vertical-align: top;
+  color: var(--color-body);
+}
+.table-wrap td:first-child {
+  color: var(--color-paper);
+  font-weight: 600;
+}
