@@ -1,40 +1,14 @@
-// Servidor de produção (Hostinger): aplica as migrations pendentes e serve o app.
-// Uso: npm run build && npm start
+// Entrada de produção (Hostinger): `node server.js` (ou require, pelo LiteSpeed).
 //
-// NODE_ENV não deve ir nas variáveis de ambiente da Hostinger: com ele, o `npm install`
-// do build pula as devDependencies (react-router, vite) e o build quebra. Definido aqui.
+// Regras para rodar na Hostinger:
+// - nada de `await` no nível do módulo (o LiteSpeed usa require() e daria ERR_REQUIRE_ASYNC_MODULE);
+// - NODE_ENV não vai nas variáveis de ambiente do painel: com ele, o `npm install` do build
+//   pula pacotes de desenvolvimento. É definido aqui, ANTES de carregar React e cia.
+//   Por isso o servidor fica em server-app.js e é carregado com import() dinâmico:
+//   imports estáticos rodariam antes desta linha e o React subiria em modo de desenvolvimento.
 process.env.NODE_ENV ??= "production";
 
-import compression from "compression";
-import express from "express";
-import { createRequestHandler } from "@react-router/express";
-import { dbConfigFromEnv, migrate } from "./db/migrate.mjs";
-
-const PORT = Number(process.env.PORT || 3000);
-
-// Banco: o MySQL da Hostinger só aceita conexão local, então as migrations rodam daqui.
-const db = dbConfigFromEnv();
-if (db) {
-  try {
-    const applied = await migrate(db);
-    console.log(applied.length ? `[migrate] ${applied.length} aplicada(s): ${applied.join(", ")}` : "[migrate] banco atualizado");
-  } catch (err) {
-    // Não derruba o site: as páginas mostram erro só onde o banco é usado.
-    console.error("[migrate] falhou:", err?.message ?? err);
-  }
-} else {
-  console.log("[db] sem DB_NAME/DB_USER: usando os dados de exemplo");
-}
-
-const app = express();
-app.disable("x-powered-by");
-app.set("trust proxy", true);
-app.use(compression());
-
-// Arquivos com hash no nome podem ficar em cache "para sempre".
-app.use("/assets", express.static("build/client/assets", { immutable: true, maxAge: "1y" }));
-app.use(express.static("build/client", { maxAge: "1h" }));
-
-app.use(createRequestHandler({ build: await import("./build/server/index.js"), mode: process.env.NODE_ENV }));
-
-app.listen(PORT, () => console.log(`[respawnou] ouvindo na porta ${PORT}`));
+import("./server-app.js").catch((err) => {
+  console.error("[respawnou] falha ao iniciar:", err);
+  process.exit(1);
+});
