@@ -4,6 +4,7 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
+import { getStatus } from "./lib/content.server";
 import { formatDate } from "./lib/format";
 import { SITE } from "./lib/site";
 
@@ -14,12 +15,13 @@ export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
   {
     rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap",
+    href: "https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap",
   },
 ];
 
-export function loader() {
-  return { today: formatDate(new Date().toISOString()).toUpperCase() };
+export async function loader() {
+  const status = await getStatus();
+  return { status: { ...status, today: formatDate(new Date().toISOString()).toUpperCase() } };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -29,15 +31,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#0b0b0b" />
+        <meta name="theme-color" content="#060807" />
         <Meta />
         <Links />
       </head>
       <body className="min-h-screen">
-        <a href="#conteudo" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-alert focus:px-4 focus:py-3 focus:text-ink">
+        <a href="#conteudo" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-acc focus:px-4 focus:py-3 focus:text-ink">
           Pular para o conteúdo
         </a>
-        <Header today={data?.today ?? ""} />
+        <Header status={data?.status ?? null} />
         {children}
         <Footer />
         <ScrollRestoration />
@@ -63,10 +65,10 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   return (
     <main id="conteudo" className="mx-auto max-w-[1280px] px-4 py-16 sm:px-6">
       <title>{`${notFound ? "Página não encontrada" : "Erro"} | ${SITE.name}`}</title>
-      <p className="font-mono text-sm font-semibold text-alert">{notFound ? "ERRO 404 · ALVO NÃO ENCONTRADO" : "ERRO · FALHA NA MISSÃO"}</p>
+      <p className="font-mono text-sm font-semibold text-acc">{notFound ? "ERRO 404 · ALVO NÃO ENCONTRADO" : "ERRO · FALHA NA MISSÃO"}</p>
       <h1 className="mt-4 font-display text-6xl uppercase leading-[0.9] sm:text-[120px]">{notFound ? "Game over?" : "Deu ruim."}</h1>
       <p className="mt-6 max-w-xl text-lg text-body">{details}</p>
-      <Link to="/" className="mt-8 inline-block bg-alert px-6 py-4 font-mono text-sm font-bold text-ink hover:bg-paper hover:text-ink">
+      <Link to="/" className="mt-8 inline-block bg-acc px-6 py-4 font-mono text-sm font-bold text-ink hover:bg-paper hover:text-ink">
         RESPAWNAR NA HOME →
       </Link>
       {stack && (

@@ -1,10 +1,9 @@
-// Peças visuais pequenas e reutilizáveis do tema "Manchete Brutal".
+// Peças visuais pequenas e reutilizáveis do tema "Central de Comando".
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { ArtVariant } from "~/lib/types";
 
-const cx = (...c: (string | false | undefined | null)[]) => c.filter(Boolean).join(" ");
-export { cx };
+export const cx = (...c: (string | false | undefined | null)[]) => c.filter(Boolean).join(" ");
 
 /** Capa do post: imagem real quando existir, senão a arte provisória. */
 export function Art({
@@ -36,64 +35,64 @@ export function Art({
   );
 }
 
-/** Cantos de mira sobre uma imagem. */
-export function Brackets({ label }: { label?: string }) {
-  const base = "pointer-events-none absolute h-7 w-7 border-alert";
+/** Rótulos de HUD nos cantos superiores de uma imagem. */
+export function Hud({ left, right }: { left: ReactNode; right?: ReactNode }) {
   return (
-    <>
-      <span aria-hidden className={cx(base, "top-3.5 left-3.5 border-t-[3px] border-l-[3px]")} />
-      <span aria-hidden className={cx(base, "top-3.5 right-3.5 border-t-[3px] border-r-[3px]")} />
-      <span aria-hidden className={cx(base, "bottom-3.5 left-3.5 border-b-[3px] border-l-[3px]")} />
-      <span aria-hidden className={cx(base, "right-3.5 bottom-3.5 border-r-[3px] border-b-[3px]")} />
-      {label && (
-        <span aria-hidden className="absolute top-5 left-14 font-mono text-xs text-alert-soft">
-          {label}
-        </span>
-      )}
-    </>
+    <div aria-hidden className="pointer-events-none absolute top-4 right-5 left-6 z-10 flex justify-between font-mono text-xs font-semibold text-acc">
+      <span>{left}</span>
+      {right && <span>{right}</span>}
+    </div>
   );
 }
 
-/** Título de seção com a régua grossa no topo. */
+/**
+ * Cabeçalho de módulo da home e das páginas internas:
+ * "MÓDULO 03" em mono + título em Anton + linha tracejada + ação.
+ */
 export function SectionTitle({
   children,
   accent,
   as: Tag = "h2",
   action,
-  rule = "paper",
+  code,
   size = "lg",
 }: {
   children: ReactNode;
   accent?: ReactNode;
   as?: "h1" | "h2";
   action?: { to: string; label: string };
-  rule?: "paper" | "alert";
+  /** Código curto acima do título, ex.: "MÓDULO 03 // REVIEWS". */
+  code?: string;
   size?: "lg" | "xl";
 }) {
   return (
-    <div className={cx("flex flex-wrap items-baseline gap-4 border-t-[6px] pt-3", rule === "alert" ? "border-alert" : "border-paper")}>
-      <Tag className={cx("font-display uppercase leading-none", size === "xl" ? "text-5xl sm:text-7xl" : "text-4xl sm:text-[52px]")}>
-        {children} {accent && <span className="text-alert">{accent}</span>}
-      </Tag>
-      {action && (
-        <Link to={action.to} className="ml-auto font-mono text-xs font-semibold text-alert hover:text-paper">
-          {action.label} →
-        </Link>
-      )}
+    <div className="flex flex-col gap-2">
+      {code && <span className="font-mono text-xs font-semibold text-acc">&gt; {code}</span>}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Tag className={cx("font-display uppercase leading-none", size === "xl" ? "text-5xl sm:text-7xl" : "text-4xl sm:text-[44px]")}>
+          {children} {accent && <span className="text-acc">{accent}</span>}
+        </Tag>
+        <span aria-hidden className="hidden min-w-8 flex-1 border-t border-dashed border-line-soft sm:block" />
+        {action && (
+          <Link to={action.to} className="ml-auto font-mono text-xs font-bold text-acc hover:text-paper sm:ml-0">
+            {action.label} →
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
 
 export function Kicker({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={cx("font-mono text-xs font-semibold uppercase leading-none text-alert", className)}>{children}</span>;
+  return <span className={cx("font-mono text-[11px] font-bold uppercase leading-none text-acc", className)}>{children}</span>;
 }
 
-export function Badge({ children, tone = "alert" }: { children: ReactNode; tone?: "alert" | "paper" }) {
+export function Badge({ children, tone = "acc" }: { children: ReactNode; tone?: "acc" | "warn" }) {
   return (
     <span
       className={cx(
-        "inline-block self-start px-2.5 py-2 font-mono text-xs font-bold uppercase leading-none",
-        tone === "alert" ? "bg-alert text-ink" : "bg-paper text-ink",
+        "chs inline-block self-start px-3 py-2 font-mono text-xs font-bold uppercase leading-none text-ink",
+        tone === "acc" ? "bg-acc" : "bg-warn",
       )}
     >
       {children}
@@ -108,10 +107,7 @@ export function SoonButton({ children, className }: { children: ReactNode; class
       type="button"
       disabled
       title="Disponível quando as contas de usuário forem lançadas"
-      className={cx(
-        "h-11 cursor-not-allowed border border-dashed border-[#444] bg-transparent px-3.5 font-mono text-xs font-semibold text-muted",
-        className,
-      )}
+      className={cx("chs h-11 cursor-not-allowed bg-ink-3 px-3.5 font-mono text-[11px] font-bold text-muted", className)}
     >
       {children}
     </button>
@@ -122,10 +118,23 @@ export function PlatformTags({ platforms, labels }: { platforms: string[]; label
   return (
     <div className="flex flex-wrap gap-2">
       {platforms.map((p) => (
-        <Link key={p} to={`/plataforma/${p}`} className="border border-line px-3 py-2 font-mono text-xs font-semibold uppercase hover:border-alert hover:text-alert">
+        <Link key={p} to={`/plataforma/${p}`} className="chs bg-ink-3 px-3 py-2.5 font-mono text-xs font-semibold uppercase text-acc hover:bg-acc hover:text-ink">
           {labels[p] ?? p}
         </Link>
       ))}
     </div>
+  );
+}
+
+/** Link de filtro (plataformas) usado nas listagens. */
+export function FilterLink({ to, active, children }: { to: string; active: boolean; children: ReactNode }) {
+  return (
+    <Link
+      to={to}
+      aria-current={active ? "page" : undefined}
+      className={cx("chs px-3.5 py-3 font-mono text-xs font-bold", active ? "bg-acc text-ink" : "bg-ink-3 text-acc hover:bg-line-soft")}
+    >
+      {children}
+    </Link>
   );
 }

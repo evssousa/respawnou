@@ -9,7 +9,7 @@ export default function Contact() {
     <StaticPage title="Contato" lead="Sugestões de pauta, correções, parcerias ou só um oi: estamos por aqui.">
       <h2>E-mail</h2>
       <p>
-        <a href={`mailto:${SITE.email}`} className="font-mono text-paper underline hover:text-alert">
+        <a href={`mailto:${SITE.email}`} className="font-mono text-paper underline hover:text-acc">
           {SITE.email}
         </a>
       </p>

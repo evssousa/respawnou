@@ -30,7 +30,7 @@ export default function PlatformPage({ loaderData }: Route.ComponentProps) {
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-12 px-4 pt-10 sm:px-6">
       <div className="flex flex-col gap-4">
-        <p className="font-mono text-xs font-semibold text-alert">PLATAFORMA</p>
+        <p className="font-mono text-xs font-semibold text-acc">PLATAFORMA</p>
         <SectionTitle as="h1" size="xl">
           {platform.label}
         </SectionTitle>
@@ -39,14 +39,14 @@ export default function PlatformPage({ loaderData }: Route.ComponentProps) {
 
       {releases.length > 0 && (
         <section className="flex flex-col gap-4">
-          <h2 className="font-mono text-xs font-semibold text-alert">PRÓXIMOS LANÇAMENTOS</h2>
+          <h2 className="font-mono text-xs font-semibold text-acc">PRÓXIMOS LANÇAMENTOS</h2>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-px bg-line">
             {releases.map((r) => (
               <Link key={r.game.slug} to={`/jogos/${r.game.slug}`} className="group bg-ink p-4">
-                <span className="font-display text-4xl leading-none text-alert">
+                <span className="font-display text-4xl leading-none text-acc">
                   {r.day} {r.monthShort}
                 </span>
-                <span className="mt-1 block font-display text-2xl uppercase leading-none group-hover:text-alert">{r.game.name}</span>
+                <span className="mt-1 block font-display text-2xl uppercase leading-none group-hover:text-acc">{r.game.name}</span>
               </Link>
             ))}
           </div>

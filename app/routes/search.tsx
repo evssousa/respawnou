@@ -36,7 +36,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
             placeholder="Jogo, notícia, guia…"
             className="h-16 min-w-0 flex-1 border border-[#333] bg-transparent px-5 text-xl text-paper placeholder:text-muted"
           />
-          <button type="submit" className="h-16 bg-alert px-6 font-mono text-sm font-bold text-ink hover:bg-paper">
+          <button type="submit" className="h-16 bg-acc px-6 font-mono text-sm font-bold text-ink hover:bg-paper">
             BUSCAR
           </button>
         </Form>
@@ -49,10 +49,10 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 
       {games.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="font-mono text-xs font-semibold text-alert">JOGOS</h2>
+          <h2 className="font-mono text-xs font-semibold text-acc">JOGOS</h2>
           <div className="flex flex-wrap gap-2">
             {games.map((g) => (
-              <Link key={g.slug} to={`/jogos/${g.slug}`} className="border border-line px-4 py-3 font-display text-2xl uppercase leading-none hover:border-alert hover:text-alert">
+              <Link key={g.slug} to={`/jogos/${g.slug}`} className="border border-line px-4 py-3 font-display text-2xl uppercase leading-none hover:border-acc hover:text-acc">
                 {g.name}
               </Link>
             ))}
@@ -62,7 +62,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 
       {posts.length > 0 && (
         <section className="flex flex-col">
-          <h2 className="font-mono text-xs font-semibold text-alert">MATÉRIAS</h2>
+          <h2 className="font-mono text-xs font-semibold text-acc">MATÉRIAS</h2>
           {posts.map((p) => (
             <PostRow key={p.url} post={p} />
           ))}
@@ -71,7 +71,7 @@ export default function SearchPage({ loaderData }: Route.ComponentProps) {
 
       {q && total === 0 && (
         <p className="max-w-xl text-lg text-body">
-          Tente outras palavras ou navegue pelas <Link to="/noticias" className="text-alert underline">últimas notícias</Link>.
+          Tente outras palavras ou navegue pelas <Link to="/noticias" className="text-acc underline">últimas notícias</Link>.
         </p>
       )}
     </main>

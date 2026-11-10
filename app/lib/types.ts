@@ -45,6 +45,8 @@ export interface PostView extends Omit<Post, "body"> {
   kicker: string;
   ago: string;
   dateLabel: string;
+  /** Horário de publicação, ex.: "09:12". */
+  timeLabel: string;
 }
 
 export interface Game {
@@ -65,6 +67,8 @@ export interface Release {
   day: string;
   monthShort: string;
   weekday: string;
+  /** Dias até o lançamento (0 = hoje). */
+  daysLeft: number;
 }
 
 export interface FreeGame {
@@ -73,5 +77,7 @@ export interface FreeGame {
   platform: string;
   until: string; // ISO
   untilLabel: string;
+  /** Dias até a oferta acabar (0 = acaba hoje). */
+  daysLeft: number;
   url: string;
 }

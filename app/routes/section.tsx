@@ -1,7 +1,7 @@
 import { data, Link, useLocation } from "react-router";
 import type { Route } from "./+types/section";
 import { MostRead, Pagination, PostRow } from "~/components/cards";
-import { SectionTitle, cx } from "~/components/ui";
+import { FilterLink, SectionTitle } from "~/components/ui";
 import { getMostRead, listPosts } from "~/lib/content.server";
 import { seo } from "~/lib/seo";
 import { PLATFORMS, platformBySlug, sectionBySlug } from "~/lib/site";
@@ -71,17 +71,5 @@ export default function SectionPage({ loaderData }: Route.ComponentProps) {
         </aside>
       </div>
     </main>
-  );
-}
-
-function FilterLink({ to, active, children }: { to: string; active: boolean; children: React.ReactNode }) {
-  return (
-    <Link
-      to={to}
-      aria-current={active ? "page" : undefined}
-      className={cx("border px-3 py-2.5 font-mono text-xs font-semibold", active ? "border-alert bg-alert text-ink" : "border-line hover:border-alert hover:text-alert")}
-    >
-      {children}
-    </Link>
   );
 }

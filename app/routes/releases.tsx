@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { Route } from "./+types/releases";
-import { SectionTitle, cx } from "~/components/ui";
+import { FilterLink, SectionTitle } from "~/components/ui";
 import { getReleases } from "~/lib/content.server";
 import { formatMonthYear } from "~/lib/format";
 import { seo } from "~/lib/seo";
@@ -43,13 +43,13 @@ export default function ReleasesPage({ loaderData }: Route.ComponentProps) {
         </SectionTitle>
         <p className="max-w-2xl text-lg text-body">Os próximos jogos, em ordem de chegada. Datas podem mudar conforme anúncios das empresas.</p>
         <nav aria-label="Filtrar por plataforma" className="flex flex-wrap gap-2">
-          <Filter to="/lancamentos" active={!platform}>
+          <FilterLink to="/lancamentos" active={!platform}>
             TODAS
-          </Filter>
+          </FilterLink>
           {PLATFORMS.map((p) => (
-            <Filter key={p.slug} to={`/lancamentos?plataforma=${p.slug}`} active={platform === p.slug}>
+            <FilterLink key={p.slug} to={`/lancamentos?plataforma=${p.slug}`} active={platform === p.slug}>
               {p.label.toUpperCase()}
-            </Filter>
+            </FilterLink>
           ))}
         </nav>
       </div>
@@ -58,15 +58,15 @@ export default function ReleasesPage({ loaderData }: Route.ComponentProps) {
 
       {groups.map((g) => (
         <section key={g.month} className="flex flex-col">
-          <h2 className="border-t-[6px] border-alert pt-3 pb-2 font-display text-4xl uppercase leading-none">{g.month}</h2>
+          <h2 className="border-t-[6px] border-acc pt-3 pb-2 font-display text-4xl uppercase leading-none">{g.month}</h2>
           <ol>
             {g.items.map((r) => (
               <li key={r.game.slug}>
                 <Link to={`/jogos/${r.game.slug}`} className="group flex flex-wrap items-baseline gap-x-8 gap-y-2 border-b border-line-soft py-5">
-                  <span className="w-28 shrink-0 font-display text-6xl leading-[0.9] text-alert">{r.day}</span>
+                  <span className="w-28 shrink-0 font-display text-6xl leading-[0.9] text-acc">{r.day}</span>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <span className="font-mono text-xs font-semibold text-muted">{r.weekday.toUpperCase()}</span>
-                    <h3 className="font-display text-4xl uppercase leading-none transition-colors group-hover:text-alert">{r.game.name}</h3>
+                    <h3 className="font-display text-4xl uppercase leading-none transition-colors group-hover:text-acc">{r.game.name}</h3>
                     <span className="text-sm text-body">{r.game.genres.join(" · ")}</span>
                   </div>
                   <span className="font-mono text-xs font-semibold text-muted">{r.game.platforms.map((p) => platformLabels[p]).join(" · ").toUpperCase()}</span>
@@ -77,17 +77,5 @@ export default function ReleasesPage({ loaderData }: Route.ComponentProps) {
         </section>
       ))}
     </main>
-  );
-}
-
-function Filter({ to, active, children }: { to: string; active: boolean; children: React.ReactNode }) {
-  return (
-    <Link
-      to={to}
-      aria-current={active ? "page" : undefined}
-      className={cx("border px-3 py-2.5 font-mono text-xs font-semibold", active ? "border-alert bg-alert text-ink" : "border-line hover:border-alert hover:text-alert")}
-    >
-      {children}
-    </Link>
   );
 }

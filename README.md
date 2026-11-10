@@ -35,7 +35,7 @@ app/
 ├── root.tsx              # documento HTML, header, footer, página de erro/404
 ├── routes.ts             # mapa de rotas
 ├── routes/               # páginas e recursos (sitemap.xml, rss.xml, robots.txt)
-├── components/           # UI do tema "Manchete Brutal"
+├── components/           # UI do tema "Central de Comando" (home-modules.tsx = módulos da home)
 └── lib/
     ├── site.ts           # nome, URL, editorias e plataformas
     ├── types.ts          # Post, Game, Release, FreeGame
@@ -53,7 +53,7 @@ As páginas só falam com `app/lib/content.server.ts` (`listPosts`, `getPost`, `
 
 | Rota | Página |
 |---|---|
-| `/` | Home: destaque, últimas, mais lidas, grátis, lançamentos, reviews e guias |
+| `/` | Home em módulos: transmissão principal + log, feed de notícias, placar de reviews, contagem regressiva de lançamentos, manual de guias, arquivo de artigos, loot (grátis e promoções), ranking e plataformas |
 | `/noticias`, `/artigos`, `/reviews`, `/guias`, `/promocoes` | Listagem da editoria (filtro `?plataforma=` e paginação `?pagina=`) |
 | `/:editoria/:slug` | Matéria (com veredito e nota nas reviews) |
 | `/jogos/:slug` | Ficha do jogo e tudo publicado sobre ele |

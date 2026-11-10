@@ -13,6 +13,7 @@ const dateTime = new Intl.DateTimeFormat("pt-BR", {
 const weekdayLong = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, weekday: "long" });
 const monthShort = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, month: "short" });
 const dayNum = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, day: "2-digit" });
+const timeShort = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
 const monthYear = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, month: "long", year: "numeric" });
 
 /** Datas só com dia ("2026-11-12") viram meio-dia UTC para não "voltar" um dia no fuso BR. */
@@ -23,6 +24,7 @@ export const formatDateTime = (iso: string) => dateTime.format(toDate(iso)).repl
 export const formatWeekday = (iso: string) => weekdayLong.format(toDate(iso));
 export const formatDay = (iso: string) => dayNum.format(toDate(iso));
 export const formatMonthShort = (iso: string) => monthShort.format(toDate(iso)).replace(".", "").toUpperCase();
+export const formatTime = (iso: string) => timeShort.format(toDate(iso));
 export const formatMonthYear = (iso: string) => monthYear.format(toDate(iso));
 
 /** "HÁ 3H", "ONTEM", "HÁ 4 DIAS" ou a data completa. */
@@ -43,7 +45,13 @@ export function timeAgo(iso: string, now = Date.now()) {
 export const normalize = (s: string) =>
   s
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
 export const formatScore = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: n % 1 ? 1 : 0, maximumFractionDigits: 1 });
+
+/** Dias inteiros entre hoje (BR) e uma data "AAAA-MM-DD". */
+export function daysUntil(isoDay: string, now = Date.now()) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(now));
+  return Math.round((Date.parse(`${isoDay.slice(0, 10)}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
+}

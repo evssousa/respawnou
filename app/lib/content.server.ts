@@ -3,8 +3,8 @@
 // Hoje lê os dados de exemplo em mock-data.ts. Quando o MySQL da Hostinger estiver pronto,
 // basta reimplementar estas funções com consultas ao banco: as rotas não precisam mudar.
 import { MOCK_FREE_GAMES, MOCK_GAMES, MOCK_POSTS } from "./mock-data";
-import { formatDate, formatDay, formatMonthShort, formatWeekday, normalize, timeAgo } from "./format";
-import { sectionBySlug, type PlatformSlug, type SectionSlug } from "./site";
+import { daysUntil, formatDate, formatDay, formatMonthShort, formatTime, formatWeekday, normalize, timeAgo } from "./format";
+import { SECTIONS, sectionBySlug, type PlatformSlug, type SectionSlug } from "./site";
 import type { FreeGame, Game, Post, PostView, Release } from "./types";
 
 export const postUrl = (p: Pick<Post, "section" | "slug">) => `/${p.section}/${p.slug}`;
@@ -17,6 +17,7 @@ function toView(post: Post, now = Date.now()): PostView {
     kicker: post.tag ?? sectionBySlug(post.section)?.kicker ?? "Notícias",
     ago: timeAgo(post.publishedAt, now),
     dateLabel: formatDate(post.publishedAt),
+    timeLabel: formatTime(post.publishedAt),
   };
 }
 
@@ -111,7 +112,7 @@ export async function searchGames(query: string): Promise<Game[]> {
 
 function toRelease(game: Game): Release {
   const date = game.releaseDate!;
-  return { game, date, day: formatDay(date), monthShort: formatMonthShort(date), weekday: formatWeekday(date) };
+  return { game, date, day: formatDay(date), monthShort: formatMonthShort(date), weekday: formatWeekday(date), daysLeft: daysUntil(date) };
 }
 
 /** Próximos lançamentos a partir de hoje. `days` limita a janela (ex.: 7 = esta semana). */
@@ -126,5 +127,32 @@ export async function getReleases(opts: { days?: number; platform?: PlatformSlug
 }
 
 export async function getFreeGames(): Promise<FreeGame[]> {
-  return MOCK_FREE_GAMES.map((f) => ({ ...f, untilLabel: formatDate(f.until) }));
+  return MOCK_FREE_GAMES.map((f) => ({ ...f, untilLabel: formatDate(f.until), daysLeft: daysUntil(f.until) }));
+}
+
+export interface SectionStat {
+  slug: SectionSlug;
+  label: string;
+  total: number;
+  latestAgo: string | null;
+}
+
+/** Quantidade de posts por editoria (módulos da home). */
+export async function getSectionStats(): Promise<SectionStat[]> {
+  const now = Date.now();
+  return SECTIONS.map((s) => {
+    const posts = MOCK_POSTS.filter((p) => p.section === s.slug).sort(byDateDesc);
+    return { slug: s.slug, label: s.label, total: posts.length, latestAgo: posts[0] ? timeAgo(posts[0].publishedAt, now) : null };
+  });
+}
+
+/** Números da barra de status do topo. */
+export async function getStatus() {
+  const dayAgo = new Date(Date.now() - 86400000).toISOString();
+  const [releases, free] = await Promise.all([getReleases({ days: 7 }), getFreeGames()]);
+  return {
+    postsToday: MOCK_POSTS.filter((p) => p.publishedAt >= dayAgo).length,
+    releasesWeek: releases.length,
+    freeNow: free.length,
+  };
 }

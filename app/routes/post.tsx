@@ -2,7 +2,7 @@ import { data, Link } from "react-router";
 import type { Route } from "./+types/post";
 import { MostRead, PostCard, ScoreBadge } from "~/components/cards";
 import { ShareButtons } from "~/components/ShareButtons";
-import { Art, Brackets, Kicker, PlatformTags, SectionTitle, SoonButton } from "~/components/ui";
+import { Art, Hud, Kicker, PlatformTags, SectionTitle, SoonButton } from "~/components/ui";
 import { getGame, getMostRead, getPost, listPosts } from "~/lib/content.server";
 import { formatDate, formatDateTime } from "~/lib/format";
 import { seo } from "~/lib/seo";
@@ -69,28 +69,29 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-14 px-4 pt-8 sm:px-6">
       <article className="flex flex-col gap-8">
         <nav aria-label="Você está em" className="font-mono text-xs font-semibold text-muted">
-          <Link to="/" className="hover:text-alert">
+          &gt;{" "}
+          <Link to="/" className="hover:text-acc">
             HOME
           </Link>{" "}
-          /{" "}
-          <Link to={`/${section.slug}`} className="hover:text-alert">
+          //{" "}
+          <Link to={`/${section.slug}`} className="hover:text-acc">
             {section.label.toUpperCase()}
           </Link>
         </nav>
 
         <header className="flex max-w-5xl flex-col gap-5">
-          <Kicker>{post.kicker}</Kicker>
+          <Kicker>{"// "}{post.kicker}</Kicker>
           <h1 className="font-display text-5xl uppercase leading-[0.9] sm:text-[84px]">{post.title}</h1>
           <p className="max-w-3xl text-xl leading-relaxed text-body">{post.excerpt}</p>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-line py-3 font-mono text-xs text-muted">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-dashed border-line-soft py-3 font-mono text-xs text-muted">
             <span>POR {post.author.toUpperCase()}</span>
             <time dateTime={post.publishedAt}>{formatDateTime(post.publishedAt)}</time>
             <span>{post.readMinutes} MIN DE LEITURA</span>
           </div>
         </header>
 
-        <Art variant={post.art} image={post.image} eager className="aspect-[16/9] w-full sm:aspect-[21/9]">
-          <Brackets />
+        <Art variant={post.art} image={post.image} eager className="ch aspect-[16/9] w-full sm:aspect-[21/9]">
+          <Hud left="> ARQUIVO VISUAL" right={post.timeLabel} />
         </Art>
 
         <div className="flex flex-wrap gap-12">
@@ -102,11 +103,11 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
             </div>
 
             {post.review && (
-              <section aria-label="Veredito" className="mt-10 border-t-[6px] border-alert pt-5">
+              <section aria-label="Veredito" className="ch mt-10 bg-ink-2 p-6">
                 <div className="flex items-center gap-5">
                   <ScoreBadge score={post.review.score} className="h-20 w-20 text-4xl" />
                   <div>
-                    <p className="font-mono text-xs font-semibold text-alert">VEREDITO</p>
+                    <p className="font-mono text-xs font-semibold text-acc">&gt; VEREDITO</p>
                     <p className="font-display text-3xl uppercase leading-none">{post.review.verdict}</p>
                   </div>
                 </div>
@@ -117,13 +118,13 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
               </section>
             )}
 
-            <div className="mt-10 flex flex-col gap-6 border-t border-line pt-6">
+            <div className="mt-10 flex flex-col gap-6 border-t border-dashed border-line-soft pt-6">
               <PlatformTags platforms={post.platforms} labels={platformLabels} />
               <ShareButtons url={absoluteUrl(post.url)} title={post.title} />
               {post.source && (
                 <p className="font-mono text-xs text-muted">
                   FONTE:{" "}
-                  <a href={post.source.url} rel="noopener nofollow" target="_blank" className="text-paper underline hover:text-alert">
+                  <a href={post.source.url} rel="noopener nofollow" target="_blank" className="text-paper underline hover:text-acc">
                     {post.source.name}
                   </a>
                 </p>
@@ -131,7 +132,7 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
               {post.updatedAt && <p className="font-mono text-xs text-muted">ATUALIZADO EM {formatDate(post.updatedAt).toUpperCase()}</p>}
             </div>
 
-            <section aria-label="Comentários" className="mt-10 border border-dashed border-[#444] p-6">
+            <section aria-label="Comentários" className="ch mt-10 border border-dashed border-line-soft bg-ink-2 p-6">
               <h2 className="font-display text-3xl uppercase leading-none">Comentários</h2>
               <p className="mt-2 text-body">Os comentários chegam junto com as contas de usuário. Em breve você vai poder participar da conversa.</p>
               <SoonButton className="mt-4">COMENTAR · EM BREVE</SoonButton>
@@ -140,9 +141,9 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
 
           <aside className="flex flex-[1_1_300px] flex-col gap-8">
             {game && (
-              <Link to={`/jogos/${game.slug}`} className="group block border border-line p-5 hover:border-alert">
-                <p className="font-mono text-xs font-semibold text-alert">FICHA DO JOGO</p>
-                <p className="mt-2 font-display text-4xl uppercase leading-none group-hover:text-alert">{game.name}</p>
+              <Link to={`/jogos/${game.slug}`} className="group ch block bg-ink-2 p-5 transition-colors hover:bg-ink-3">
+                <p className="font-mono text-xs font-semibold text-acc">&gt; FICHA DO JOGO</p>
+                <p className="mt-2 font-display text-4xl uppercase leading-none group-hover:text-acc">{game.name}</p>
                 <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
                   <dt className="text-muted">Gênero</dt>
                   <dd>{game.genres.join(", ")}</dd>
@@ -155,7 +156,7 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
                     </>
                   )}
                 </dl>
-                <span className="mt-4 inline-block font-mono text-xs font-semibold text-alert">VER JOGO →</span>
+                <span className="mt-4 inline-block font-mono text-xs font-semibold text-acc">VER JOGO →</span>
               </Link>
             )}
             <MostRead posts={mostRead} />
@@ -165,8 +166,8 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
 
       {related.length > 0 && (
         <section className="flex flex-col gap-6">
-          <SectionTitle accent={`em ${section.label.toLowerCase()}`}>Mais</SectionTitle>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
+          <SectionTitle code="TRANSMISSÕES RELACIONADAS" accent={`em ${section.label.toLowerCase()}`}>Mais</SectionTitle>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-5">
             {related.map((p) => (
               <PostCard key={p.url} post={p} />
             ))}
@@ -203,7 +204,7 @@ function ProsCons({ title, items, sign }: { title: string; items: string[]; sign
       <ul className="flex flex-col gap-2">
         {items.map((item) => (
           <li key={item} className="flex gap-3">
-            <span aria-hidden className="font-display text-xl leading-none text-alert">
+            <span aria-hidden className="font-display text-xl leading-none text-acc">
               {sign}
             </span>
             {item}

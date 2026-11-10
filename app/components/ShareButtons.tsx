@@ -29,12 +29,12 @@ export function ShareButtons({ url, title }: { url: string; title: string }) {
           href={l.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="border border-line px-3 py-2.5 font-mono text-xs font-semibold hover:border-alert hover:text-alert"
+          className="border border-line px-3 py-2.5 font-mono text-xs font-semibold hover:border-acc hover:text-acc"
         >
           {l.label.toUpperCase()}
         </a>
       ))}
-      <button type="button" onClick={copy} className="border border-line px-3 py-2.5 font-mono text-xs font-semibold hover:border-alert hover:text-alert">
+      <button type="button" onClick={copy} className="border border-line px-3 py-2.5 font-mono text-xs font-semibold hover:border-acc hover:text-acc">
         <span aria-live="polite">{copied ? "LINK COPIADO!" : "COPIAR LINK"}</span>
       </button>
     </div>

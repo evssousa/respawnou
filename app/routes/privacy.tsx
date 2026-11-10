@@ -20,7 +20,7 @@ export default function Privacy() {
       <h2>Seus direitos</h2>
       <p>
         Você pode pedir acesso, correção ou exclusão dos seus dados a qualquer momento pelo e-mail{" "}
-        <a href={`mailto:${SITE.email}`} className="text-paper underline hover:text-alert">
+        <a href={`mailto:${SITE.email}`} className="text-paper underline hover:text-acc">
           {SITE.email}
         </a>
         .

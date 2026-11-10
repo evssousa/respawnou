@@ -19,7 +19,7 @@ export default function About() {
       </p>
       <h2>Encontrou um erro?</h2>
       <p>
-        Avise a gente pela página de <Link to="/contato" className="text-alert underline">contato</Link>. Correções são feitas o mais rápido possível e sinalizadas
+        Avise a gente pela página de <Link to="/contato" className="text-acc underline">contato</Link>. Correções são feitas o mais rápido possível e sinalizadas
         na própria matéria.
       </p>
     </StaticPage>

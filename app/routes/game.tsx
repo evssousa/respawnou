@@ -1,7 +1,7 @@
 import { data } from "react-router";
 import type { Route } from "./+types/game";
 import { PostGrid } from "~/components/cards";
-import { Art, Brackets, Kicker, PlatformTags, SectionTitle, SoonButton } from "~/components/ui";
+import { Art, Hud, Kicker, PlatformTags, SectionTitle, SoonButton } from "~/components/ui";
 import { getGame, listPosts } from "~/lib/content.server";
 import { formatDate } from "~/lib/format";
 import { seo } from "~/lib/seo";
@@ -43,14 +43,14 @@ export default function GamePage({ loaderData }: Route.ComponentProps) {
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-14 px-4 pt-10 sm:px-6">
       <section className="flex flex-wrap gap-8">
-        <Art variant={game.art} className="min-h-[280px] flex-[1_1_480px]">
-          <Brackets label={upcoming ? "EM BREVE" : "DISPONÍVEL"} />
+        <Art variant={game.art} className="ch min-h-[280px] flex-[1_1_480px]">
+          <Hud left="> FICHA DO JOGO" right={upcoming ? "STATUS: EM BREVE" : "STATUS: DISPONÍVEL"} />
         </Art>
         <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-5">
-          <Kicker>JOGO · {game.genres.join(" · ")}</Kicker>
+          <Kicker>{"// JOGO · "}{game.genres.join(" · ")}</Kicker>
           <h1 className="font-display text-6xl uppercase leading-[0.9] sm:text-[96px]">{game.name}</h1>
           <p className="text-lg leading-relaxed text-body">{game.description}</p>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 border-y border-line py-4 text-sm">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 border-y border-dashed border-line-soft py-4 text-sm">
             <dt className="font-mono text-xs font-semibold text-muted">LANÇAMENTO</dt>
             <dd>{game.releaseDate ? formatDate(game.releaseDate) : "Já disponível"}</dd>
             <dt className="font-mono text-xs font-semibold text-muted">ESTÚDIO</dt>
@@ -67,7 +67,7 @@ export default function GamePage({ loaderData }: Route.ComponentProps) {
       </section>
 
       <section className="flex flex-col gap-6">
-        <SectionTitle accent={`sobre ${game.name}`}>Tudo</SectionTitle>
+        <SectionTitle code="ARQUIVOS DO JOGO" accent={`sobre ${game.name}`}>Tudo</SectionTitle>
         {posts.length ? <PostGrid posts={posts} /> : <p className="text-body">Ainda não publicamos nada sobre este jogo.</p>}
       </section>
     </main>
