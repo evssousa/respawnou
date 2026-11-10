@@ -70,11 +70,11 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
       <article className="flex flex-col gap-8">
         <nav aria-label="Você está em" className="font-mono text-xs font-semibold text-muted">
           &gt;{" "}
-          <Link to="/" className="hover:text-acc">
+          <Link to="/" className="-my-3 inline-block py-3 hover:text-acc">
             HOME
           </Link>{" "}
           //{" "}
-          <Link to={`/${section.slug}`} className="hover:text-acc">
+          <Link to={`/${section.slug}`} className="-my-3 inline-block py-3 hover:text-acc">
             {section.label.toUpperCase()}
           </Link>
         </nav>

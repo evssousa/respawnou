@@ -4,6 +4,7 @@ import type { SectionStat } from "~/lib/content.server";
 import { formatScore } from "~/lib/format";
 import { PLATFORMS } from "~/lib/site";
 import type { FreeGame, PostView, Release } from "~/lib/types";
+import { Rail } from "./Rail";
 import { Art, Badge, Hud, Kicker, cx } from "./ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -15,9 +16,9 @@ const platformsText = (slugs: string[]) => slugs.map((s) => platformLabel[s] ?? 
 export function MainBroadcast({ post, log }: { post: PostView; log: PostView[] }) {
   return (
     <section aria-label="Destaque" className="flex flex-wrap gap-5">
-      <Link to={post.url} className="group ch relative flex min-h-[440px] min-w-0 flex-[999_1_600px] flex-col justify-end bg-ink-2 sm:min-h-[520px]">
-        <Art variant={post.art} image={post.image} eager className="absolute inset-0" />
-        <div aria-hidden className="absolute inset-0 bg-linear-to-t from-ink from-10% to-transparent to-75%" />
+      <Link to={post.url} className="group ch relative flex min-w-0 flex-[999_1_600px] flex-col justify-end bg-ink-2 sm:min-h-[520px]">
+        <Art variant={post.art} image={post.image} eager className="relative aspect-[16/10] sm:absolute sm:inset-0 sm:aspect-auto" />
+        <div aria-hidden className="absolute inset-0 hidden bg-linear-to-t from-ink from-10% to-transparent to-75% sm:block" />
         <Hud
           left="> TRANSMISSÃO PRINCIPAL"
           right={
@@ -26,11 +27,11 @@ export function MainBroadcast({ post, log }: { post: PostView; log: PostView[] }
             </>
           }
         />
-        <div className="relative flex flex-col gap-4 p-6 sm:p-8">
+        <div className="relative flex flex-col gap-4 p-5 sm:p-8">
           <Badge>
             {post.kicker} // {post.ago}
           </Badge>
-          <h1 className="max-w-3xl font-display text-[44px] uppercase leading-[0.92] transition-colors group-hover:text-acc sm:text-[68px]">{post.title}</h1>
+          <h1 className="max-w-3xl font-display text-[40px] uppercase leading-[0.92] transition-colors group-hover:text-acc sm:text-[68px]">{post.title}</h1>
           <p className="max-w-2xl text-base leading-relaxed text-body">{post.excerpt}</p>
         </div>
       </Link>
@@ -38,9 +39,9 @@ export function MainBroadcast({ post, log }: { post: PostView; log: PostView[] }
       <aside aria-label="Últimas transmissões" className="ch flex flex-[1_1_320px] flex-col bg-ink-2 py-5 pr-5 pl-6">
         <h2 className="mb-1 font-mono text-xs font-bold text-acc">&gt; LOG DE TRANSMISSÕES</h2>
         <ol>
-          {log.map((p) => (
-            <li key={p.url}>
-              <Link to={p.url} className="group flex gap-3.5 border-b border-dashed border-line-soft py-3.5 last:border-b-0">
+          {log.map((p, i) => (
+            <li key={p.url} className={cx(i >= 4 && "hidden md:block")}>
+              <Link to={p.url} className="group flex gap-3.5 border-b border-dashed border-line-soft py-3.5">
                 <time dateTime={p.publishedAt} className="w-11 shrink-0 pt-0.5 font-mono text-xs font-semibold text-muted">
                   {/* Até 24h mostra o horário; depois, "ONTEM" / "HÁ 3 DIAS". */}
                   {p.ago.startsWith("HÁ") && !p.ago.includes("DIAS") ? p.timeLabel : p.ago}
@@ -66,9 +67,9 @@ export function ModuleGrid({ stats, releases }: { stats: SectionStat[]; releases
     { to: "/lancamentos", label: "Lançamentos", info: `${pad(releases)} NA SEMANA` },
   ];
   return (
-    <nav aria-label="Módulos" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+    <nav aria-label="Módulos" className="rail -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-6">
       {items.map((m, i) => (
-        <Link key={m.to} to={m.to} className="group ch flex flex-col gap-2 bg-ink-3 p-4 transition-colors hover:bg-acc hover:text-ink">
+        <Link key={m.to} to={m.to} className="group ch flex w-40 shrink-0 flex-col gap-2 bg-ink-3 p-4 transition-colors hover:bg-acc hover:text-ink sm:w-auto">
           <span className="font-mono text-[11px] font-semibold text-muted group-hover:text-ink">MÓDULO {pad(i + 1)}</span>
           <span className="font-display text-[26px] uppercase leading-none">{m.label}</span>
           <span className="font-mono text-[11px] font-semibold text-acc group-hover:text-ink">{m.info}</span>
@@ -94,7 +95,7 @@ export function ModuleHeader({ n, code, title, accent, action }: { n: number; co
           </h2>
           <span aria-hidden className="hidden min-w-8 flex-1 border-t border-dashed border-line-soft sm:block" />
           {action && (
-            <Link to={action.to} className="font-mono text-xs font-bold text-acc hover:text-paper">
+            <Link to={action.to} className="-my-3 inline-block py-3 font-mono text-xs font-bold text-acc hover:text-paper">
               {action.label} →
             </Link>
           )}
@@ -158,9 +159,9 @@ function ScoreMeter({ score }: { score: number }) {
 
 export function ReviewBoard({ posts }: { posts: PostView[] }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
+    <div className="rail -mx-4 flex gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0 md:grid md:grid-cols-3 md:gap-5 md:overflow-visible md:pb-0">
       {posts.map((p) => (
-        <Link key={p.url} to={p.url} className="group ch flex flex-col bg-ink-2 transition-colors hover:bg-ink-3">
+        <Link key={p.url} to={p.url} className="group ch flex w-[82%] shrink-0 flex-col bg-ink-2 transition-colors hover:bg-ink-3 sm:w-[300px] md:w-auto">
           <Art variant={p.art} image={p.image} className="h-36">
             <Hud left="> ANÁLISE CONCLUÍDA" />
           </Art>
@@ -172,11 +173,12 @@ export function ReviewBoard({ posts }: { posts: PostView[] }) {
               <span className="pb-1 text-right font-mono text-[11px] font-semibold text-muted">
                 NOTA FINAL
                 <br />
-                {platformsText(p.platforms)}
+                DE 10
               </span>
             </div>
             {p.review && <ScoreMeter score={p.review.score} />}
             <h3 className="font-display text-2xl uppercase leading-[1.02] transition-colors group-hover:text-acc">{p.title}</h3>
+            <span className="font-mono text-[11px] font-semibold text-muted">{platformsText(p.platforms)}</span>
             {p.review && <p className="mt-auto text-sm leading-relaxed text-body">“{p.review.verdict}”</p>}
           </div>
         </Link>
@@ -190,7 +192,7 @@ export function ReviewBoard({ posts }: { posts: PostView[] }) {
 export function Countdown({ releases }: { releases: Release[] }) {
   if (!releases.length) return <p className="text-body">Nenhum lançamento previsto para os próximos dias.</p>;
   return (
-    <div className="rail -mx-4 flex gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
+    <Rail label="Próximos lançamentos">
       {releases.map((r, i) => (
         <Link key={r.game.slug} to={`/jogos/${r.game.slug}`} className="group relative flex w-[230px] shrink-0 flex-col">
           {/* Linha do tempo */}
@@ -210,7 +212,7 @@ export function Countdown({ releases }: { releases: Release[] }) {
           </span>
         </Link>
       ))}
-    </div>
+    </Rail>
   );
 }
 
@@ -218,10 +220,10 @@ export function Countdown({ releases }: { releases: Release[] }) {
 
 export function MissionManual({ posts }: { posts: PostView[] }) {
   return (
-    <ol className="grid gap-4 md:grid-cols-2">
+    <ol className="grid gap-4 lg:grid-cols-2">
       {posts.map((p, i) => (
         <li key={p.url}>
-          <Link to={p.url} className="group ch flex h-full flex-col gap-4 border-l-4 border-acc bg-ink-2 p-5 transition-colors hover:bg-ink-3 sm:flex-row sm:items-center">
+          <Link to={p.url} className="group ch flex h-full items-start gap-4 border-l-4 border-acc bg-ink-2 p-5 transition-colors hover:bg-ink-3 sm:items-center">
             <span className="flex shrink-0 flex-col font-mono text-[11px] font-bold text-muted">
               MISSÃO
               <span className="font-display text-5xl leading-none text-acc">{pad(i + 1)}</span>
@@ -237,7 +239,7 @@ export function MissionManual({ posts }: { posts: PostView[] }) {
                 </span>
               </span>
             </span>
-            <span className="chs self-start bg-acc px-3 py-2 font-mono text-[11px] font-bold text-ink sm:self-center">INICIAR →</span>
+            <span aria-hidden className="chs hidden shrink-0 bg-acc px-3 py-2 font-mono text-[11px] font-bold text-ink sm:inline-block">INICIAR →</span>
           </Link>
         </li>
       ))}
@@ -249,7 +251,7 @@ export function MissionManual({ posts }: { posts: PostView[] }) {
 
 export function ArchiveRail({ posts }: { posts: PostView[] }) {
   return (
-    <div className="rail -mx-4 flex gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
+    <Rail label="Arquivo de artigos">
       {posts.map((p, i) => (
         <Link key={p.url} to={p.url} className="group ch relative flex h-[380px] w-[260px] shrink-0 flex-col justify-end bg-ink-2">
           <Art variant={p.art} image={p.image} className="absolute inset-0 transition-transform duration-300 group-hover:scale-105" />
@@ -261,7 +263,7 @@ export function ArchiveRail({ posts }: { posts: PostView[] }) {
           </div>
         </Link>
       ))}
-    </div>
+    </Rail>
   );
 }
 
@@ -282,9 +284,9 @@ export function LootDrop({ free, promos }: { free: FreeGame[]; promos: PostView[
             </span>
             <span aria-hidden className="ticket-cut w-0.5" />
             <span className="flex w-28 shrink-0 flex-col items-center justify-center p-4 text-center">
-              <span className="font-mono text-[10px] font-bold opacity-70">EXPIRA EM</span>
+              <span className="font-mono text-[11px] font-bold opacity-70">EXPIRA EM</span>
               <span className="font-display text-5xl leading-none">{pad(Math.max(0, g.daysLeft))}</span>
-              <span className="font-mono text-[10px] font-bold">{g.daysLeft === 1 ? "DIA" : "DIAS"}</span>
+              <span className="font-mono text-[11px] font-bold">{g.daysLeft === 1 ? "DIA" : "DIAS"}</span>
             </span>
           </a>
         ))}
@@ -311,14 +313,14 @@ export function LootDrop({ free, promos }: { free: FreeGame[]; promos: PostView[
 
 export function PlatformSelect() {
   return (
-    <nav aria-label="Plataformas" className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5">
+    <nav aria-label="Plataformas" className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
       {PLATFORMS.map((p, i) => (
         <Link key={p.slug} to={`/plataforma/${p.slug}`} className="group ch flex flex-col gap-6 bg-ink-2 p-5 transition-colors hover:bg-acc hover:text-ink">
           <span className="flex justify-between font-mono text-[11px] font-bold text-muted group-hover:text-ink">
             <span>P{i + 1}</span>
             <span>SELECIONAR</span>
           </span>
-          <span className="font-display text-3xl uppercase leading-none">{p.label}</span>
+          <span className="font-display text-2xl uppercase leading-none sm:text-3xl">{p.label}</span>
         </Link>
       ))}
     </nav>

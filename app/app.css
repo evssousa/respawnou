@@ -23,6 +23,8 @@
 html {
   color-scheme: dark;
   background: var(--color-ink);
+  /* Compensa o cabeçalho fixo ao pular para âncoras. */
+  scroll-padding-top: 88px;
 }
 
 body {
@@ -42,7 +44,12 @@ body {
   outline-offset: 3px;
 }
 
-/* Cantos chanfrados (marca registrada do tema). */
+/* Cantos chanfrados (marca registrada do tema).
+   O clip-path corta o outline externo, então o foco desses elementos fica por dentro. */
+.ch:focus-visible,
+.chs:focus-visible {
+  outline-offset: -3px;
+}
 .ch {
   clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
 }

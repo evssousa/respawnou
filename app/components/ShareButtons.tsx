@@ -22,19 +22,19 @@ export function ShareButtons({ url, title }: { url: string; title: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="mr-2 font-mono text-xs font-semibold text-muted">COMPARTILHAR</span>
+      <span className="mr-2 w-full font-mono text-xs font-semibold text-muted sm:w-auto">&gt; COMPARTILHAR</span>
       {links.map((l) => (
         <a
           key={l.label}
           href={l.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="border border-line px-3 py-2.5 font-mono text-xs font-semibold hover:border-acc hover:text-acc"
+          className="chs inline-flex h-11 min-w-11 items-center justify-center bg-ink-3 px-3.5 font-mono text-xs font-semibold text-acc hover:bg-acc hover:text-ink"
         >
           {l.label.toUpperCase()}
         </a>
       ))}
-      <button type="button" onClick={copy} className="border border-line px-3 py-2.5 font-mono text-xs font-semibold hover:border-acc hover:text-acc">
+      <button type="button" onClick={copy} className="chs inline-flex h-11 min-w-11 items-center justify-center bg-ink-3 px-3.5 font-mono text-xs font-semibold text-acc hover:bg-acc hover:text-ink">
         <span aria-live="polite">{copied ? "LINK COPIADO!" : "COPIAR LINK"}</span>
       </button>
     </div>

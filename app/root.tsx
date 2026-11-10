@@ -3,7 +3,7 @@ import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestora
 import type { Route } from "./+types/root";
 import "./app.css";
 import { Footer } from "./components/Footer";
-import { Header } from "./components/Header";
+import { Header, PlatformBar, StatusBar } from "./components/Header";
 import { getStatus } from "./lib/content.server";
 import { formatDate } from "./lib/format";
 import { SITE } from "./lib/site";
@@ -39,7 +39,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <a href="#conteudo" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-acc focus:px-4 focus:py-3 focus:text-ink">
           Pular para o conteúdo
         </a>
-        <Header status={data?.status ?? null} />
+        <StatusBar status={data?.status ?? null} />
+        <Header />
+        <PlatformBar />
         {children}
         <Footer />
         <ScrollRestoration />

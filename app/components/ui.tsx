@@ -74,7 +74,7 @@ export function SectionTitle({
         </Tag>
         <span aria-hidden className="hidden min-w-8 flex-1 border-t border-dashed border-line-soft sm:block" />
         {action && (
-          <Link to={action.to} className="ml-auto font-mono text-xs font-bold text-acc hover:text-paper sm:ml-0">
+          <Link to={action.to} className="-my-3 ml-auto inline-block py-3 font-mono text-xs font-bold text-acc hover:text-paper sm:ml-0">
             {action.label} →
           </Link>
         )}
@@ -118,7 +118,7 @@ export function PlatformTags({ platforms, labels }: { platforms: string[]; label
   return (
     <div className="flex flex-wrap gap-2">
       {platforms.map((p) => (
-        <Link key={p} to={`/plataforma/${p}`} className="chs bg-ink-3 px-3 py-2.5 font-mono text-xs font-semibold uppercase text-acc hover:bg-acc hover:text-ink">
+        <Link key={p} to={`/plataforma/${p}`} className="chs inline-flex min-h-11 items-center bg-ink-3 px-3.5 font-mono text-xs font-semibold uppercase text-acc hover:bg-acc hover:text-ink">
           {labels[p] ?? p}
         </Link>
       ))}
@@ -132,7 +132,7 @@ export function FilterLink({ to, active, children }: { to: string; active: boole
     <Link
       to={to}
       aria-current={active ? "page" : undefined}
-      className={cx("chs px-3.5 py-3 font-mono text-xs font-bold", active ? "bg-acc text-ink" : "bg-ink-3 text-acc hover:bg-line-soft")}
+      className={cx("chs inline-flex min-h-11 items-center px-3.5 font-mono text-xs font-bold", active ? "bg-acc text-ink" : "bg-ink-3 text-acc hover:bg-line-soft")}
     >
       {children}
     </Link>
