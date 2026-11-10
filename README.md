@@ -74,11 +74,13 @@ As páginas só falam com `app/lib/content.server.ts` (`listPosts`, `getPost`, `
 | `/termos`, `/privacidade`, `/cookies`, `/acessibilidade`, `/mapa-do-site` | Legais (site informativo, sem CNPJ nem vendas) |
 | `/sitemap.xml`, `/rss.xml`, `/robots.txt` | SEO e feed |
 
+
+
 ## Próximos passos
 
 O status completo está em [`docs/README.md`](docs/README.md). Em resumo:
 
-- [ ] Deploy na Hostinger (domínio `respawnou.com.br` em ativação), banco criado e migration rodada
+- [x] Deploy na Hostinger, banco criado e migration aplicada
 - [ ] Robô de postagem automática: rota protegida + Cron Job da Hostinger + Gemini
 - [ ] Painel administrativo em `/admin`
 - [ ] Imagens de capa reais e imagem Open Graph padrão

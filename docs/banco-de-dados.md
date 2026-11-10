@@ -7,11 +7,13 @@ Datas em UTC.
 
 | Arquivo | Conteúdo | Rodada na Hostinger? |
 |---|---|---|
-| `db/migrations/001_inicial.sql` | Estrutura inicial (tabelas abaixo) + configurações padrão | ⏳ quando o banco for criado |
+| `db/migrations/001_inicial.sql` | Estrutura inicial (tabelas abaixo) + configurações padrão | ✅ 2026-11-10 |
 
 Como aplicar:
 
-- **Pelo projeto:** configurar `DB_*` no `.env` e rodar `npm run db:migrate` (aplica só as pendentes,
+- **Produção:** automático. O `server-app.js` aplica as migrations pendentes toda vez que o app
+  inicia (o MySQL da Hostinger só aceita conexão local). Basta commitar o arquivo novo e dar push.
+- **Local:** configurar `DB_*` no `.env` e rodar `npm run db:migrate` (aplica só as pendentes,
   registrando em `schema_migrations`).
 - **Pelo phpMyAdmin:** colar o conteúdo de cada arquivo, em ordem.
 - Toda migration nova é colada no chat quando criada (combinado com o dono do projeto).

@@ -2,6 +2,19 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+## 2026-11-10 · Site no ar com banco vazio (sem dados de exemplo)
+
+- **Decisão:** produção usa o MySQL desde o início; a home mostra "aguardando a primeira transmissão"
+  até o robô publicar.
+- **Por quê:** os dados de exemplo são fictícios e não podem aparecer num domínio público
+  (enganaria leitores e prejudicaria o AdSense).
+
+## 2026-11-10 · Migrations rodam dentro do app
+
+- **Decisão:** `server-app.js` aplica as migrations ao iniciar, conectando em 127.0.0.1.
+- **Por quê:** liberar acesso remoto ao MySQL foi negado (abre o banco para fora). Rodar no próprio
+  servidor mantém o banco fechado e dispensa passo manual a cada deploy.
+
 ## 2026-11-10 · Reviews viram "consenso da crítica"
 
 - **Decisão:** a editoria Reviews não publica reviews próprias. Cada post é um resumo do que a

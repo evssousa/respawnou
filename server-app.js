@@ -28,6 +28,12 @@ async function main() {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", true);
+  // Domínio canônico sem www (evita conteúdo duplicado no Google).
+  app.use((req, res, next) => {
+    const host = req.headers.host ?? "";
+    if (host.startsWith("www.")) return res.redirect(301, `https://${host.slice(4)}${req.originalUrl}`);
+    next();
+  });
   app.use(compression());
 
   // Arquivos com hash no nome podem ficar em cache "para sempre".

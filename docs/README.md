@@ -32,9 +32,9 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 1 | Reviews viram "consenso da crítica" (automatizável) | ✅ |
 | 1 | Schema MySQL + migration 001 | ✅ |
 | 1 | Camada de dados MySQL com fallback para os dados de exemplo | ✅ |
-| 2 | Domínio respawnou.com.br registrado (aguardando ativação) | 🔄 |
-| 2 | Site Node.js na Hostinger + deploy pelo GitHub + SSL + www→apex | ⏳ |
-| 2 | Banco MySQL criado na Hostinger e migration rodada | ⏳ |
+| 2 | Domínio respawnou.com.br ativo | ✅ |
+| 2 | Site Node.js na Hostinger + auto-deploy pelo GitHub + SSL + www→apex | ✅ |
+| 2 | Banco MySQL criado na Hostinger e migration 001 aplicada | ✅ |
 | 2 | E-mail contato@respawnou.com.br | ⏳ |
 | 3 | Robô de postagem (rota /api/cron + cron da Hostinger + Gemini) | ⏳ |
 | 3 | Painel admin (login, posts, fontes, execuções do robô) | ⏳ |
@@ -47,4 +47,5 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 
 - `7fa3e2b` frontend inicial · `8f4b64a` tema Central de Comando · `c82e4d9` auditoria UX
 - `c8a719c` páginas institucionais · `a8d6776` textos legais sem CNPJ · `9f484d9` remove login, busca na navbar
-- fase 1: reviews como consenso da crítica, migration 001, camada MySQL com fallback (este commit)
+- `b1abafc` fase 1: reviews como consenso da crítica, migration 001, camada MySQL com fallback
+- `9d16ea6`…`e872c12` deploy na Hostinger (servidor Express, correções de build e do LiteSpeed)
