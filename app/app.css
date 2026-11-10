@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/* Respawnou — tema "Manchete Brutal": preto, off-white e vermelho alerta. */
+@theme {
+  --color-ink: #0b0b0b;
+  --color-ink-2: #141414;
+  --color-ink-3: #1b1b1b;
+  --color-paper: #f2efe9;
+  --color-body: #c8c3b8;
+  --color-muted: #9b968c;
+  --color-line: #2a2a2a;
+  --color-line-soft: #222222;
+  --color-alert: #ff3b30;
+  --color-alert-soft: #ff8a82;
+  --color-alert-deep: #c1271d;
+
+  --font-display: "Anton", Impact, "Arial Narrow", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--color-ink);
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-alert);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-alert);
+  outline-offset: 3px;
+}
+
+/* Arte de capa provisória (usada enquanto o post não tem imagem). */
+.art {
+  background-color: #1b0e0d;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255, 59, 48, 0.06) 0 1px, transparent 1px 5px),
+    radial-gradient(circle at 70% 40%, rgba(255, 59, 48, 0.5), transparent 52%);
+}
+.art-b {
+  background-color: #161616;
+  background-image:
+    radial-gradient(circle at 30% 60%, rgba(242, 239, 233, 0.2), transparent 55%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 9px);
+}
+.art-c {
+  background-color: #1d1210;
+  background-image: linear-gradient(140deg, rgba(255, 59, 48, 0.38), transparent 55%);
+}
+.art-d {
+  background-color: #121212;
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(255, 59, 48, 0.22) 30.5% 31%, transparent 31.5%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 4px);
+}
+
+/* Número só com contorno (rankings). */
+.stroke-num {
+  color: #2e2e2e;
+  -webkit-text-stroke: 1px var(--color-alert);
+}
+
+/* Corpo do artigo. */
+.article-body p {
+  margin: 0 0 1.25em;
+  font-size: 1.125rem;
+  line-height: 1.75;
+  color: var(--color-body);
+}
+.article-body h2 {
+  margin: 1.8em 0 0.6em;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1.05;
+  text-transform: uppercase;
+  color: var(--color-paper);
+}
+.article-body ul {
+  margin: 0 0 1.25em;
+  padding-left: 1.25em;
+  list-style: square;
+  color: var(--color-body);
+  font-size: 1.125rem;
+  line-height: 1.7;
+}
+.article-body li::marker {
+  color: var(--color-alert);
+}
+.article-body blockquote {
+  margin: 1.5em 0;
+  padding: 0.25em 0 0.25em 1.25em;
+  border-left: 4px solid var(--color-alert);
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  line-height: 1.15;
+  text-transform: uppercase;
+  color: var(--color-paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
