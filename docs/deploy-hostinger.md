@@ -21,6 +21,7 @@ Status: ✅ no ar desde 2026-11-10 em https://respawnou.com.br
 | Variáveis | `VITE_SITE_URL`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (senha só no painel) |
 | SSL | Let's Encrypt (Hostinger); HTTP → HTTPS pela Hostinger; `www` → apex pelo `server-app.js` |
 | Migrations | Aplicadas automaticamente a cada início do app (`db/migrate.mjs`) |
+| E-mail | `contato@respawnou.com.br` criado no hPanel (2026-11-10) |
 
 ## Armadilhas da Hostinger (aprendidas no primeiro deploy)
 
@@ -43,6 +44,5 @@ Status: ✅ no ar desde 2026-11-10 em https://respawnou.com.br
 
 ## Pendente
 
-- E-mail `contato@respawnou.com.br` (criar no hPanel; senha definida pelo dono).
 - Cron Jobs do robô (fase 3, ver [automacao.md](automacao.md)).
-- Google Search Console + envio do sitemap.
+- Google Search Console + envio do sitemap: decidido esperar as primeiras matérias publicadas.

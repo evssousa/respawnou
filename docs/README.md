@@ -35,11 +35,11 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 2 | Domínio respawnou.com.br ativo | ✅ |
 | 2 | Site Node.js na Hostinger + auto-deploy pelo GitHub + SSL + www→apex | ✅ |
 | 2 | Banco MySQL criado na Hostinger e migration 001 aplicada | ✅ |
-| 2 | E-mail contato@respawnou.com.br | ⏳ |
+| 2 | E-mail contato@respawnou.com.br | ✅ |
 | 3 | Robô de postagem (rota /api/cron + cron da Hostinger + Gemini) | ⏳ |
 | 3 | Painel admin (login, posts, fontes, execuções do robô) | ⏳ |
 | 4 | Imagens de capa reais (fonte/RAWG com crédito) + imagem OG padrão | 💤 |
-| 4 | Google Search Console + sitemap | 💤 |
+| 4 | Google Search Console + sitemap (só depois das primeiras matérias) | 💤 |
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |
 | 4 | Banner de consentimento de cookies (obrigatório ao ativar AdSense/analytics) | 💤 |
 
