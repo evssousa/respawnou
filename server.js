@@ -1,5 +1,10 @@
 // Servidor de produção (Hostinger): aplica as migrations pendentes e serve o app.
 // Uso: npm run build && npm start
+//
+// NODE_ENV não deve ir nas variáveis de ambiente da Hostinger: com ele, o `npm install`
+// do build pula as devDependencies (react-router, vite) e o build quebra. Definido aqui.
+process.env.NODE_ENV ??= "production";
+
 import compression from "compression";
 import express from "express";
 import { createRequestHandler } from "@react-router/express";
