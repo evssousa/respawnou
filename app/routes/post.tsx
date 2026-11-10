@@ -2,7 +2,7 @@ import { data, Link } from "react-router";
 import type { Route } from "./+types/post";
 import { MostRead, PostCard, ScoreBadge } from "~/components/cards";
 import { ShareButtons } from "~/components/ShareButtons";
-import { Art, Hud, Kicker, PlatformTags, SectionTitle, SoonButton } from "~/components/ui";
+import { Art, Hud, Kicker, PlatformTags, SectionTitle } from "~/components/ui";
 import { getGame, getMostRead, getPost, listPosts } from "~/lib/content.server";
 import { formatDate, formatDateTime } from "~/lib/format";
 import { seo } from "~/lib/seo";
@@ -131,12 +131,6 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
               )}
               {post.updatedAt && <p className="font-mono text-xs text-muted">ATUALIZADO EM {formatDate(post.updatedAt).toUpperCase()}</p>}
             </div>
-
-            <section aria-label="Comentários" className="ch mt-10 border border-dashed border-line-soft bg-ink-2 p-6">
-              <h2 className="font-display text-3xl uppercase leading-none">Comentários</h2>
-              <p className="mt-2 text-body">Os comentários chegam junto com as contas de usuário. Em breve você vai poder participar da conversa.</p>
-              <SoonButton className="mt-4">COMENTAR · EM BREVE</SoonButton>
-            </section>
           </div>
 
           <aside className="flex flex-[1_1_300px] flex-col gap-8">

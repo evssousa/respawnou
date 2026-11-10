@@ -100,20 +100,6 @@ export function Badge({ children, tone = "acc" }: { children: ReactNode; tone?: 
   );
 }
 
-/** Botão de recurso que depende de login (ainda não existe). */
-export function SoonButton({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <button
-      type="button"
-      disabled
-      title="Disponível quando as contas de usuário forem lançadas"
-      className={cx("chs h-11 cursor-not-allowed bg-ink-3 px-3.5 font-mono text-[11px] font-bold text-muted", className)}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function PlatformTags({ platforms, labels }: { platforms: string[]; labels: Record<string, string> }) {
   return (
     <div className="flex flex-wrap gap-2">

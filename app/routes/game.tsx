@@ -1,7 +1,7 @@
 import { data } from "react-router";
 import type { Route } from "./+types/game";
 import { PostGrid } from "~/components/cards";
-import { Art, Hud, Kicker, PlatformTags, SectionTitle, SoonButton } from "~/components/ui";
+import { Art, Hud, Kicker, PlatformTags, SectionTitle } from "~/components/ui";
 import { getGame, listPosts } from "~/lib/content.server";
 import { formatDate } from "~/lib/format";
 import { seo } from "~/lib/seo";
@@ -59,10 +59,6 @@ export default function GamePage({ loaderData }: Route.ComponentProps) {
             <dd>{game.publisher}</dd>
           </dl>
           <PlatformTags platforms={game.platforms} labels={platformLabels} />
-          <div className="flex flex-wrap gap-2">
-            <SoonButton>FAVORITAR · EM BREVE</SoonButton>
-            <SoonButton>AVISAR NO LANÇAMENTO · EM BREVE</SoonButton>
-          </div>
         </div>
       </section>
 

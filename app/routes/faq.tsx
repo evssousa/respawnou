@@ -97,8 +97,8 @@ const FAQ: { group: string; items: Faq[] }[] = [
         ),
       },
       {
-        q: "Vou poder criar uma conta e comentar?",
-        a: "Sim. Contas de usuário e comentários estão nos planos. Com a conta, você vai poder salvar matérias e seguir jogos e plataformas.",
+        q: "Dá para criar uma conta ou comentar?",
+        a: "Por enquanto não. O site é só para leitura e não tem cadastro. Se quiser comentar uma matéria ou dar uma sugestão, fale com a gente pelo e-mail de contato.",
       },
     ],
   },

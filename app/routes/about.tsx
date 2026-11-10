@@ -89,9 +89,9 @@ const sections: DocSection[] = [
       <>
         <p>O {SITE.name} está só começando. Estes recursos já estão no nosso radar:</p>
         <ul>
-          <li>contas de usuário, para salvar matérias e seguir jogos e plataformas;</li>
-          <li>comentários nas matérias;</li>
-          <li>alertas de lançamentos e de promoções dos jogos que você acompanha.</li>
+          <li>mais listas, guias e reviews;</li>
+          <li>perfis oficiais nas redes sociais;</li>
+          <li>uma newsletter com o resumo da semana.</li>
         </ul>
       </>
     ),

@@ -4,6 +4,7 @@ export function loader() {
   const body = `User-agent: *
 Allow: /
 Disallow: /busca
+Disallow: /admin
 
 Sitemap: ${absoluteUrl("/sitemap.xml")}
 `;

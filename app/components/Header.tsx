@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Form, Link, NavLink, useLocation } from "react-router";
 import { NAV, PLATFORMS, SITE } from "~/lib/site";
-import { SoonButton, cx } from "./ui";
+import { cx } from "./ui";
 
 export interface HeaderStatus {
   today: string;
@@ -33,13 +33,6 @@ const SearchIcon = () => (
   </svg>
 );
 
-const UserIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-    <circle cx="12" cy="8" r="4" />
-    <path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" />
-  </svg>
-);
-
 /** Barra de status (rola junto com a página). */
 export function StatusBar({ status }: { status: HeaderStatus | null }) {
   if (!status) return null;
@@ -64,7 +57,7 @@ export function StatusBar({ status }: { status: HeaderStatus | null }) {
   );
 }
 
-/** Cabeçalho fixo no topo: logo, menu, busca e acesso (em breve). */
+/** Cabeçalho fixo no topo: logo, menu e busca. O painel admin fica em /admin, fora da navegação. */
 export function Header() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -98,13 +91,10 @@ export function Header() {
           ))}
         </nav>
 
-        <SearchForm id="busca-topo" className="hidden xl:flex" />
-        <Link to="/busca" aria-label="Buscar" className={cx(iconBtn, "hover:bg-acc hover:text-ink xl:hidden")}>
+        <SearchForm id="busca-topo" className="hidden lg:flex" />
+        <Link to="/busca" aria-label="Buscar" className={cx(iconBtn, "hover:bg-acc hover:text-ink lg:hidden")}>
           <SearchIcon />
         </Link>
-        <button type="button" disabled aria-label="Entrar (em breve)" title="Login disponível em breve" className={cx(iconBtn, "hidden cursor-not-allowed text-muted sm:flex")}>
-          <UserIcon />
-        </button>
 
         <button
           type="button"
@@ -144,7 +134,6 @@ export function Header() {
                 </Link>
               ))}
             </div>
-            <SoonButton className="w-full">ENTRAR · EM BREVE</SoonButton>
           </div>
         </div>
       )}
@@ -187,7 +176,7 @@ function SearchForm({ id, className }: { id: string; className?: string }) {
         name="q"
         type="search"
         placeholder="buscar"
-        className="h-11 min-w-0 flex-1 bg-transparent px-2 font-mono text-[13px] text-acc placeholder:text-muted focus:outline-none xl:w-44"
+        className="h-11 min-w-0 flex-1 bg-transparent px-2 font-mono text-[13px] text-acc placeholder:text-muted focus:outline-none lg:w-28 xl:w-44"
       />
       <button type="submit" aria-label="Buscar" className="flex h-11 w-11 shrink-0 items-center justify-center text-acc hover:bg-acc hover:text-ink">
         <SearchIcon />
