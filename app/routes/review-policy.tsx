@@ -6,7 +6,7 @@ import { seo } from "~/lib/seo";
 import { SITE } from "~/lib/site";
 
 export const meta = () =>
-  seo({ title: "Como avaliamos", description: `O que significa cada nota das reviews do ${SITE.name} e como chegamos a ela.`, path: "/como-avaliamos" });
+  seo({ title: "Como avaliamos", description: `Como o ${SITE.name} calcula a média da crítica e o que cada nota quer dizer.`, path: "/como-avaliamos" });
 
 // Faixas da escala. A barra mostra a nota de referência de cada faixa.
 const SCALE: { score: number; display?: string; label: string; text: string }[] = [
@@ -23,75 +23,67 @@ const SCALE: { score: number; display?: string; label: string; text: string }[] 
 
 const sections: DocSection[] = [
   {
-    id: "quem-avalia",
-    title: "Quem avalia",
-    body: (
-      <p>
-        Toda review do {SITE.name} é escrita por uma pessoa que jogou o jogo. Automação ajuda em notícias, mas nunca escreve uma review nem dá nota (veja a{" "}
-        <TextLink to="/politica-editorial#automacao">política editorial</TextLink>).
-      </p>
-    ),
-  },
-  {
-    id: "quanto-jogamos",
-    title: "Quanto jogamos",
-    body: (
-      <p>
-        Jogos com campanha são jogados até o fim da história principal. Em jogos sem fim definido, como multiplayer, serviços contínuos e simuladores, jogamos o
-        suficiente para conhecer os modos principais, e o tempo de jogo aparece na review.
-      </p>
-    ),
-  },
-  {
-    id: "o-que-pesa",
-    title: "O que pesa na nota",
+    id: "o-que-e",
+    title: "O que é a nota",
     body: (
       <>
-        <p>Não existe fórmula com pesos fixos: um jogo de luta e um jogo narrativo são julgados pelo que tentam fazer. Em geral, olhamos:</p>
-        <ul>
-          <li>
-            <strong>jogabilidade</strong>: controles, ritmo, desafio e se é divertido;
-          </li>
-          <li>
-            <strong>conteúdo</strong>: história, variedade e o que o jogo entrega pelo preço;
-          </li>
-          <li>
-            <strong>técnica</strong>: desempenho, bugs, visual e som na versão analisada;
-          </li>
-          <li>
-            <strong>acessibilidade e localização</strong>: opções de acessibilidade e se tem legendas ou dublagem em português.
-          </li>
-        </ul>
+        <p>
+          O {SITE.name} não publica reviews próprias. A nota que aparece na editoria Reviews é a <strong>média da crítica</strong>: reunimos as análises
+          publicadas pela imprensa especializada e mostramos o que elas concluíram, com link para cada uma.
+        </p>
+        <p>Assim você vê numa página só se o jogo foi bem recebido, o que mais agradou e o que mais incomodou quem jogou para analisar.</p>
       </>
     ),
   },
   {
-    id: "versao",
-    title: "Versão analisada",
+    id: "calculo",
+    title: "Como calculamos",
+    body: (
+      <ol>
+        <li>reunimos análises de veículos reconhecidos, no Brasil e no exterior;</li>
+        <li>convertemos cada nota para a escala de 0 a 10 (por exemplo, 4 de 5 estrelas vira 8 e 85 de 100 vira 8,5);</li>
+        <li>calculamos a média simples, arredondada para uma casa decimal;</li>
+        <li>análises sem nota entram no resumo dos pontos positivos e negativos, mas não na média.</li>
+      </ol>
+    ),
+  },
+  {
+    id: "minimo",
+    title: "Quando publicamos",
     body: (
       <p>
-        Cada review informa a plataforma em que o jogo foi jogado. Quando sabemos que outra versão é muito diferente (por exemplo, roda pior no Switch), avisamos no
-        texto.
+        Só publicamos o consenso quando um jogo tem pelo menos 5 análises com nota. Com menos do que isso, a média ainda não representa bem a recepção do
+        jogo.
       </p>
     ),
   },
   {
-    id: "copias",
-    title: "Cópias de imprensa",
+    id: "resumo",
+    title: "Pontos elogiados e criticados",
     body: (
       <p>
-        Muitas reviews são feitas com cópias cedidas pelas empresas. Isso é informado no fim do texto e não influencia a nota. As empresas não leem a review antes
-        da publicação.
+        Os pontos “mais elogiado” e “mais criticado” resumem o que aparece em várias análises, não a opinião de um veículo só. Esse resumo é feito com apoio de
+        inteligência artificial, a partir dos textos das análises (veja a <TextLink to="/politica-editorial#automacao">política editorial</TextLink>).
       </p>
     ),
   },
   {
     id: "atualizacoes",
-    title: "Atualizações e reavaliações",
+    title: "Atualizações",
     body: (
       <p>
-        Jogos mudam depois do lançamento. A nota vale para a versão analisada. Se uma atualização mudar muito o jogo, para melhor ou para pior, podemos publicar
-        uma reavaliação, sem apagar a review original.
+        Quando novas análises saem depois da publicação, a média é recalculada e a lista de veículos é atualizada. A data da última atualização aparece na
+        própria matéria.
+      </p>
+    ),
+  },
+  {
+    id: "versao",
+    title: "Versões e plataformas",
+    body: (
+      <p>
+        As análises podem ter sido feitas em plataformas diferentes. Quando a crítica aponta que uma versão é muito diferente das outras (por exemplo, roda pior
+        no Switch), isso aparece no resumo.
       </p>
     ),
   },
@@ -99,7 +91,7 @@ const sections: DocSection[] = [
 
 export default function ReviewPolicy() {
   return (
-    <StaticPage path="/como-avaliamos" title="Como" accent="avaliamos" lead="Uma nota de 0 a 10 e um veredito claro. Aqui está o que cada número quer dizer." sections={sections}>
+    <StaticPage path="/como-avaliamos" title="Como" accent="avaliamos" lead="A nota das nossas reviews é a média da crítica especializada. Veja como ela é calculada e o que cada número quer dizer." sections={sections}>
       <section aria-labelledby="escala" className="flex flex-col gap-3">
         <h2 id="escala" className="font-mono text-xs font-bold text-acc">
           &gt; ESCALA DE NOTAS
@@ -126,7 +118,7 @@ export default function ReviewPolicy() {
           ))}
         </ol>
         <p className="text-sm text-muted">
-          Notas quebradas (como 8,5) são usadas quando um jogo fica entre duas faixas. Veja as notas na prática em{" "}
+          Como a nota é uma média, ela costuma ter casas decimais (como 8,5). Veja as médias na prática em{" "}
           <Link to="/reviews" className="text-paper underline decoration-acc underline-offset-4 hover:text-acc">
             reviews
           </Link>

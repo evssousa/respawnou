@@ -37,7 +37,7 @@ export const SECTIONS: Section[] = [
     slug: "reviews",
     label: "Reviews",
     kicker: "Review",
-    description: "Nossas análises dos lançamentos, com nota, pontos fortes e pontos fracos.",
+    description: "O que a crítica achou dos lançamentos: média das notas, pontos mais elogiados e mais criticados, com link para cada análise.",
   },
   {
     slug: "guias",

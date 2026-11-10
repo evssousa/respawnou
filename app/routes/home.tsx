@@ -18,7 +18,7 @@ import { absoluteUrl, SITE } from "~/lib/site";
 
 export async function loader() {
   const featured = await getFeatured();
-  const skip = [featured.slug];
+  const skip = featured ? [featured.slug] : [];
   const [log, stats, news, reviews, releases, guides, articles, promos, free, mostRead] = await Promise.all([
     listPosts({ exclude: skip, perPage: 6 }),
     getSectionStats(),
@@ -71,7 +71,11 @@ export default function Home({ loaderData: d }: Route.ComponentProps) {
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-16 px-4 pt-6 sm:px-6">
       <div className="flex flex-col gap-5">
-        <MainBroadcast post={d.featured} log={d.log} />
+        {d.featured ? (
+          <MainBroadcast post={d.featured} log={d.log} />
+        ) : (
+          <p className="ch bg-ink-2 p-6 font-mono text-sm text-muted">&gt; AGUARDANDO A PRIMEIRA TRANSMISSÃO. AS MATÉRIAS APARECEM AQUI ASSIM QUE FOREM PUBLICADAS.</p>
+        )}
         <ModuleGrid stats={d.stats} releases={d.releasesWeek} />
       </div>
 
@@ -81,7 +85,7 @@ export default function Home({ loaderData: d }: Route.ComponentProps) {
       </section>
 
       <section className="flex flex-col gap-6">
-        <ModuleHeader n={2} code="PLACAR // REVIEWS" title="Análises" accent="concluídas" action={{ to: "/reviews", label: "TODAS AS REVIEWS" }} />
+        <ModuleHeader n={2} code="PLACAR // REVIEWS" title="O que a" accent="crítica diz" action={{ to: "/reviews", label: "TODAS AS REVIEWS" }} />
         <ReviewBoard posts={d.reviews} />
       </section>
 

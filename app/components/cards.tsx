@@ -3,12 +3,12 @@ import { formatScore } from "~/lib/format";
 import type { PostView } from "~/lib/types";
 import { Art, Kicker, cx } from "./ui";
 
-/** Nota da review em destaque. */
+/** Média da crítica em destaque. */
 export function ScoreBadge({ score, className }: { score: number; className?: string }) {
   return (
     <span
       className={cx("chs inline-flex h-14 w-14 shrink-0 items-center justify-center bg-acc font-display text-2xl text-ink", className)}
-      aria-label={`Nota ${formatScore(score)}`}
+      aria-label={`Média da crítica ${formatScore(score)}`}
     >
       {formatScore(score)}
     </span>

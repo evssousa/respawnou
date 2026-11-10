@@ -1,11 +1,17 @@
 // Camada de dados do site. Só roda no servidor (sufixo .server).
 //
-// Hoje lê os dados de exemplo em mock-data.ts. Quando o MySQL da Hostinger estiver pronto,
-// basta reimplementar estas funções com consultas ao banco: as rotas não precisam mudar.
-import { MOCK_FREE_GAMES, MOCK_GAMES, MOCK_POSTS } from "./mock-data";
+// Os dados vêm de uma "fonte" (repo): MySQL quando DB_NAME/DB_USER estão definidos,
+// senão os dados de exemplo em mock-data.ts. Aqui ficam só as regras de exibição
+// (paginação, rótulos de data calculados no servidor), iguais para as duas fontes.
+import { hasDatabase } from "./db.server";
 import { daysUntil, formatDate, formatDay, formatMonthShort, formatTime, formatWeekday, normalize, timeAgo } from "./format";
+import { mockRepo } from "./repo/mock.server";
+import { mysqlRepo } from "./repo/mysql.server";
+import type { Repo } from "./repo/types";
 import { SECTIONS, sectionBySlug, type PlatformSlug, type SectionSlug } from "./site";
 import type { FreeGame, Game, Post, PostView, Release } from "./types";
+
+const repo = (): Repo => (hasDatabase() ? mysqlRepo : mockRepo);
 
 export const postUrl = (p: Pick<Post, "section" | "slug">) => `/${p.section}/${p.slug}`;
 
@@ -20,8 +26,6 @@ function toView(post: Post, now = Date.now()): PostView {
     timeLabel: formatTime(post.publishedAt),
   };
 }
-
-const byDateDesc = (a: Post, b: Post) => b.publishedAt.localeCompare(a.publishedAt);
 
 export interface ListOptions {
   section?: SectionSlug;
@@ -40,74 +44,56 @@ export interface Paginated<T> {
 }
 
 export async function listPosts(opts: ListOptions = {}): Promise<Paginated<PostView>> {
-  const { section, platform, gameSlug, exclude = [], page = 1, perPage = 12 } = opts;
-  const filtered = MOCK_POSTS.filter(
-    (p) =>
-      (!section || p.section === section) &&
-      (!platform || p.platforms.includes(platform)) &&
-      (!gameSlug || p.gameSlug === gameSlug) &&
-      !exclude.includes(p.slug),
-  ).sort(byDateDesc);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const current = Math.min(Math.max(1, page), totalPages);
+  const { page = 1, perPage = 12, ...filter } = opts;
+  const requested = Math.max(1, Math.floor(page) || 1);
+  let { items, total } = await repo().findPosts(filter, (requested - 1) * perPage, perPage);
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  // Página além do fim: mostra a última, como antes.
+  const current = Math.min(requested, totalPages);
+  if (current !== requested) ({ items, total } = await repo().findPosts(filter, (current - 1) * perPage, perPage));
   const now = Date.now();
-  return {
-    items: filtered.slice((current - 1) * perPage, current * perPage).map((p) => toView(p, now)),
-    page: current,
-    totalPages,
-    total: filtered.length,
-  };
+  return { items: items.map((p) => toView(p, now)), page: current, totalPages, total };
 }
 
-export async function getFeatured(): Promise<PostView> {
-  const post = MOCK_POSTS.filter((p) => p.featured).sort(byDateDesc)[0] ?? [...MOCK_POSTS].sort(byDateDesc)[0];
-  return toView(post);
+export async function getFeatured(): Promise<PostView | null> {
+  const post = await repo().findFeatured();
+  return post ? toView(post) : null;
 }
 
 export async function getMostRead(limit = 5, exclude: string[] = []): Promise<PostView[]> {
   const now = Date.now();
-  return [...MOCK_POSTS]
-    .filter((p) => !exclude.includes(p.slug))
-    .sort((a, b) => b.views - a.views)
-    .slice(0, limit)
-    .map((p) => toView(p, now));
+  return (await repo().findMostRead(limit, exclude)).map((p) => toView(p, now));
 }
 
 export async function getPost(section: string, slug: string) {
-  const post = MOCK_POSTS.find((p) => p.section === section && p.slug === slug);
+  const post = await repo().findPost(section, slug);
   if (!post) return null;
   return { ...toView(post), body: post.body };
 }
 
-export async function getAllPosts(): Promise<Post[]> {
-  return [...MOCK_POSTS].sort(byDateDesc);
+export async function getAllPosts(limit?: number): Promise<Post[]> {
+  return repo().allPosts(limit);
 }
 
 export async function searchPosts(query: string): Promise<PostView[]> {
-  const terms = normalize(query).split(/\s+/).filter(Boolean);
+  const terms = normalize(query).split(/\s+/).filter(Boolean).slice(0, 8);
   if (!terms.length) return [];
   const now = Date.now();
-  return MOCK_POSTS.filter((p) => {
-    const game = p.gameSlug ? MOCK_GAMES.find((g) => g.slug === p.gameSlug)?.name ?? "" : "";
-    const haystack = normalize([p.title, p.excerpt, p.tag ?? "", game, ...p.body.map((b) => ("text" in b ? b.text : b.items.join(" ")))].join(" "));
-    return terms.every((t) => haystack.includes(t));
-  })
-    .sort(byDateDesc)
-    .map((p) => toView(p, now));
+  return (await repo().searchPosts(terms, 50)).map((p) => toView(p, now));
 }
 
 export async function getGame(slug: string): Promise<Game | null> {
-  return MOCK_GAMES.find((g) => g.slug === slug) ?? null;
+  return repo().findGame(slug);
 }
 
 export async function getAllGames(): Promise<Game[]> {
-  return MOCK_GAMES;
+  return repo().allGames();
 }
 
 export async function searchGames(query: string): Promise<Game[]> {
-  const q = normalize(query.trim());
+  const q = query.trim();
   if (!q) return [];
-  return MOCK_GAMES.filter((g) => normalize(`${g.name} ${g.genres.join(" ")} ${g.developer}`).includes(q));
+  return repo().searchGames(q, 20);
 }
 
 function toRelease(game: Game): Release {
@@ -115,19 +101,18 @@ function toRelease(game: Game): Release {
   return { game, date, day: formatDay(date), monthShort: formatMonthShort(date), weekday: formatWeekday(date), daysLeft: daysUntil(date) };
 }
 
+/** Dia de hoje (AAAA-MM-DD) no fuso de Brasília. */
+const todayBR = (offsetDays = 0) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(Date.now() + offsetDays * 86400000));
+
 /** Próximos lançamentos a partir de hoje. `days` limita a janela (ex.: 7 = esta semana). */
 export async function getReleases(opts: { days?: number; platform?: PlatformSlug } = {}): Promise<Release[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  const limit = opts.days ? new Date(Date.now() + opts.days * 86400000).toISOString().slice(0, 10) : "9999-12-31";
-  return MOCK_GAMES.filter(
-    (g) => g.releaseDate && g.releaseDate >= today && g.releaseDate <= limit && (!opts.platform || g.platforms.includes(opts.platform)),
-  )
-    .sort((a, b) => a.releaseDate!.localeCompare(b.releaseDate!))
-    .map(toRelease);
+  const games = await repo().findReleases(todayBR(), opts.days ? todayBR(opts.days) : "9999-12-31", opts.platform);
+  return games.map(toRelease);
 }
 
 export async function getFreeGames(): Promise<FreeGame[]> {
-  return MOCK_FREE_GAMES.map((f) => ({ ...f, untilLabel: formatDate(f.until), daysLeft: daysUntil(f.until) }));
+  const free = await repo().freeGames(new Date().toISOString());
+  return free.map((f) => ({ ...f, untilLabel: formatDate(f.until), daysLeft: daysUntil(f.until) }));
 }
 
 export interface SectionStat {
@@ -140,19 +125,16 @@ export interface SectionStat {
 /** Quantidade de posts por editoria (módulos da home). */
 export async function getSectionStats(): Promise<SectionStat[]> {
   const now = Date.now();
+  const stats = await repo().sectionStats();
   return SECTIONS.map((s) => {
-    const posts = MOCK_POSTS.filter((p) => p.section === s.slug).sort(byDateDesc);
-    return { slug: s.slug, label: s.label, total: posts.length, latestAgo: posts[0] ? timeAgo(posts[0].publishedAt, now) : null };
+    const st = stats.find((x) => x.section === s.slug);
+    return { slug: s.slug, label: s.label, total: st?.total ?? 0, latestAgo: st?.latest ? timeAgo(st.latest, now) : null };
   });
 }
 
 /** Números da barra de status do topo. */
 export async function getStatus() {
   const dayAgo = new Date(Date.now() - 86400000).toISOString();
-  const [releases, free] = await Promise.all([getReleases({ days: 7 }), getFreeGames()]);
-  return {
-    postsToday: MOCK_POSTS.filter((p) => p.publishedAt >= dayAgo).length,
-    releasesWeek: releases.length,
-    freeNow: free.length,
-  };
+  const [postsToday, releases, free] = await Promise.all([repo().countPostsSince(dayAgo), getReleases({ days: 7 }), getFreeGames()]);
+  return { postsToday, releasesWeek: releases.length, freeNow: free.length };
 }

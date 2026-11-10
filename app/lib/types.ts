@@ -9,12 +9,28 @@ export type Block =
   | { type: "ul"; items: string[] }
   | { type: "quote"; text: string };
 
-export interface Review {
-  /** Nota de 0 a 10. */
+/** Uma análise publicada por um veículo da imprensa especializada. */
+export interface CriticReview {
+  outlet: string;
+  /** Nota normalizada para 0 a 10. */
   score: number;
+  url: string;
+}
+
+/**
+ * Consenso da crítica: o Respawnou não publica reviews próprias.
+ * A nota é a média das análises da imprensa, listadas em `critics`.
+ */
+export interface Review {
+  /** Média das notas da crítica, de 0 a 10 (uma casa decimal). */
+  score: number;
+  /** Resumo do consenso em uma frase. */
   verdict: string;
+  /** Pontos mais elogiados pela crítica. */
   pros: string[];
+  /** Pontos mais criticados. */
   cons: string[];
+  critics: CriticReview[];
 }
 
 export interface Post {

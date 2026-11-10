@@ -8,7 +8,7 @@ export const meta = () => seo({ title: "Contato", description: `Fale com a equip
 const CHANNELS = [
   { code: "CANAL 01", title: "Sugestão de pauta", subject: "Pauta", text: "Viu algo que merece virar matéria? Mande o link ou a ideia." },
   { code: "CANAL 02", title: "Correção", subject: "Correção", text: "Encontrou um erro numa matéria? Mande o link e o trecho que precisa de ajuste." },
-  { code: "CANAL 03", title: "Imprensa e devs", subject: "Imprensa", text: "Anúncios, press kits, chaves para review e convites para eventos." },
+  { code: "CANAL 03", title: "Imprensa e devs", subject: "Imprensa", text: "Anúncios, press kits, datas de lançamento e convites para eventos." },
   { code: "CANAL 04", title: "Publicidade", subject: "Publicidade", text: "Parcerias, patrocínios e formatos de anúncio no site." },
   { code: "CANAL 05", title: "Privacidade", subject: "LGPD", text: "Pedidos sobre seus dados pessoais, de acordo com a LGPD." },
   { code: "CANAL 06", title: "Outros assuntos", subject: "Contato", text: "Elogio, crítica ou qualquer coisa que não caiba acima." },
@@ -47,8 +47,8 @@ const sections: DocSection[] = [
     title: "Assessorias e desenvolvedores",
     body: (
       <p>
-        Mande os detalhes do jogo ou do anúncio, a data de embargo (se houver), links para trailer e imagens em alta resolução. Receber uma chave de review não
-        garante cobertura nem nota positiva: veja <TextLink to="/como-avaliamos">como avaliamos</TextLink>.
+        Mande os detalhes do jogo ou do anúncio, a data de embargo (se houver), links para trailer e imagens em alta resolução. Não publicamos reviews próprias:
+        a editoria Reviews reúne a média da crítica (veja <TextLink to="/como-avaliamos">como avaliamos</TextLink>).
       </p>
     ),
   },

@@ -39,7 +39,7 @@ const sections: DocSection[] = [
         <ul>
           <li>só trabalham a partir de fontes identificadas, que são sempre creditadas;</li>
           <li>não inventam declarações, números ou datas que não estejam na fonte;</li>
-          <li>não escrevem reviews: nota e veredito são sempre de uma pessoa que jogou.</li>
+          <li>não dão opinião própria sobre jogos: as notas da editoria Reviews são a média da crítica publicada, com link para cada análise.</li>
         </ul>
         <p>Matérias produzidas com apoio de automação podem conter erros. Se encontrar um, use o canal de correções abaixo.</p>
       </>
@@ -81,8 +81,8 @@ const sections: DocSection[] = [
     title: "Reviews",
     body: (
       <p>
-        Cópias de jogos cedidas por empresas são informadas no fim da review e não garantem nota positiva. Os critérios estão em{" "}
-        <TextLink to="/como-avaliamos">como avaliamos</TextLink>.
+        O {SITE.name} não publica reviews próprias. A editoria Reviews mostra o consenso da crítica especializada: média das notas, pontos mais citados e
+        link para cada análise. O cálculo está em <TextLink to="/como-avaliamos">como avaliamos</TextLink>.
       </p>
     ),
   },

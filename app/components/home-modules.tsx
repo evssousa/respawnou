@@ -13,6 +13,11 @@ const platformsText = (slugs: string[]) => slugs.map((s) => platformLabel[s] ?? 
 
 /* ───────────── M01 · Transmissão principal + log ───────────── */
 
+/** Módulo sem conteúdo ainda (banco recém-criado). */
+function EmptyModule({ children = "Nenhuma matéria por aqui ainda. Volte em breve!" }: { children?: string }) {
+  return <p className="ch bg-ink-2 p-5 font-mono text-xs text-muted">&gt; {children.toUpperCase()}</p>;
+}
+
 export function MainBroadcast({ post, log }: { post: PostView; log: PostView[] }) {
   return (
     <section aria-label="Destaque" className="flex flex-wrap gap-5">
@@ -108,6 +113,7 @@ export function ModuleHeader({ n, code, title, accent, action }: { n: number; co
 /* ───────────── M03 · Notícias: feed tático (1 lead + intel) ───────────── */
 
 export function NewsFeed({ posts }: { posts: PostView[] }) {
+  if (!posts.length) return <EmptyModule />;
   const [lead, ...rest] = posts;
   if (!lead) return null;
   return (
@@ -158,22 +164,23 @@ function ScoreMeter({ score }: { score: number }) {
 }
 
 export function ReviewBoard({ posts }: { posts: PostView[] }) {
+  if (!posts.length) return <EmptyModule />;
   return (
     <div className="rail -mx-4 flex gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0 md:grid md:grid-cols-3 md:gap-5 md:overflow-visible md:pb-0">
       {posts.map((p) => (
         <Link key={p.url} to={p.url} className="group ch flex w-[82%] shrink-0 flex-col bg-ink-2 transition-colors hover:bg-ink-3 sm:w-[300px] md:w-auto">
           <Art variant={p.art} image={p.image} className="h-36">
-            <Hud left="> ANÁLISE CONCLUÍDA" />
+            <Hud left="> CONSENSO DA CRÍTICA" />
           </Art>
           <div className="flex flex-1 flex-col gap-4 p-5">
             <div className="flex items-end justify-between gap-4">
-              <span className="font-display text-[72px] leading-[0.8] text-acc" aria-label={p.review ? `Nota ${formatScore(p.review.score)}` : undefined}>
+              <span className="font-display text-[72px] leading-[0.8] text-acc" aria-label={p.review ? `Média da crítica ${formatScore(p.review.score)}` : undefined}>
                 {p.review ? formatScore(p.review.score) : "—"}
               </span>
               <span className="pb-1 text-right font-mono text-[11px] font-semibold text-muted">
-                NOTA FINAL
+                MÉDIA DE
                 <br />
-                DE 10
+                {p.review ? `${p.review.critics.length} ANÁLISES` : "DE 10"}
               </span>
             </div>
             {p.review && <ScoreMeter score={p.review.score} />}
@@ -219,6 +226,7 @@ export function Countdown({ releases }: { releases: Release[] }) {
 /* ───────────── M06 · Guias: manual de missão ───────────── */
 
 export function MissionManual({ posts }: { posts: PostView[] }) {
+  if (!posts.length) return <EmptyModule />;
   return (
     <ol className="grid gap-4 lg:grid-cols-2">
       {posts.map((p, i) => (
@@ -250,6 +258,7 @@ export function MissionManual({ posts }: { posts: PostView[] }) {
 /* ───────────── M07 · Artigos: arquivo em pôsteres ───────────── */
 
 export function ArchiveRail({ posts }: { posts: PostView[] }) {
+  if (!posts.length) return <EmptyModule />;
   return (
     <Rail label="Arquivo de artigos">
       {posts.map((p, i) => (
@@ -270,6 +279,7 @@ export function ArchiveRail({ posts }: { posts: PostView[] }) {
 /* ───────────── M08 · Promoções e grátis: loot ───────────── */
 
 export function LootDrop({ free, promos }: { free: FreeGame[]; promos: PostView[] }) {
+  if (!free.length && !promos.length) return <EmptyModule children={"Nenhuma promoção ativa no momento."} />;
   return (
     <div className="flex flex-wrap gap-5">
       <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-3">

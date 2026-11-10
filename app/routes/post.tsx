@@ -4,7 +4,7 @@ import { MostRead, PostCard, ScoreBadge } from "~/components/cards";
 import { ShareButtons } from "~/components/ShareButtons";
 import { Art, Hud, Kicker, PlatformTags, SectionTitle } from "~/components/ui";
 import { getGame, getMostRead, getPost, listPosts } from "~/lib/content.server";
-import { formatDate, formatDateTime } from "~/lib/format";
+import { formatDate, formatDateTime, formatScore } from "~/lib/format";
 import { seo } from "~/lib/seo";
 import { absoluteUrl, PLATFORMS, SITE, sectionBySlug } from "~/lib/site";
 import type { Block } from "~/lib/types";
@@ -39,7 +39,8 @@ export function meta({ loaderData }: Route.MetaArgs) {
     {
       "script:ld+json": {
         "@context": "https://schema.org",
-        "@type": post.review ? "Review" : "NewsArticle",
+        // Reviews são consenso da crítica: a nota não é nossa, então não marcamos como Review.
+        "@type": "NewsArticle",
         headline: post.title,
         description: post.excerpt,
         datePublished: post.publishedAt,
@@ -49,12 +50,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
         mainEntityOfPage: url,
         inLanguage: "pt-BR",
         ...(post.image ? { image: [absoluteUrl(post.image.src)] } : {}),
-        ...(post.review && loaderData.game
-          ? {
-              itemReviewed: { "@type": "VideoGame", name: loaderData.game.name },
-              reviewRating: { "@type": "Rating", ratingValue: post.review.score, bestRating: 10, worstRating: 0 },
-            }
-          : {}),
+        ...(loaderData.game ? { about: { "@type": "VideoGame", name: loaderData.game.name } } : {}),
       },
     },
   ];
@@ -103,17 +99,43 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
             </div>
 
             {post.review && (
-              <section aria-label="Veredito" className="ch mt-10 bg-ink-2 p-6">
+              <section aria-labelledby="consenso" className="ch mt-10 bg-ink-2 p-5 sm:p-6">
                 <div className="flex items-center gap-5">
                   <ScoreBadge score={post.review.score} className="h-20 w-20 text-4xl" />
-                  <div>
-                    <p className="font-mono text-xs font-semibold text-acc">&gt; VEREDITO</p>
-                    <p className="font-display text-3xl uppercase leading-none">{post.review.verdict}</p>
+                  <div className="flex flex-col gap-2">
+                    <p id="consenso" className="font-mono text-xs font-semibold text-acc">
+                      &gt; CONSENSO DA CRÍTICA · MÉDIA DE {post.review.critics.length} ANÁLISES
+                    </p>
+                    <p className="font-display text-2xl uppercase leading-none sm:text-3xl">{post.review.verdict}</p>
                   </div>
                 </div>
                 <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                  <ProsCons title="Pontos fortes" items={post.review.pros} sign="+" />
-                  <ProsCons title="Pontos fracos" items={post.review.cons} sign="−" />
+                  <ProsCons title="Mais elogiado" items={post.review.pros} sign="+" />
+                  <ProsCons title="Mais criticado" items={post.review.cons} sign="−" />
+                </div>
+                <div className="mt-6 border-t border-dashed border-line-soft pt-5">
+                  <p className="mb-2 font-mono text-xs font-bold text-muted">&gt; ANÁLISES CONSIDERADAS</p>
+                  <ul className="grid gap-x-6 sm:grid-cols-2">
+                    {post.review.critics.map((c) => (
+                      <li key={c.outlet}>
+                        <a
+                          href={c.url}
+                          target="_blank"
+                          rel="noopener nofollow"
+                          className="flex min-h-11 items-center justify-between gap-3 border-b border-line text-sm text-body hover:text-acc"
+                        >
+                          {c.outlet}
+                          <span className="font-mono font-bold text-paper">{formatScore(c.score)}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-4 text-sm text-muted">
+                    Notas convertidas para a escala de 0 a 10.{" "}
+                    <Link to="/como-avaliamos" className="-my-3 inline-block py-3 text-paper underline decoration-acc underline-offset-4 hover:text-acc">
+                      Como calculamos a média
+                    </Link>
+                  </p>
                 </div>
               </section>
             )}

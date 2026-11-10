@@ -28,7 +28,8 @@ const sections: DocSection[] = [
         <p>Acompanhamos anúncios, trailers, atualizações, eventos, lançamentos e o que acontece nos bastidores da indústria. Além das notícias, publicamos:</p>
         <ul>
           <li>
-            <strong>Reviews</strong> com nota de 0 a 10 e um veredito claro (veja <TextLink to="/como-avaliamos">como avaliamos</TextLink>);
+            <strong>Reviews</strong> com o consenso da crítica: média das notas e o que mais agradou e incomodou (veja{" "}
+            <TextLink to="/como-avaliamos">como avaliamos</TextLink>);
           </li>
           <li>
             <strong>Guias</strong> com dicas, tutoriais e passo a passo;
@@ -68,7 +69,7 @@ const sections: DocSection[] = [
     title: "Independência",
     body: (
       <p>
-        Nenhuma empresa paga por nota ou por cobertura. Quando um conteúdo for patrocinado, ele vai aparecer marcado como tal, e anunciantes não têm acesso ao texto
+        Nenhuma empresa paga por cobertura ou por destaque. Quando um conteúdo for patrocinado, ele vai aparecer marcado como tal, e anunciantes não têm acesso ao texto
         antes da publicação. Se quiser anunciar, as regras estão em <TextLink to="/anuncie">anuncie</TextLink>.
       </p>
     ),

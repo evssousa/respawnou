@@ -2,14 +2,15 @@
 
 Portal de notícias de games em português, com publicação automática de conteúdo: notícias, reviews, guias, listas, lançamentos e promoções para PC, PlayStation, Xbox, Nintendo Switch e mobile.
 
-> **Status:** frontend completo rodando com **dados de exemplo** (todos os jogos e notícias atuais são fictícios). O banco MySQL e o domínio `respawnou.com.br` serão conectados na próxima etapa.
+> **Status:** frontend completo e camada MySQL pronta. Sem banco configurado, o site roda com **dados de exemplo** (fictícios). Plano, decisões e próximos passos ficam em [`docs/`](docs/README.md).
 
 ## Stack
 
 - **React 19** + **React Router 8** (modo framework, com SSR para SEO)
 - **Tailwind CSS 4**
 - **TypeScript**
-- Hospedagem planejada: **Hostinger Business** (app Node.js + MySQL)
+- **MySQL** (`mysql2`)
+- Hospedagem: **Hostinger Business** (app Node.js + MySQL + Cron Jobs)
 
 ## Rodando localmente
 
@@ -26,7 +27,14 @@ npm start          # serve ./build na porta 3000 (ou $PORT)
 npm run typecheck
 ```
 
-Copie `.env.example` para `.env` para mudar a URL pública usada em canonical, Open Graph, sitemap e RSS.
+Copie `.env.example` para `.env`. Sem as variáveis `DB_*`, o site usa os dados de exemplo.
+
+Banco de dados:
+
+```bash
+npm run db:migrate   # aplica as migrations pendentes de db/migrations
+npm run db:seed-dev  # preenche um banco de desenvolvimento com os dados de exemplo
+```
 
 ## Estrutura
 
@@ -39,15 +47,17 @@ app/
 └── lib/
     ├── site.ts           # nome, URL, editorias e plataformas
     ├── types.ts          # Post, Game, Release, FreeGame
-    ├── content.server.ts # camada de dados (só servidor)
-    ├── mock-data.ts      # dados de exemplo
+    ├── content.server.ts # API de dados usada pelas rotas (só servidor)
+    ├── db.server.ts      # conexão MySQL
+    ├── repo/             # fontes de dados: mysql.server.ts e mock.server.ts
+    ├── mock-data.ts      # dados de exemplo (fictícios)
     ├── format.ts         # datas em pt-BR (fuso de Brasília)
     └── seo.ts            # meta tags, Open Graph e canonical
 ```
 
 ### Camada de dados
 
-As páginas só falam com `app/lib/content.server.ts` (`listPosts`, `getPost`, `getReleases`, …). Hoje essas funções leem `mock-data.ts`. Para ligar o banco, basta reimplementá-las com consultas ao MySQL, sem mexer nas rotas nem nos componentes.
+As páginas só falam com `app/lib/content.server.ts` (`listPosts`, `getPost`, `getReleases`, …). Ele usa o MySQL quando `DB_NAME` e `DB_USER` estão definidos e, sem eles, os dados de exemplo. Detalhes em [`docs/arquitetura.md`](docs/arquitetura.md) e [`docs/banco-de-dados.md`](docs/banco-de-dados.md).
 
 ## Rotas
 
@@ -55,7 +65,7 @@ As páginas só falam com `app/lib/content.server.ts` (`listPosts`, `getPost`, `
 |---|---|
 | `/` | Home em módulos: transmissão principal + log, feed de notícias, placar de reviews, contagem regressiva de lançamentos, manual de guias, arquivo de artigos, loot (grátis e promoções), ranking e plataformas |
 | `/noticias`, `/artigos`, `/reviews`, `/guias`, `/promocoes` | Listagem da editoria (filtro `?plataforma=` e paginação `?pagina=`) |
-| `/:editoria/:slug` | Matéria (com veredito e nota nas reviews) |
+| `/:editoria/:slug` | Matéria (nas reviews: consenso da crítica, com média e link para cada análise) |
 | `/jogos/:slug` | Ficha do jogo e tudo publicado sobre ele |
 | `/plataforma/:slug` | Conteúdo e próximos lançamentos por plataforma |
 | `/lancamentos` | Calendário de lançamentos |
@@ -66,8 +76,10 @@ As páginas só falam com `app/lib/content.server.ts` (`listPosts`, `getPost`, `
 
 ## Próximos passos
 
-- [ ] Banco MySQL na Hostinger + implementação real de `content.server.ts`
-- [ ] API protegida para o worker de publicação automática (GitHub Actions + Gemini)
+O status completo está em [`docs/README.md`](docs/README.md). Em resumo:
+
+- [ ] Deploy na Hostinger (domínio `respawnou.com.br` em ativação), banco criado e migration rodada
+- [ ] Robô de postagem automática: rota protegida + Cron Job da Hostinger + Gemini
+- [ ] Painel administrativo em `/admin`
 - [ ] Imagens de capa reais e imagem Open Graph padrão
-- [ ] Deploy na Hostinger e domínio `respawnou.com.br`
-- [ ] Contas de usuário: login, comentários, favoritos e alertas de lançamento (os espaços já existem no layout, marcados como "em breve")
+- [ ] Search Console e pedido do AdSense

@@ -23,11 +23,11 @@ const FAQ: { group: string; items: Faq[] }[] = [
       { q: "Com que frequência vocês publicam?", a: "Várias vezes por dia, todos os dias, incluindo fins de semana." },
       {
         q: "Vocês usam inteligência artificial?",
-        a: "Sim, como apoio para monitorar fontes, resumir anúncios e traduzir informações, sempre com a fonte creditada. Reviews e notas são sempre feitas por uma pessoa que jogou.",
+        a: "Sim. A inteligência artificial ajuda a monitorar fontes, escrever as matérias a partir delas e traduzir informações, sempre com a fonte creditada. As notas das reviews não são nossas: são a média da crítica especializada.",
         rich: (
           <>
-            Sim, como apoio para monitorar fontes, resumir anúncios e traduzir informações, sempre com a fonte creditada. Reviews e notas são sempre feitas por uma
-            pessoa que jogou. Os detalhes estão na <TextLink to="/politica-editorial#automacao">política editorial</TextLink>.
+            Sim. A inteligência artificial ajuda a monitorar fontes, escrever as matérias a partir delas e traduzir informações, sempre com a fonte creditada. As
+            notas das reviews não são nossas: são a média da crítica especializada. Os detalhes estão na <TextLink to="/politica-editorial#automacao">política editorial</TextLink>.
           </>
         ),
       },
@@ -38,10 +38,11 @@ const FAQ: { group: string; items: Faq[] }[] = [
     items: [
       {
         q: "Como funcionam as notas das reviews?",
-        a: "As notas vão de 0 a 10, e cada faixa tem um significado. Uma pessoa que jogou o jogo escreve a review e dá a nota.",
+        a: "A nota é a média das análises publicadas pela imprensa especializada, convertidas para a escala de 0 a 10. Cada review lista os veículos considerados, com link.",
         rich: (
           <>
-            As notas vão de 0 a 10, e cada faixa tem um significado. Uma pessoa que jogou o jogo escreve a review e dá a nota. Veja <TextLink to="/como-avaliamos">como avaliamos</TextLink>.
+            A nota é a média das análises publicadas pela imprensa especializada, convertidas para a escala de 0 a 10. Cada review lista os veículos
+            considerados, com link. Veja <TextLink to="/como-avaliamos">como avaliamos</TextLink>.
           </>
         ),
       },
