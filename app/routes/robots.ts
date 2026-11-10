@@ -5,6 +5,7 @@ export function loader() {
 Allow: /
 Disallow: /busca
 Disallow: /admin
+Disallow: /api/
 
 Sitemap: ${absoluteUrl("/sitemap.xml")}
 `;

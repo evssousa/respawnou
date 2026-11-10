@@ -31,5 +31,8 @@ export default [
   route("rss.xml", "routes/rss.ts"),
   route("robots.txt", "routes/robots.ts"),
 
+  // Robô de postagem (Cron Job da Hostinger), protegido por CRON_TOKEN.
+  route("api/cron/:job", "routes/cron.ts"),
+
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;
