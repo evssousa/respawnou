@@ -2,6 +2,17 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+## 2026-11-10 · Robô respeita bloqueios de sites
+
+- **Decisão:** quando um site bloqueia robôs na página da matéria (HTTP 403), usamos só o texto que
+  ele mesmo oferece no RSS. Nada de se passar por navegador.
+- **Por quê:** o bloqueio é uma escolha do site; contornar seria abusivo e arriscado para a reputação.
+
+## 2026-11-10 · Robô publica de hora em hora, mas só dentro das regras
+
+- **Decisão:** cron horário; a rota decide se publica (8h–22h de Brasília, até `posts_per_day`,
+  intervalo mínimo entre posts). Mudar o volume é só mudar `posts_per_day`.
+
 ## 2026-11-10 · Site no ar com banco vazio (sem dados de exemplo)
 
 - **Decisão:** produção usa o MySQL desde o início; a home mostra "aguardando a primeira transmissão"

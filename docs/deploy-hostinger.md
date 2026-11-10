@@ -18,7 +18,7 @@ Status: ✅ no ar desde 2026-11-10 em https://respawnou.com.br
 | Build | Node 24, `npm install` + `npm run build`, app type `express` |
 | Entrada | `server.js` (define NODE_ENV) → `server-app.js` (Express + migrations) |
 | Banco | MySQL `u218539700_respawnou` em `127.0.0.1:3306` (só acesso local) |
-| Variáveis | `VITE_SITE_URL`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (senha só no painel) |
+| Variáveis | `VITE_SITE_URL`, `DB_*`, `GEMINI_API_KEY`, `CRON_TOKEN` (segredos só no painel) |
 | SSL | Let's Encrypt (Hostinger); HTTP → HTTPS pela Hostinger; `www` → apex pelo `server-app.js` |
 | Migrations | Aplicadas automaticamente a cada início do app (`db/migrate.mjs`) |
 | E-mail | `contato@respawnou.com.br` criado no hPanel (2026-11-10) |
@@ -39,7 +39,10 @@ Status: ✅ no ar desde 2026-11-10 em https://respawnou.com.br
    de fora; as migrations rodam no app. Para inspecionar dados, usar o phpMyAdmin do hPanel.
 6. **Vários processos**: o LiteSpeed pode subir mais de um processo; as migrations são idempotentes
    (`schema_migrations`), e uma falha numa execução concorrente só é registrada no log.
-7. **Logs**: `hosting_nodejs_runtime-logs` (MCP) mostra o console do app; `hosting_get-deployment`
+7. **Variáveis de ambiente pelo MCP substituem a lista inteira** (`hosting_nodejs_replace-environment-variables`).
+   Como `GEMINI_API_KEY` e `CRON_TOKEN` foram cadastradas pelo dono no painel e não estão no
+   repositório nem com o Claude, **não usar essa operação**: mudanças de variáveis são feitas no hPanel.
+8. **Logs**: `hosting_nodejs_runtime-logs` (MCP) mostra o console do app; `hosting_get-deployment`
    mostra o build.
 
 ## Pendente
