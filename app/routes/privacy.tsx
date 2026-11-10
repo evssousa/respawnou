@@ -5,17 +5,16 @@ import { mailto, SITE } from "~/lib/site";
 export const meta = () =>
   seo({ title: "Política de privacidade", description: `Como o ${SITE.name} trata seus dados pessoais, de acordo com a LGPD.`, path: "/privacidade" });
 
-// Texto-base. Revisar com um advogado antes do lançamento, incluir a identificação
-// completa do controlador (razão social/CNPJ ou responsável) e atualizar ao ativar
-// analytics, anúncios ou contas de usuário.
+// Site informativo, mantido sem CNPJ: o controlador é identificado pelo nome do site
+// e pelo e-mail de contato. Atualizar ao ativar analytics, anúncios ou contas de usuário.
 const sections: DocSection[] = [
   {
     id: "controlador",
     title: "Quem cuida dos seus dados",
     body: (
       <p>
-        O controlador dos dados tratados neste site é o {SITE.name}. Para qualquer assunto sobre privacidade, inclusive para falar com o encarregado de dados
-        (DPO), escreva para <TextLink to={mailto("LGPD")}>{SITE.email}</TextLink> com o assunto “LGPD”.
+        O {SITE.name} é um site informativo, mantido de forma independente, e é o responsável (controlador) pelos dados tratados aqui. Para qualquer assunto
+        sobre privacidade, escreva para <TextLink to={mailto("LGPD")}>{SITE.email}</TextLink> com o assunto “LGPD”.
       </p>
     ),
   },

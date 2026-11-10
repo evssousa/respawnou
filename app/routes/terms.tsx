@@ -4,7 +4,7 @@ import { SITE } from "~/lib/site";
 
 export const meta = () => seo({ title: "Termos de uso", description: `Regras de uso do ${SITE.name} e do conteúdo publicado no site.`, path: "/termos" });
 
-// Texto-base. Revisar com um advogado antes do lançamento e ao ativar contas, comentários ou anúncios.
+// Site informativo: sem vendas nem cadastro. Atualizar ao ativar contas, comentários ou anúncios.
 const sections: DocSection[] = [
   {
     id: "aceitacao",
@@ -21,7 +21,8 @@ const sections: DocSection[] = [
     title: "O serviço",
     body: (
       <p>
-        O {SITE.name} é um site gratuito de notícias, reviews, guias e informações sobre jogos eletrônicos. Podemos mudar, suspender ou encerrar qualquer parte do
+        O {SITE.name} é um site gratuito e apenas informativo, com notícias, artigos, reviews e guias sobre jogos eletrônicos. Não vendemos produtos nem
+        serviços, e não é preciso criar conta para ler o conteúdo. Podemos mudar, suspender ou encerrar qualquer parte do
         site a qualquer momento, sem aviso prévio.
       </p>
     ),
@@ -107,7 +108,7 @@ const sections: DocSection[] = [
     body: (
       <p>
         Na medida permitida pela lei, o {SITE.name} não responde por danos causados pelo uso das informações publicadas, por indisponibilidade do site ou por
-        conteúdo de terceiros. Nada nestes termos limita os direitos que você tem pelo Código de Defesa do Consumidor.
+        conteúdo de terceiros, nem por compras feitas em lojas externas.
       </p>
     ),
   },
@@ -121,7 +122,7 @@ const sections: DocSection[] = [
     title: "Lei aplicável",
     body: (
       <p>
-        Estes termos seguem as leis do Brasil. Qualquer disputa será resolvida no foro do domicílio do usuário, conforme o Código de Defesa do Consumidor.
+        Estes termos seguem as leis do Brasil.
       </p>
     ),
   },
