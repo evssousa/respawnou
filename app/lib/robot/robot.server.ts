@@ -40,6 +40,10 @@ async function settings(): Promise<Settings> {
 const sqlNow = (d = new Date()) => d.toISOString().slice(0, 19).replace("T", " ");
 
 async function startRun(job: string) {
+  // Execução que ficou "running" por mais de 10 min foi interrompida (deploy/reinício do app).
+  await db().query(
+    "UPDATE cron_runs SET status = 'error', finished_at = UTC_TIMESTAMP(), message = 'Interrompida (o app reiniciou no meio, provavelmente por um deploy).' WHERE status = 'running' AND started_at < UTC_TIMESTAMP() - INTERVAL 10 MINUTE",
+  );
   // Trava simples: outra execução do mesmo job há menos de 10 min ainda "rodando".
   const running = await query<{ id: number }>(
     "SELECT id FROM cron_runs WHERE job = ? AND status = 'running' AND started_at > UTC_TIMESTAMP() - INTERVAL 10 MINUTE LIMIT 1",
