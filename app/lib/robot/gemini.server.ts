@@ -3,7 +3,8 @@
 // o cliente consulta a lista de modelos e escolhe um "flash" disponível.
 
 const API = "https://generativelanguage.googleapis.com/v1beta";
-const PREFERRED = ["gemini-2.5-flash", "gemini-flash-latest"];
+const PREFERRED = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let chosenModel: string | undefined;
 
@@ -16,6 +17,10 @@ export class GeminiError extends Error {
   /** Limite do plano gratuito atingido: tentar de novo mais tarde. */
   get isRateLimit() {
     return this.status === 429;
+  }
+  /** Modelo sobrecarregado ou falha passageira do lado do Google. */
+  get isTransient() {
+    return this.status === 429 || this.status === 500 || this.status === 503 || this.status === 504;
   }
 }
 
@@ -55,20 +60,28 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
     generationConfig: { responseMimeType: "application/json", responseSchema: opts.schema, temperature: opts.temperature ?? 0.7 },
   });
 
-  const candidates = chosenModel ? [chosenModel] : process.env.GEMINI_MODEL ? [process.env.GEMINI_MODEL] : PREFERRED;
+  const first = process.env.GEMINI_MODEL || chosenModel;
+  const candidates = [...new Set([...(first ? [first] : []), ...PREFERRED])];
   let lastError: unknown;
+  let anyMissing = false;
   for (const model of candidates) {
-    try {
-      const data = await call(`models/${model}:generateContent`, { method: "POST", body });
-      chosenModel = model;
-      return { data: parse<T>(data), model };
-    } catch (err) {
-      lastError = err;
-      if (!(err instanceof GeminiError) || err.status !== 404) throw err;
+    // Sobrecarga (503) costuma passar em segundos: 1 nova tentativa antes de trocar de modelo.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const data = await call(`models/${model}:generateContent`, { method: "POST", body });
+        return { data: parse<T>(data), model };
+      } catch (err) {
+        lastError = err;
+        if (!(err instanceof GeminiError)) throw err;
+        if (err.status === 404) { anyMissing = true; break; }
+        if (err.isRateLimit) break; // cota do modelo: tenta o próximo
+        if (!err.isTransient) throw err;
+        if (attempt === 0) await sleep(5000);
+      }
     }
   }
   // Nenhum dos modelos conhecidos existe mais: descobre um na lista.
-  if (lastError instanceof GeminiError && lastError.status === 404) {
+  if (anyMissing && lastError instanceof GeminiError && lastError.status === 404) {
     const model = await discoverModel();
     const data = await call(`models/${model}:generateContent`, { method: "POST", body });
     chosenModel = model;

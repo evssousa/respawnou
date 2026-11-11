@@ -341,6 +341,7 @@ ${sourcesBlock(sources)}`;
       } catch (err) {
         // Limite do plano gratuito: não queima a pauta; tenta de novo na próxima execução.
         if (err instanceof GeminiError && err.isRateLimit) return { status: "error", message: "Limite do Gemini atingido; nova tentativa na próxima execução." };
+        if (err instanceof GeminiError && err.isTransient) return { status: "error", message: `Gemini indisponível (${err.status}); nova tentativa na próxima execução.` };
         throw err;
       }
 
