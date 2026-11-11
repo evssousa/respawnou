@@ -3,7 +3,9 @@
 // o cliente consulta a lista de modelos e escolhe um "flash" disponível.
 
 const API = "https://generativelanguage.googleapis.com/v1beta";
-const PREFERRED = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
+// Chaves novas não acessam mais a família 2.5 (404 "no longer available to new users"), e
+// "gemini-flash-latest" aponta para um modelo sem cota gratuita. Ordem: melhor → mais leve.
+const PREFERRED = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let chosenModel: string | undefined;
@@ -60,59 +62,78 @@ async function call(path: string, init?: RequestInit, timeoutMs = 30_000) {
   return JSON.parse(body);
 }
 
-/** Escolhe um modelo "flash" que aceite generateContent (o mais novo, evitando "lite"). */
-async function discoverModel() {
+/** Escolhe um modelo "flash" numerado (gemini-N.N-flash) que aceite generateContent, o mais novo. */
+async function discoverModel(exclude: string[]) {
   const data = await call("models?pageSize=200");
   const names: string[] = (data.models ?? [])
     .filter((m: { supportedGenerationMethods?: string[] }) => m.supportedGenerationMethods?.includes("generateContent"))
     .map((m: { name: string }) => m.name.replace(/^models\//, ""))
-    .filter((n: string) => /flash/.test(n) && !/lite|image|tts|audio|live|thinking|exp/.test(n));
+    .filter((n: string) => /^gemini-\d+(\.\d+)?-flash$/.test(n) && !exclude.includes(n));
   names.sort((a, b) => b.localeCompare(a, "en", { numeric: true }));
   if (!names.length) throw new GeminiError("Nenhum modelo flash disponível para esta chave", 404);
   return names[0];
 }
 
+/** Pouco "raciocínio": a tarefa é reescrever fontes, e com o padrão as respostas demoravam demais.
+ *  A família 2.x usa thinkingBudget; a 3.x em diante, thinkingLevel. */
+function thinkingConfig(model: string) {
+  return /^gemini-2\./.test(model) ? { thinkingBudget: 512 } : { thinkingLevel: "low" };
+}
+
+/** O 404 de modelo aposentado sugere o substituto ("use models/gemini-x.y-flash"). */
+function suggestedModel(err: GeminiError) {
+  return /use models\/([\w.-]+)/.exec(err.message)?.[1];
+}
+
 export async function generateJson<T>(opts: { system: string; prompt: string; schema: object; temperature?: number }): Promise<{ data: T; model: string }> {
-  const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: opts.system }] },
-    contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: opts.schema,
-      temperature: opts.temperature ?? 0.7,
-      // Pouco "raciocínio": a tarefa é reescrever fontes, e com o raciocínio padrão as respostas
-      // passavam de 90 s. Pior caso: 3 modelos × 150 s = 7,5 min, abaixo da trava de 10 min.
-      thinkingConfig: { thinkingBudget: 512 },
-    },
-  });
+  const bodyFor = (model: string) =>
+    JSON.stringify({
+      systemInstruction: { parts: [{ text: opts.system }] },
+      contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: opts.schema,
+        temperature: opts.temperature ?? 0.7,
+        thinkingConfig: thinkingConfig(model),
+      },
+    });
+  // Pior caso: 3 modelos × 150 s = 7,5 min, abaixo da trava de 10 min do robô.
   const GEN_TIMEOUT = 150_000;
 
   const first = process.env.GEMINI_MODEL || chosenModel;
-  const candidates = [...new Set([...(first ? [first] : []), ...PREFERRED])];
-  let lastError: unknown;
-  let anyMissing = false;
+  const queue = [...new Set([...(first ? [first] : []), ...PREFERRED])];
   const attempts: string[] = [];
-  for (const model of candidates) {
+  let lastError: unknown;
+  let onlyMissing = true;
+
+  for (let i = 0; i < queue.length && i < 5; i++) {
+    const model = queue[i];
     // Sobrecarga (503) costuma passar em segundos: 1 nova tentativa antes de trocar de modelo.
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const data = await call(`models/${model}:generateContent`, { method: "POST", body }, GEN_TIMEOUT);
+        const data = await call(`models/${model}:generateContent`, { method: "POST", body: bodyFor(model) }, GEN_TIMEOUT);
+        if (attempts.length) chosenModel = model; // o preferido falhou: começa por este nas próximas
         return { data: parse<T>(data), model };
       } catch (err) {
         lastError = err;
         if (!(err instanceof GeminiError)) throw err;
-        attempts.push(`${model}: ${err.status} ${err.message.slice(0, 300)}`);
-        if (err.status === 404) { anyMissing = true; break; }
+        attempts.push(`${model}: ${err.message.slice(0, 300)}`);
+        if (err.status === 404) {
+          const next = suggestedModel(err);
+          if (next && !queue.includes(next)) queue.splice(i + 1, 0, next);
+          break;
+        }
+        onlyMissing = false;
         if (err.isRateLimit || err.status === 504) break; // cota ou lentidão: tenta o próximo modelo
         if (!err.isTransient) throw err;
         if (attempt === 0) await sleep(5000);
       }
     }
   }
-  // Nenhum dos modelos conhecidos existe mais: descobre um na lista.
-  if (anyMissing && lastError instanceof GeminiError && lastError.status === 404) {
-    const model = await discoverModel();
-    const data = await call(`models/${model}:generateContent`, { method: "POST", body }, GEN_TIMEOUT);
+  // Nenhum modelo conhecido existe mais: descobre um na lista da chave.
+  if (onlyMissing && lastError instanceof GeminiError) {
+    const model = await discoverModel(queue);
+    const data = await call(`models/${model}:generateContent`, { method: "POST", body: bodyFor(model) }, GEN_TIMEOUT);
     chosenModel = model;
     return { data: parse<T>(data), model };
   }
@@ -143,7 +164,7 @@ export async function diagnose() {
     try {
       await call(
         `models/${model}:generateContent`,
-        { method: "POST", body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Responda apenas: ok" }] }] }) },
+        { method: "POST", body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Responda apenas: ok" }] }], generationConfig: { thinkingConfig: thinkingConfig(model) } }) },
         60_000,
       );
       tests.push({ model, ok: true, ms: Date.now() - t0 });
