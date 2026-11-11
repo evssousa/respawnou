@@ -193,7 +193,11 @@ export function consensusNumbers(rows: CriticRow[]) {
 /** Nome mais usado entre os veículos (empate: o mais curto). */
 function displayName(rows: CriticRow[]) {
   const count = new Map<string, number>();
-  for (const r of rows) count.set(r.game_name, (count.get(r.game_name) ?? 0) + 1);
+  // Sem "(2026)", "(Switch 2)" etc.: é o nome que vai para o título e para a palavra-chave.
+  for (const r of rows) {
+    const name = r.game_name.replace(/\s*\([^)]*\)/g, "").trim() || r.game_name;
+    count.set(name, (count.get(name) ?? 0) + 1);
+  }
   return [...count.entries()].sort((a, b) => b[1] - a[1] || a[0].length - b[0].length)[0][0];
 }
 
