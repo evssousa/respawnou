@@ -43,7 +43,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 3 | Imagens extras da Steam + trailer pelo YouTube (`YOUTUBE_API_KEY` cadastrada) | ✅ |
 | 3 | Polygon bloqueia o servidor → desativado; 5 fontes novas (migration 004) | ✅ |
 | 3 | Painel admin (login, matérias, fila, fontes, robô, configurações) — ver admin.md | ✅ |
-| 3 | Cadastrar ADMIN_EMAIL, ADMIN_PASSWORD_HASH e SESSION_SECRET no hPanel (`npm run admin:hash`) | ⏳ dono |
+| 3 | Variáveis do painel no hPanel + primeiro login do dono (2026-11-11) | ✅ |
 | 4 | Imagem OG padrão (páginas sem capa) | 💤 |
 | 4 | Google Search Console + sitemap (só depois das primeiras matérias) | 💤 |
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |

@@ -1,6 +1,6 @@
 # Painel administrativo (/admin)
 
-Status: ✅ construído e testado (2026-11-11). Falta o dono cadastrar as 3 variáveis abaixo no hPanel.
+Status: ✅ no ar; dono entrou pela primeira vez em 2026-11-11.
 
 ## Acesso
 
