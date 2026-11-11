@@ -2,6 +2,7 @@
 //   GET /api/cron/coletar?token=...   lê os feeds e enche a fila de pautas
 //   GET /api/cron/publicar?token=...  publica 1 matéria (respeita horário, limite e intervalo)
 //   GET /api/cron/status?token=...    últimas execuções (com o rascunho dos testes dry=1)
+//   GET /api/cron/diag?token=...      modelos do Gemini disponíveis e teste rápido de cada um
 // Parâmetros extras de publicar: dry=1 (gera sem gravar), force=1 (ignora horário/limite).
 //
 // A CDN da Hostinger corta requisições com mais de ~1 min (devolve 307), e o Gemini pode levar
@@ -11,6 +12,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Route } from "./+types/cron";
 import { hasDatabase } from "~/lib/db.server";
+import { diagnose } from "~/lib/robot/gemini.server";
 import { collect, publish, recentRuns, type JobResult } from "~/lib/robot/robot.server";
 
 function authorized(request: Request) {
@@ -31,6 +33,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const flag = (k: string) => url.searchParams.get(k) === "1";
 
+  if (params.job === "diag") return Response.json(await diagnose(), { headers });
   if (params.job === "status") return Response.json(await recentRuns(Number(url.searchParams.get("n")) || 10), { headers });
 
   let job: () => Promise<JobResult>;

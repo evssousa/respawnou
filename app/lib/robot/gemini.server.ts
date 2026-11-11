@@ -130,3 +130,26 @@ function parse<T>(data: { candidates?: { content?: { parts?: { text?: string }[]
     throw new GeminiError("Resposta do Gemini não é um JSON válido", 502);
   }
 }
+
+/** Diagnóstico (/api/cron/diag): modelos flash da chave e um teste curto em cada candidato. */
+export async function diagnose() {
+  const list = await call("models?pageSize=200").catch((e) => ({ error: String(e) }));
+  const flash: string[] = ((list as { models?: { name: string; supportedGenerationMethods?: string[] }[] }).models ?? [])
+    .filter((m) => m.supportedGenerationMethods?.includes("generateContent") && /flash/.test(m.name))
+    .map((m) => m.name.replace(/^models\//, ""));
+  const tests = [];
+  for (const model of [...new Set([process.env.GEMINI_MODEL, ...PREFERRED].filter(Boolean) as string[])]) {
+    const t0 = Date.now();
+    try {
+      await call(
+        `models/${model}:generateContent`,
+        { method: "POST", body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Responda apenas: ok" }] }] }) },
+        60_000,
+      );
+      tests.push({ model, ok: true, ms: Date.now() - t0 });
+    } catch (err) {
+      tests.push({ model, ok: false, ms: Date.now() - t0, error: err instanceof Error ? err.message.slice(0, 300) : String(err) });
+    }
+  }
+  return { flash, tests };
+}
