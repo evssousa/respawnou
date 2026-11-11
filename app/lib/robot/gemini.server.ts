@@ -30,12 +30,19 @@ function apiKey() {
   return key;
 }
 
-async function call(path: string, init?: RequestInit) {
-  const res = await fetch(`${API}/${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey(), ...init?.headers },
-    signal: AbortSignal.timeout(90_000),
-  });
+async function call(path: string, init?: RequestInit, timeoutMs = 30_000) {
+  let res: Response;
+  try {
+    res = await fetch(`${API}/${path}`, {
+      ...init,
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey(), ...init?.headers },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    // Tempo esgotado ou falha de rede: trata como indisponibilidade passageira.
+    const timeout = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+    throw new GeminiError(timeout ? `Gemini não respondeu em ${timeoutMs / 1000} s` : `Falha de rede com o Gemini: ${err}`, 504);
+  }
   const body = await res.text();
   if (!res.ok) throw new GeminiError(`Gemini ${res.status}: ${body.slice(0, 300)}`, res.status);
   return JSON.parse(body);
@@ -57,8 +64,16 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
   const body = JSON.stringify({
     systemInstruction: { parts: [{ text: opts.system }] },
     contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
-    generationConfig: { responseMimeType: "application/json", responseSchema: opts.schema, temperature: opts.temperature ?? 0.7 },
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: opts.schema,
+      temperature: opts.temperature ?? 0.7,
+      // Pouco "raciocínio": a tarefa é reescrever fontes, e com o raciocínio padrão as respostas
+      // passavam de 90 s. Pior caso: 3 modelos × 150 s = 7,5 min, abaixo da trava de 10 min.
+      thinkingConfig: { thinkingBudget: 512 },
+    },
   });
+  const GEN_TIMEOUT = 150_000;
 
   const first = process.env.GEMINI_MODEL || chosenModel;
   const candidates = [...new Set([...(first ? [first] : []), ...PREFERRED])];
@@ -68,13 +83,13 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
     // Sobrecarga (503) costuma passar em segundos: 1 nova tentativa antes de trocar de modelo.
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const data = await call(`models/${model}:generateContent`, { method: "POST", body });
+        const data = await call(`models/${model}:generateContent`, { method: "POST", body }, GEN_TIMEOUT);
         return { data: parse<T>(data), model };
       } catch (err) {
         lastError = err;
         if (!(err instanceof GeminiError)) throw err;
         if (err.status === 404) { anyMissing = true; break; }
-        if (err.isRateLimit) break; // cota do modelo: tenta o próximo
+        if (err.isRateLimit || err.status === 504) break; // cota ou lentidão: tenta o próximo modelo
         if (!err.isTransient) throw err;
         if (attempt === 0) await sleep(5000);
       }
@@ -83,7 +98,7 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
   // Nenhum dos modelos conhecidos existe mais: descobre um na lista.
   if (anyMissing && lastError instanceof GeminiError && lastError.status === 404) {
     const model = await discoverModel();
-    const data = await call(`models/${model}:generateContent`, { method: "POST", body });
+    const data = await call(`models/${model}:generateContent`, { method: "POST", body }, GEN_TIMEOUT);
     chosenModel = model;
     return { data: parse<T>(data), model };
   }
