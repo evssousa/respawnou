@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import type { ResultSetHeader } from "mysql2";
 import { db, json, query } from "../db.server.ts";
 import { diagnose, generateJson, GeminiError } from "./gemini.server.ts";
+import { youtubeCheck } from "./enrich.server.ts";
 import { fetchFeed } from "./rss.server.ts";
 import { keywords, similarity, slugify } from "./text.ts";
 import { localizeImages, writeArticle, type BuiltArticle, type SourceItem } from "./writer.server.ts";
@@ -98,9 +99,10 @@ export async function recentRuns(limit = 10) {
 /** Teste dos modelos do Gemini; o resultado fica em cron_runs.stats (job "diag"). */
 export function diag(): Promise<JobResult> {
   return runJob("diag", async () => {
-    const stats = await diagnose();
+    const stats = { ...(await diagnose()), youtube: await youtubeCheck() };
     const ok = stats.tests.filter((t) => t.ok).map((t) => t.model);
-    return { status: "ok", message: ok.length ? `Respondendo: ${ok.join(", ")}` : "Nenhum modelo respondeu", stats };
+    const yt = !stats.youtube.configured ? "YouTube: sem chave" : stats.youtube.ok ? "YouTube: ok" : `YouTube: erro ${stats.youtube.error ?? ""}`;
+    return { status: "ok", message: `${ok.length ? `Gemini respondendo: ${ok.join(", ")}` : "Nenhum modelo do Gemini respondeu"} · ${yt}`, stats };
   });
 }
 

@@ -86,3 +86,16 @@ export async function youtubeTrailer(keyword: string): Promise<{ youtubeId: stri
 }
 
 const decodeHtml = (s: string) => s.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+
+/** Diagnóstico (/api/cron/diag): a chave do YouTube existe e funciona? Gasta 100 da cota. */
+export async function youtubeCheck() {
+  if (!process.env.YOUTUBE_API_KEY) return { configured: false };
+  const params = new URLSearchParams({ part: "snippet", q: "Helldivers 2 trailer", type: "video", maxResults: "1", key: process.env.YOUTUBE_API_KEY });
+  try {
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`, { signal: AbortSignal.timeout(10_000) });
+    const body = (await res.json()) as { items?: { snippet: { title: string } }[]; error?: { message: string } };
+    return { configured: true, ok: res.ok, status: res.status, sample: body.items?.[0]?.snippet.title, error: body.error?.message?.slice(0, 200) };
+  } catch (err) {
+    return { configured: true, ok: false, error: String(err) };
+  }
+}
