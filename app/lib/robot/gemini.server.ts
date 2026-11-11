@@ -4,8 +4,9 @@
 
 const API = "https://generativelanguage.googleapis.com/v1beta";
 // Chaves novas não acessam mais a família 2.5 (404 "no longer available to new users"), e
-// "gemini-flash-latest" aponta para um modelo sem cota gratuita. Ordem: melhor → mais leve.
-const PREFERRED = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
+// "gemini-flash-latest" aponta para um modelo sem cota gratuita. Em 2026-11-10 o 3.8-flash
+// travava (sobrecarga) e o 3.5-flash respondia em ~1,5 s: por isso o 3.5 vem primeiro.
+const PREFERRED = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let chosenModel: string | undefined;
