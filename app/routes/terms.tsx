@@ -4,7 +4,7 @@ import { SITE } from "~/lib/site";
 
 export const meta = () => seo({ title: "Termos de uso", description: `Regras de uso do ${SITE.name} e do conteúdo publicado no site.`, path: "/termos" });
 
-// Site informativo: sem vendas nem cadastro. Atualizar ao ativar contas, comentários ou anúncios.
+// Site informativo: sem vendas nem cadastro. Atualizar ao ativar contas ou comentários.
 const sections: DocSection[] = [
   {
     id: "aceitacao",
@@ -78,6 +78,10 @@ const sections: DocSection[] = [
         <p>
           Os links para sites de terceiros são oferecidos por conveniência. Não controlamos esses sites e não respondemos pelo conteúdo, pelas compras ou pelas
           políticas de privacidade deles. Alguns links podem ser de afiliados, e isso será sinalizado na matéria.
+        </p>
+        <p>
+          O site pode exibir anúncios do Google AdSense. Os anúncios são escolhidos pelo Google, ficam separados do conteúdo editorial e não significam que
+          recomendamos o produto anunciado. Como eles usam cookies está na <TextLink to="/cookies">política de cookies</TextLink>.
         </p>
       </>
     ),

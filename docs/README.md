@@ -44,10 +44,13 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 3 | Polygon bloqueia o servidor → desativado; 5 fontes novas (migration 004) | ✅ |
 | 3 | Painel admin (login, matérias, fila, fontes, robô, configurações) — ver admin.md | ✅ |
 | 3 | Variáveis do painel no hPanel + primeiro login do dono (2026-11-11) | ✅ |
-| 4 | Imagem OG padrão (páginas sem capa) | 💤 |
+| 4 | Imagem OG padrão (páginas sem capa), logo PNG no JSON-LD, ícone da Apple | ✅ |
+| 4 | Páginas vazias fora do menu/home/sitemap + `noindex` (availability.ts) | ✅ |
+| 4 | AdSense preparado: `ADSENSE_CLIENT` liga script + Modo de Consentimento v2 + `ads.txt` + banner (adsense.md) | ✅ |
+| 4 | Políticas de privacidade, cookies e termos citando o AdSense | ✅ |
 | 4 | Google Search Console + sitemap (só depois das primeiras matérias) | 💤 |
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |
-| 4 | Banner de consentimento de cookies (obrigatório ao ativar AdSense/analytics) | 💤 |
+| 4 | Cadastrar `ADSENSE_CLIENT` no hPanel ao se inscrever no AdSense | 💤 dono |
 
 ## Histórico de commits relevantes
 

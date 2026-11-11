@@ -8,7 +8,8 @@ import { daysUntil, formatDate, formatDay, formatMonthShort, formatTime, formatW
 import { mockRepo } from "./repo/mock.server";
 import { mysqlRepo } from "./repo/mysql.server";
 import type { Repo } from "./repo/types";
-import { SECTIONS, sectionBySlug, type PlatformSlug, type SectionSlug } from "./site";
+import type { Availability } from "./availability";
+import { PLATFORMS, SECTIONS, sectionBySlug, type PlatformSlug, type SectionSlug } from "./site";
 import type { FreeGame, Game, Post, PostView, Release } from "./types";
 
 const repo = (): Repo => (hasDatabase() ? mysqlRepo : mockRepo);
@@ -130,6 +131,22 @@ export async function getSectionStats(): Promise<SectionStat[]> {
     const st = stats.find((x) => x.section === s.slug);
     return { slug: s.slug, label: s.label, total: st?.total ?? 0, latestAgo: st?.latest ? timeAgo(st.latest, now) : null };
   });
+}
+
+let availabilityCache: { at: number; value: Availability } | undefined;
+
+/** O que tem conteúdo (ver availability.ts). Cache de 5 min: uma editoria nova aparece no menu em até 5 min. */
+export async function getAvailability(): Promise<Availability> {
+  if (availabilityCache && Date.now() - availabilityCache.at < 5 * 60_000) return availabilityCache.value;
+  const [stats, platforms, releases] = await Promise.all([
+    repo().sectionStats(),
+    Promise.all(PLATFORMS.map(async (p) => ((await repo().findPosts({ platform: p.slug }, 0, 1)).total > 0 ? p.slug : null))),
+    getReleases(),
+  ]);
+  const sections = SECTIONS.filter((s) => s.slug === "noticias" || stats.some((x) => x.section === s.slug && x.total > 0)).map((s) => s.slug);
+  const value: Availability = { sections, platforms: platforms.filter((p) => p !== null), releases: releases.length > 0 };
+  availabilityCache = { at: Date.now(), value };
+  return value;
 }
 
 /** Números da barra de status do topo. */

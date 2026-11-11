@@ -27,7 +27,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
     title: "Calendário de lançamentos de games",
     description: "Datas de lançamento dos próximos jogos para PC, PlayStation, Xbox, Nintendo Switch e mobile.",
     path: "/lancamentos",
-    noindex: Boolean(loaderData?.platform),
+    noindex: Boolean(loaderData?.platform) || !loaderData?.groups.length,
   });
 }
 

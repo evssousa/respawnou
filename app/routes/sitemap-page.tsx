@@ -1,16 +1,17 @@
 import { Link } from "react-router";
 import { StaticPage } from "~/components/StaticPage";
 import { seo } from "~/lib/seo";
-import { DOC_PAGES, PLATFORMS, SECTIONS, SITE } from "~/lib/site";
+import { navFor, platformsFor, useAvailability, type Availability } from "~/lib/availability";
+import { DOC_PAGES, SITE } from "~/lib/site";
 
 export const meta = () => seo({ title: "Mapa do site", description: `Todas as seções e páginas do ${SITE.name} num lugar só.`, path: "/mapa-do-site" });
 
-const GROUPS = [
+const groups = (a: Availability) => [
   {
     title: "Conteúdo",
-    links: [{ to: "/", label: "Página inicial" }, ...SECTIONS.map((s) => ({ to: `/${s.slug}`, label: s.label })), { to: "/lancamentos", label: "Lançamentos" }],
+    links: [{ to: "/", label: "Página inicial" }, ...navFor(a)],
   },
-  { title: "Plataformas", links: PLATFORMS.map((p) => ({ to: `/plataforma/${p.slug}`, label: p.label })) },
+  { title: "Plataformas", links: platformsFor(a).map((p) => ({ to: `/plataforma/${p.slug}`, label: p.label })) },
   { title: "Institucional", links: DOC_PAGES.filter((d) => d.group === "site") },
   { title: "Legal", links: DOC_PAGES.filter((d) => d.group === "legal" && d.to !== "/mapa-do-site") },
   {
@@ -24,6 +25,7 @@ const GROUPS = [
 ];
 
 export default function SitemapPage() {
+  const GROUPS = groups(useAvailability());
   return (
     <StaticPage path="/mapa-do-site" title="Mapa do" accent="site" lead={`Todas as seções e páginas do ${SITE.name} num lugar só.`}>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

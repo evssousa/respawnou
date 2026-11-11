@@ -27,7 +27,7 @@ export function meta({ loaderData, location }: Route.MetaArgs) {
     description: section.description,
     path: location.pathname + (posts.page > 1 ? `?pagina=${posts.page}` : ""),
     // Filtros por plataforma já têm página própria em /plataforma/:slug.
-    noindex: Boolean(platform),
+    noindex: Boolean(platform) || posts.total === 0,
   });
 }
 

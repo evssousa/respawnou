@@ -4,12 +4,17 @@ import { SITE } from "~/lib/site";
 
 export const meta = () => seo({ title: "Política de cookies", description: `Quais cookies o ${SITE.name} usa e como desativá-los.`, path: "/cookies" });
 
-// Atualizar a tabela (e criar o banner de consentimento) ao ativar analytics ou anúncios.
+// Banner de consentimento: app/components/CookieConsent.tsx (liga junto com ADSENSE_CLIENT).
 const COOKIE_TYPES = [
   { type: "Essenciais", status: "Só o necessário", use: "Fazem o site funcionar e protegem contra abusos.", consent: "Não precisa: o site não funciona sem eles." },
-  { type: "Preferências", status: "Em breve", use: "Lembram escolhas, como filtros e, no futuro, o login da sua conta.", consent: "Não precisa: só guardam o que você escolheu." },
-  { type: "Métricas", status: "Ainda não usamos", use: "Contam visitas e páginas lidas, de forma agregada.", consent: "Sim, pedido num aviso antes de ativar." },
-  { type: "Publicidade", status: "Ainda não usamos", use: "Exibem e medem anúncios.", consent: "Sim, pedido num aviso antes de ativar." },
+  { type: "Preferências", status: "Em uso", use: "Guardam a sua escolha no aviso de cookies, para não perguntar de novo.", consent: "Não precisa: só guardam o que você escolheu." },
+  { type: "Métricas", status: "Ainda não usamos", use: "Contam visitas e páginas lidas, de forma agregada.", consent: "Sim, pedido no aviso de cookies." },
+  {
+    type: "Publicidade",
+    status: "Google AdSense",
+    use: "Exibem anúncios, evitam repetir o mesmo anúncio e medem resultados. Os personalizados usam o seu histórico de navegação.",
+    consent: "Sim: anúncios personalizados só se você clicar em “Aceitar todos”.",
+  },
 ];
 
 const BROWSERS = [
@@ -64,8 +69,25 @@ const sections: DocSection[] = [
     body: (
       <p>
         Quando uma matéria tiver um vídeo ou post incorporado (YouTube, X, Instagram), essa plataforma pode gravar os próprios cookies, de acordo com a política de
-        privacidade dela.
+        privacidade dela. Os vídeos do YouTube usam o modo de privacidade aprimorada (youtube-nocookie.com).
       </p>
+    ),
+  },
+  {
+    id: "google",
+    title: "Anúncios do Google",
+    body: (
+      <>
+        <p>
+          Fornecedores terceiros, incluindo o Google, usam cookies para exibir anúncios com base nas suas visitas anteriores a este e a outros sites. Esses
+          cookies permitem que o Google e os parceiros dele exibam anúncios com base nas suas visitas a este e a outros sites da internet.
+        </p>
+        <p>
+          Você pode desativar a publicidade personalizada nas <TextLink to="https://myadcenter.google.com/">configurações de anúncios do Google</TextLink> e
+          ver <TextLink to="https://policies.google.com/technologies/partner-sites?hl=pt-BR">como o Google usa essas informações</TextLink>. Outros fornecedores
+          podem ser desativados em <TextLink to="https://www.aboutads.info/choices/">aboutads.info</TextLink>.
+        </p>
+      </>
     ),
   },
   {
@@ -83,7 +105,7 @@ const sections: DocSection[] = [
             </li>
           ))}
         </ul>
-        <p>Quando os cookies de métricas e de publicidade forem ativados, você também vai poder mudar sua escolha a qualquer momento por um link no rodapé.</p>
+        <p>Você também pode mudar a sua escolha a qualquer momento pelo link “Preferências de cookies”, no rodapé do site.</p>
       </>
     ),
   },
@@ -104,7 +126,7 @@ export default function Cookies() {
       path="/cookies"
       title="Política de"
       accent="cookies"
-      lead="Hoje usamos só o essencial para o site funcionar. Qualquer cookie de métricas ou de anúncios vai pedir a sua permissão antes."
+      lead="Usamos o essencial para o site funcionar. Anúncios personalizados e métricas só com a sua permissão, pedida num aviso na primeira visita."
       sections={sections}
     />
   );

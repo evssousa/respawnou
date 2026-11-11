@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Form, Link, NavLink, useLocation } from "react-router";
-import { NAV, PLATFORMS, SITE } from "~/lib/site";
+import { navFor, platformsFor, useAvailability } from "~/lib/availability";
+import { SITE } from "~/lib/site";
 import { cx } from "./ui";
 
 export interface HeaderStatus {
@@ -60,6 +61,9 @@ export function StatusBar({ status }: { status: HeaderStatus | null }) {
 /** Cabeçalho fixo no topo: logo, menu e busca. O painel admin fica em /admin, fora da navegação. */
 export function Header() {
   const [open, setOpen] = useState(false);
+  const available = useAvailability();
+  const nav = navFor(available);
+  const platforms = platformsFor(available);
   const location = useLocation();
   useEffect(() => setOpen(false), [location.pathname, location.search]);
   useEffect(() => {
@@ -79,7 +83,7 @@ export function Header() {
         </Link>
 
         <nav aria-label="Principal" className="hidden flex-1 gap-0.5 font-mono text-xs font-bold uppercase lg:flex">
-          {NAV.map((item, i) => (
+          {nav.map((item, i) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -115,7 +119,7 @@ export function Header() {
           <div className="mx-auto flex max-w-[1280px] flex-col gap-4 px-4 py-5 sm:px-6">
             <SearchForm id="busca-mobile" className="flex w-full" />
             <nav aria-label="Principal (mobile)" className="grid grid-cols-2 gap-2">
-              {NAV.map((item, i) => (
+              {nav.map((item, i) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -128,7 +132,7 @@ export function Header() {
             </nav>
             <p className="font-mono text-[11px] font-bold text-muted">&gt; PLATAFORMAS</p>
             <div className="flex flex-wrap gap-2">
-              {PLATFORMS.map((p) => (
+              {platforms.map((p) => (
                 <Link key={p.slug} to={`/plataforma/${p.slug}`} className="chs flex min-h-11 items-center bg-ink-3 px-3.5 font-mono text-xs font-semibold text-acc">
                   {p.label.toUpperCase()}
                 </Link>
@@ -143,11 +147,12 @@ export function Header() {
 
 /** Atalhos de plataforma (desktop), logo abaixo do cabeçalho fixo. */
 export function PlatformBar() {
+  const platforms = platformsFor(useAvailability());
   return (
     <nav aria-label="Plataformas" className="hidden border-b border-line lg:block">
       <div className="mx-auto flex max-w-[1280px] items-center gap-1 px-6 font-mono text-[11px] font-semibold text-muted">
         <span className="mr-1">PLATAFORMA:</span>
-        {PLATFORMS.map((p) => (
+        {platforms.map((p) => (
           <NavLink key={p.slug} to={`/plataforma/${p.slug}`} className={({ isActive }) => cx("px-2 py-2.5 hover:text-acc", isActive && "text-acc")}>
             {p.label.toUpperCase()}
           </NavLink>

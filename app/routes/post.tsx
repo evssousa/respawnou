@@ -49,7 +49,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
         datePublished: post.publishedAt,
         dateModified: post.updatedAt ?? post.publishedAt,
         author: { "@type": "Organization", name: post.author },
-        publisher: { "@type": "Organization", name: SITE.name, url: SITE.url, logo: { "@type": "ImageObject", url: absoluteUrl("/favicon.svg") } },
+        publisher: { "@type": "Organization", name: SITE.name, url: SITE.url, logo: { "@type": "ImageObject", url: absoluteUrl("/logo-512.png"), width: 512, height: 512 } },
         mainEntityOfPage: url,
         inLanguage: "pt-BR",
         ...(post.image ? { image: [absoluteUrl(post.image.src)] } : {}),

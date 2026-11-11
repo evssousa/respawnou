@@ -99,9 +99,9 @@ export const DOC_PAGES: DocPage[] = [
   { to: "/politica-editorial", label: "Política editorial", group: "site", updated: "2026-11-10" },
   { to: "/como-avaliamos", label: "Como avaliamos", group: "site", updated: "2026-11-10" },
   { to: "/anuncie", label: "Anuncie", group: "site", updated: "2026-11-10" },
-  { to: "/termos", label: "Termos de uso", group: "legal", updated: "2026-11-10" },
-  { to: "/privacidade", label: "Privacidade", group: "legal", updated: "2026-11-10" },
-  { to: "/cookies", label: "Cookies", group: "legal", updated: "2026-11-10" },
+  { to: "/termos", label: "Termos de uso", group: "legal", updated: "2026-11-11" },
+  { to: "/privacidade", label: "Privacidade", group: "legal", updated: "2026-11-11" },
+  { to: "/cookies", label: "Cookies", group: "legal", updated: "2026-11-11" },
   { to: "/acessibilidade", label: "Acessibilidade", group: "legal", updated: "2026-11-10" },
   { to: "/mapa-do-site", label: "Mapa do site", group: "legal", updated: "2026-11-10" },
 ];

@@ -1,15 +1,16 @@
-import { getAllGames, getAllPosts, postUrl } from "~/lib/content.server";
-import { absoluteUrl, DOC_PAGES, PLATFORMS, SECTIONS } from "~/lib/site";
+import { getAllGames, getAllPosts, getAvailability, postUrl } from "~/lib/content.server";
+import { absoluteUrl, DOC_PAGES } from "~/lib/site";
+import { navFor, platformsFor } from "~/lib/availability";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export async function loader() {
-  const [posts, games] = await Promise.all([getAllPosts(), getAllGames()]);
+  // Só páginas com conteúdo (editorias, plataformas e calendário vazios ficam de fora).
+  const [posts, games, available] = await Promise.all([getAllPosts(), getAllGames(), getAvailability()]);
   const entries: { loc: string; lastmod?: string; changefreq?: string }[] = [
     { loc: "/", changefreq: "hourly" },
-    ...SECTIONS.map((s) => ({ loc: `/${s.slug}`, changefreq: "hourly" })),
-    { loc: "/lancamentos", changefreq: "daily" },
-    ...PLATFORMS.map((p) => ({ loc: `/plataforma/${p.slug}`, changefreq: "daily" })),
+    ...navFor(available).map((n) => ({ loc: n.to, changefreq: n.to === "/lancamentos" ? "daily" : "hourly" })),
+    ...platformsFor(available).map((p) => ({ loc: `/plataforma/${p.slug}`, changefreq: "daily" })),
     ...posts.map((p) => ({ loc: postUrl(p), lastmod: p.updatedAt ?? p.publishedAt })),
     ...games.map((g) => ({ loc: `/jogos/${g.slug}`, changefreq: "weekly" })),
     ...DOC_PAGES.map((d) => ({ loc: d.to, lastmod: d.updated, changefreq: "yearly" })),

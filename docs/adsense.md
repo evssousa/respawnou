@@ -52,10 +52,38 @@ Essas páginas são geradas a partir de dados (RAWG/IGDB, lojas) e não reescrev
 - [ ] Pelo menos ~30–40 posts publicados, de várias editorias, todos com 350+ palavras
 - [ ] Imagens de capa com crédito (sem imagens "quebradas" ou placeholders)
 - [ ] Search Console configurado, sitemap enviado, páginas indexadas
-- [ ] Banner de consentimento de cookies (CMP certificada pelo Google, exigida para Brasil/UE)
-- [ ] `ads.txt` na raiz do site
-- [ ] Política de privacidade e de cookies atualizadas citando o AdSense
-- [ ] Nenhuma página vazia (editorias sem posts mostram conteúdo útil ou ficam fora do menu)
+- [x] Banner de consentimento de cookies (próprio, LGPD + Modo de Consentimento v2) — 2026-11-11
+- [ ] Mensagem de consentimento do Google para Europa/Reino Unido (ver "Ao ser aprovado" abaixo)
+- [x] `ads.txt` na raiz do site (gerado a partir de `ADSENSE_CLIENT`) — 2026-11-11
+- [x] Política de privacidade, de cookies e termos citando o AdSense — 2026-11-11
+- [x] Nenhuma página vazia: editoria/plataforma/calendário sem conteúdo some do menu, rodapé, home e
+      sitemap e leva `noindex` (`app/lib/availability.ts`) — 2026-11-11
+- [x] Imagem padrão de compartilhamento (`public/og-default.png`, 1200×630) e logo PNG no JSON-LD — 2026-11-11
+
+## Como ligar os anúncios (`ADSENSE_CLIENT`)
+
+Tudo fica desligado até existir a variável `ADSENSE_CLIENT` (ex.: `ca-pub-1234567890123456`, mostrada
+pelo Google na inscrição). Cadastrar no hPanel → Node.js → Variáveis de ambiente (sem mexer nas outras).
+O app reinicia e, sem novo build, passa a:
+
+- carregar o Modo de Consentimento v2 (tudo **negado** por padrão) e o script do AdSense no `<head>`
+  (nunca no `/admin`) — `app/lib/ads.ts`, `app/root.tsx`;
+- responder `/ads.txt` com `google.com, pub-…, DIRECT, f08c47fec0942fa0` — `app/routes/ads-txt.ts`;
+- mostrar o banner de cookies (`app/components/CookieConsent.tsx`): "Aceitar todos" libera anúncios
+  personalizados; "Só os essenciais" mantém tudo negado (o Google ainda pode mostrar anúncios não
+  personalizados). A escolha fica no `localStorage` (`respawnou_consent`); o link
+  "Preferências de cookies" no rodapé reabre o banner. Mudar `CONSENT_VERSION` faz todos verem de novo.
+
+Testado localmente em 2026-11-11 (Edge headless): banner na 1ª visita, consentimento negado por
+padrão, aceitar/recusar atualiza o Modo de Consentimento, escolha lembrada, rodapé reabre, painel sem
+anúncios, celular sem rolagem lateral.
+
+## Ao ser aprovado
+
+- No AdSense → Privacidade e mensagens, ativar a mensagem **"Regulamentos europeus"** (CMP do próprio
+  Google, certificada e grátis). O Google exige CMP certificada para visitantes da Europa, Reino Unido e
+  Suíça; ela só aparece para eles. O banner próprio cobre o Brasil (LGPD).
+- Anúncios automáticos ("Auto ads") ou blocos manuais: decidir depois de ver o layout com anúncios.
 
 ## Monitorar depois da aprovação
 

@@ -6,7 +6,8 @@ export const meta = () =>
   seo({ title: "Política de privacidade", description: `Como o ${SITE.name} trata seus dados pessoais, de acordo com a LGPD.`, path: "/privacidade" });
 
 // Site informativo, mantido sem CNPJ: o controlador é identificado pelo nome do site
-// e pelo e-mail de contato. Atualizar ao ativar analytics, anúncios ou contas de usuário.
+// e pelo e-mail de contato. Inclui as informações que o Google AdSense exige (cookies de
+// terceiros, links para a política do Google e para desativar anúncios personalizados).
 const sections: DocSection[] = [
   {
     id: "controlador",
@@ -45,6 +46,11 @@ const sections: DocSection[] = [
                 <td>Entender quais conteúdos são mais lidos e melhorar o site.</td>
               </tr>
               <tr>
+                <td>Identificadores de anúncios (cookies e dados do navegador)</td>
+                <td>Quando há anúncios na página. Os personalizados só com a sua permissão.</td>
+                <td>Exibir anúncios do Google AdSense, limitar repetições e medir resultados.</td>
+              </tr>
+              <tr>
                 <td>Nome e e-mail</td>
                 <td>Quando você nos escreve.</td>
                 <td>Responder a sua mensagem.</td>
@@ -67,7 +73,8 @@ const sections: DocSection[] = [
           <strong>Legítimo interesse</strong>: segurança do site e resposta às mensagens que você envia;
         </li>
         <li>
-          <strong>Consentimento</strong>: cookies de métricas e de publicidade, quando existirem. Você pode retirar o consentimento quando quiser.
+          <strong>Consentimento</strong>: cookies de métricas e de anúncios personalizados. Você pode retirar o consentimento quando quiser, pelo link
+          “Preferências de cookies” no rodapé.
         </li>
       </ul>
     ),
@@ -77,9 +84,34 @@ const sections: DocSection[] = [
     title: "Cookies",
     body: (
       <p>
-        Usamos cookies para o site funcionar e, no futuro, para medir audiência e exibir anúncios. Os detalhes e as formas de desativar estão na{" "}
+        Usamos cookies para o site funcionar e, com a sua permissão, para exibir anúncios personalizados. Os detalhes e as formas de desativar estão na{" "}
         <TextLink to="/cookies">política de cookies</TextLink>.
       </p>
+    ),
+  },
+  {
+    id: "anuncios",
+    title: "Anúncios do Google",
+    body: (
+      <>
+        <p>O {SITE.name} pode exibir anúncios do Google AdSense, que ajudam a manter o site gratuito. Sobre esses anúncios:</p>
+        <ul>
+          <li>fornecedores terceiros, incluindo o Google, usam cookies para exibir anúncios com base nas suas visitas anteriores a este e a outros sites;</li>
+          <li>os cookies de publicidade permitem que o Google e os parceiros dele exibam anúncios com base nas suas visitas a este e a outros sites da internet;</li>
+          <li>
+            os anúncios personalizados só são ativados se você escolher “Aceitar todos” no aviso de cookies. Com “Só os essenciais”, o Google pode exibir anúncios
+            não personalizados, que usam só o contexto da página;
+          </li>
+          <li>
+            você pode desativar a publicidade personalizada nas <TextLink to="https://myadcenter.google.com/">configurações de anúncios do Google</TextLink> e,
+            para outros fornecedores, em <TextLink to="https://www.aboutads.info/choices/">aboutads.info</TextLink>.
+          </li>
+        </ul>
+        <p>
+          Saiba{" "}
+          <TextLink to="https://policies.google.com/technologies/partner-sites?hl=pt-BR">como o Google usa as informações de sites que usam os serviços dele</TextLink>.
+        </p>
+      </>
     ),
   },
   {
@@ -90,7 +122,8 @@ const sections: DocSection[] = [
         <p>Não vendemos dados pessoais. Dados podem ser tratados por fornecedores que nos ajudam a operar o site, sempre só no necessário:</p>
         <ul>
           <li>empresa de hospedagem, onde o site e o banco de dados ficam guardados;</li>
-          <li>ferramentas de métricas e de anúncios, se e quando forem ativadas, mediante consentimento;</li>
+          <li>Google (AdSense), para exibir anúncios, como descrito acima;</li>
+          <li>ferramentas de métricas, se e quando forem ativadas, mediante consentimento;</li>
           <li>autoridades públicas, quando houver ordem judicial ou obrigação legal.</li>
         </ul>
         <p>

@@ -30,6 +30,7 @@ export default [
   route("sitemap.xml", "routes/sitemap.ts"),
   route("rss.xml", "routes/rss.ts"),
   route("robots.txt", "routes/robots.ts"),
+  route("ads.txt", "routes/ads-txt.ts"),
 
   // Painel administrativo (só o dono; fora dos menus, noindex, Disallow no robots.txt).
   route("admin/login", "routes/admin/login.tsx"),

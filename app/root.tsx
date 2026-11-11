@@ -4,12 +4,15 @@ import type { Route } from "./+types/root";
 import "./app.css";
 import { Footer } from "./components/Footer";
 import { Header, PlatformBar, StatusBar } from "./components/Header";
-import { getStatus } from "./lib/content.server";
+import { CookieConsent } from "./components/CookieConsent";
+import { adsenseClient, consentBootstrap } from "./lib/ads";
+import { getAvailability, getStatus } from "./lib/content.server";
 import { formatDate } from "./lib/format";
 import { SITE } from "./lib/site";
 
 export const links: Route.LinksFunction = () => [
   { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
   { rel: "alternate", type: "application/rss+xml", title: `${SITE.name} — RSS`, href: "/rss.xml" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -20,14 +23,16 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export async function loader() {
-  const status = await getStatus();
-  return { status: { ...status, today: formatDate(new Date().toISOString()).toUpperCase() } };
+  const [status, available] = await Promise.all([getStatus(), getAvailability()]);
+  return { status: { ...status, today: formatDate(new Date().toISOString()).toUpperCase() }, available, adsClient: adsenseClient() };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
   // O painel /admin tem o próprio cabeçalho: sem barra de status, menu e rodapé do site.
   const admin = useLocation().pathname.startsWith("/admin");
+  // Anúncios + banner de cookies só com ADSENSE_CLIENT configurado, e nunca no painel.
+  const adsClient = admin ? null : (data?.adsClient ?? null);
   return (
     <html lang="pt-BR">
       <head>
@@ -36,6 +41,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="theme-color" content="#060807" />
         <Meta />
         <Links />
+        {adsClient && (
+          <>
+            <script dangerouslySetInnerHTML={{ __html: consentBootstrap() }} />
+            <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsClient}`} crossOrigin="anonymous" />
+          </>
+        )}
       </head>
       <body className="min-h-screen">
         <a href="#conteudo" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-acc focus:px-4 focus:py-3 focus:text-ink">
@@ -46,6 +57,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {!admin && <PlatformBar />}
         {children}
         {!admin && <Footer />}
+        {adsClient && <CookieConsent />}
         <ScrollRestoration />
         <Scripts />
       </body>

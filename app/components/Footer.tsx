@@ -1,8 +1,12 @@
-import { Link } from "react-router";
-import { DOC_PAGES, NAV, PLATFORMS, SITE } from "~/lib/site";
+import { Link, useRouteLoaderData } from "react-router";
+import { CookiePrefsButton } from "./CookieConsent";
+import { navFor, platformsFor, useAvailability } from "~/lib/availability";
+import { DOC_PAGES, SITE } from "~/lib/site";
 import { Logo } from "./Header";
 
 export function Footer() {
+  const available = useAvailability();
+  const ads = Boolean((useRouteLoaderData("root") as { adsClient?: string | null } | undefined)?.adsClient);
   return (
     <footer className="mt-20 border-t border-line">
       <div className="mx-auto grid max-w-[1280px] grid-cols-2 gap-x-6 gap-y-8 px-4 pt-10 sm:px-6 md:grid-cols-4 lg:grid-cols-[1.6fr_1fr_1fr_1fr_1fr]">
@@ -12,16 +16,19 @@ export function Footer() {
           </Link>
           <p className="text-sm leading-relaxed text-muted">{SITE.description}</p>
         </div>
-        <FooterCol title="Módulos" links={NAV} />
-        <FooterCol title="Plataformas" links={PLATFORMS.map((p) => ({ to: `/plataforma/${p.slug}`, label: p.label }))} />
+        <FooterCol title="Módulos" links={navFor(available)} />
+        <FooterCol title="Plataformas" links={platformsFor(available).map((p) => ({ to: `/plataforma/${p.slug}`, label: p.label }))} />
         <FooterCol title="Institucional" links={DOC_PAGES.filter((d) => d.group === "site")} />
         <FooterCol
           title="Legal"
           links={DOC_PAGES.filter((d) => d.group === "legal")}
           extra={
-            <a href="/rss.xml" className="py-2.5 text-sm text-body hover:text-acc md:py-1.5">
-              Feed RSS
-            </a>
+            <>
+              {ads && <CookiePrefsButton className="py-2.5 text-left text-sm text-body hover:text-acc md:py-1.5" />}
+              <a href="/rss.xml" className="py-2.5 text-sm text-body hover:text-acc md:py-1.5">
+                Feed RSS
+              </a>
+            </>
           }
         />
       </div>

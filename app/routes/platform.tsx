@@ -21,6 +21,8 @@ export function meta({ loaderData }: Route.MetaArgs) {
     title: `${platform.label}: notícias, reviews e lançamentos${posts.page > 1 ? ` — página ${posts.page}` : ""}`,
     description: `Tudo sobre jogos de ${platform.label}: notícias, reviews, guias, lançamentos e promoções.`,
     path: `/plataforma/${platform.slug}${posts.page > 1 ? `?pagina=${posts.page}` : ""}`,
+    // Sem matérias: fica fora do Google até ter conteúdo.
+    noindex: posts.total === 0,
   });
 }
 

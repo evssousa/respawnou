@@ -2,7 +2,7 @@
 import { Link } from "react-router";
 import type { SectionStat } from "~/lib/content.server";
 import { formatScore } from "~/lib/format";
-import { PLATFORMS } from "~/lib/site";
+import { PLATFORMS, type Platform } from "~/lib/site";
 import type { FreeGame, PostView, Release } from "~/lib/types";
 import { Rail } from "./Rail";
 import { Art, Badge, Hud, Kicker, cx } from "./ui";
@@ -66,10 +66,11 @@ export function MainBroadcast({ post, log }: { post: PostView; log: PostView[] }
 
 /* ───────────── M02 · Módulos (atalhos das editorias) ───────────── */
 
-export function ModuleGrid({ stats, releases }: { stats: SectionStat[]; releases: number }) {
+export function ModuleGrid({ stats, releases, showReleases = true }: { stats: SectionStat[]; releases: number; showReleases?: boolean }) {
   const items = [
-    ...stats.map((s) => ({ to: `/${s.slug}`, label: s.label, info: `${pad(s.total)} ARQUIVOS` })),
-    { to: "/lancamentos", label: "Lançamentos", info: `${pad(releases)} NA SEMANA` },
+    // Editoria vazia fica de fora (Notícias sempre aparece).
+    ...stats.filter((s) => s.total > 0 || s.slug === "noticias").map((s) => ({ to: `/${s.slug}`, label: s.label, info: `${pad(s.total)} ARQUIVOS` })),
+    ...(showReleases ? [{ to: "/lancamentos", label: "Lançamentos", info: `${pad(releases)} NA SEMANA` }] : []),
   ];
   return (
     <nav aria-label="Módulos" className="rail -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-6">
@@ -321,10 +322,10 @@ export function LootDrop({ free, promos }: { free: FreeGame[]; promos: PostView[
 
 /* ───────────── M09 · Seletor de plataforma ───────────── */
 
-export function PlatformSelect() {
+export function PlatformSelect({ platforms = PLATFORMS }: { platforms?: Platform[] }) {
   return (
     <nav aria-label="Plataformas" className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
-      {PLATFORMS.map((p, i) => (
+      {platforms.map((p, i) => (
         <Link key={p.slug} to={`/plataforma/${p.slug}`} className="group ch flex flex-col gap-6 bg-ink-2 p-5 transition-colors hover:bg-acc hover:text-ink">
           <span className="flex justify-between font-mono text-[11px] font-bold text-muted group-hover:text-ink">
             <span>P{i + 1}</span>
