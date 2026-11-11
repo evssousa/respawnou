@@ -6,7 +6,8 @@ import { adminConfig, login, sameOrigin } from "~/lib/admin/auth.server";
 export const meta = () => adminMeta("Entrar");
 
 export function loader() {
-  return { ready: adminConfig().ready };
+  const { ready, problems } = adminConfig();
+  return { ready, problems };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -26,8 +27,13 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
       </p>
       {!loaderData.ready ? (
         <Notice tone="warn">
-          Painel ainda não configurado. Cadastre <code>ADMIN_EMAIL</code>, <code>ADMIN_PASSWORD_HASH</code> e <code>SESSION_SECRET</code> nas
-          variáveis de ambiente (veja docs/admin.md).
+          Painel ainda não configurado. Confira as variáveis de ambiente no hPanel (veja docs/admin.md):
+          <ul className="mt-2 list-disc pl-5">
+            {loaderData.problems.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
+          Depois de salvar, o app reinicia sozinho; recarregue esta página.
         </Notice>
       ) : (
         <Form method="post" className="flex flex-col gap-4">

@@ -12,7 +12,12 @@ Status: ✅ construído e testado (2026-11-11). Falta o dono cadastrar as 3 vari
   - `ADMIN_PASSWORD_HASH` — hash **scrypt** da senha (nunca a senha), gerado com `npm run admin:hash`
     no computador do dono (pede a senha sem mostrar e imprime as variáveis);
   - `SESSION_SECRET` — 32+ caracteres aleatórios (o mesmo script gera).
-  Sem as três, `/admin/login` mostra "Painel ainda não configurado".
+  Sem as três, `/admin/login` mostra "Painel ainda não configurado" com a lista do que falta ou
+  está inválido (só nomes, nunca valores).
+- Formato do hash: `scrypt:N:r:p:salt:hash` (sem `$`: alguns painéis tratam `$algo` como variável e
+  cortam o valor). O formato antigo com `$` continua aceito.
+- Depois de salvar no hPanel, conferir com `hosting_nodejs_list-environment-variables` (mostra só os
+  nomes). Em 2026-11-11 a primeira tentativa não gravou: a lista não tinha nenhuma das três.
 - Sessão: cookie `__respawnou_admin` assinado, `HttpOnly`, `Secure`, `SameSite=Lax`, 7 dias,
   **path `/`** (com path `/admin` a navegação interna quebrava: os dados vêm de `/admin.data`).
 - Força bruta: 5 erros por IP em 15 min bloqueiam o login (em memória).

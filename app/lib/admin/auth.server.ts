@@ -15,16 +15,29 @@ const R = 8;
 const P = 1;
 const KEYLEN = 64;
 
-/** Formato: scrypt$N$r$p$<salt base64>$<hash base64> */
+/**
+ * Formato: scrypt:N:r:p:<salt base64>:<hash base64>
+ * Sem "$": alguns painéis tratam "$algo" como variável e apagam o trecho. O formato antigo
+ * (separado por "$") continua aceito.
+ */
 export async function hashPassword(password: string) {
   const salt = randomBytes(16);
   const hash = await scrypt(password, salt, KEYLEN, { N, r: R, p: P, maxmem: 64 * 1024 * 1024 });
-  return `scrypt$${N}$${R}$${P}$${salt.toString("base64")}$${hash.toString("base64")}`;
+  return `scrypt:${N}:${R}:${P}:${salt.toString("base64")}:${hash.toString("base64")}`;
+}
+
+function parseHash(stored: string) {
+  const s = stored.trim();
+  const parts = s.split(s.includes(":") ? ":" : "$");
+  const [alg, n, r, p, salt, hash] = parts;
+  if (parts.length !== 6 || alg !== "scrypt" || !Number(n) || !Number(r) || !Number(p) || !salt || !hash) return null;
+  return { n: Number(n), r: Number(r), p: Number(p), salt, hash };
 }
 
 export async function verifyPassword(password: string, stored: string) {
-  const [alg, n, r, p, salt, hash] = stored.split("$");
-  if (alg !== "scrypt" || !salt || !hash) return false;
+  const parsed = parseHash(stored);
+  if (!parsed) return false;
+  const { n, r, p, salt, hash } = parsed;
   const expected = Buffer.from(hash, "base64");
   const got = await scrypt(password, Buffer.from(salt, "base64"), expected.length, { N: Number(n), r: Number(r), p: Number(p), maxmem: 64 * 1024 * 1024 });
   return got.length === expected.length && timingSafeEqual(got, expected);
@@ -35,9 +48,16 @@ export async function verifyPassword(password: string, stored: string) {
 export function adminConfig() {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const hash = process.env.ADMIN_PASSWORD_HASH?.trim();
-  const secret = process.env.SESSION_SECRET;
-  const ready = Boolean(email && hash?.startsWith("scrypt$") && secret && secret.length >= 32);
-  return { ready, email, hash, secret };
+  const secret = process.env.SESSION_SECRET?.trim();
+  // O que falta ou está inválido (só nomes, nunca valores) — mostrado na tela de login.
+  const problems: string[] = [];
+  if (!email) problems.push("ADMIN_EMAIL não encontrada");
+  else if (!email.includes("@")) problems.push("ADMIN_EMAIL não parece um e-mail");
+  if (!hash) problems.push("ADMIN_PASSWORD_HASH não encontrada");
+  else if (!parseHash(hash)) problems.push("ADMIN_PASSWORD_HASH incompleta ou alterada (cole a linha inteira gerada pelo npm run admin:hash)");
+  if (!secret) problems.push("SESSION_SECRET não encontrada");
+  else if (secret.length < 32) problems.push("SESSION_SECRET curta demais (mín. 32 caracteres)");
+  return { ready: problems.length === 0, problems, email, hash, secret };
 }
 
 type SessionData = { admin: string };
