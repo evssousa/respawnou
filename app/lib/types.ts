@@ -3,11 +3,18 @@ import type { PlatformSlug, SectionSlug } from "./site";
 /** Variações da arte provisória de capa (enquanto não houver imagem real). */
 export type ArtVariant = "a" | "b" | "c" | "d";
 
+/**
+ * Blocos do corpo. Em p, ul e quote o texto aceita links no formato [texto](url):
+ * url começando com "/" é link interno; o resto abre em outra aba.
+ */
 export type Block =
   | { type: "p"; text: string }
   | { type: "h2"; text: string }
+  | { type: "h3"; text: string }
   | { type: "ul"; items: string[] }
-  | { type: "quote"; text: string };
+  | { type: "quote"; text: string }
+  | { type: "img"; src: string; alt: string; width?: number; height?: number; credit?: string }
+  | { type: "video"; youtubeId: string; title: string };
 
 /** Uma análise publicada por um veículo da imprensa especializada. */
 export interface CriticReview {
@@ -47,7 +54,11 @@ export interface Post {
   author: string;
   readMinutes: number;
   art: ArtVariant;
-  image?: { src: string; alt: string };
+  image?: { src: string; alt: string; credit?: string };
+  /** SEO: descrição para o Google (120–160 caracteres); sem ela, usa o excerpt. */
+  metaDescription?: string;
+  focusKeyword?: string;
+  tags?: string[];
   body: Block[];
   review?: Review;
   featured?: boolean;

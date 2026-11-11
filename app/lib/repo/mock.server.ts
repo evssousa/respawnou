@@ -42,7 +42,7 @@ export const mockRepo: Repo = {
   async searchPosts(terms, limit) {
     return MOCK_POSTS.filter((p) => {
       const game = p.gameSlug ? (MOCK_GAMES.find((g) => g.slug === p.gameSlug)?.name ?? "") : "";
-      const text = normalize([p.title, p.excerpt, p.tag ?? "", game, ...p.body.map((b) => ("text" in b ? b.text : b.items.join(" ")))].join(" "));
+      const text = normalize([p.title, p.excerpt, p.tag ?? "", game, ...p.body.map((b) => ("text" in b ? b.text : "items" in b ? b.items.join(" ") : ""))].join(" "));
       return terms.every((t) => text.includes(t));
     })
       .sort(byDateDesc)

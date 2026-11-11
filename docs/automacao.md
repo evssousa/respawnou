@@ -45,13 +45,15 @@ MySQL local (127.0.0.1:3306)
 ## Configurações (tabela `settings`)
 
 `robot_enabled`, `posts_per_day` (4), `robot_sections` (["noticias","promocoes"]),
-`robot_min_words` (300), `robot_start_hour` (8), `robot_end_hour` (22).
+`robot_min_words` (350 desde a migration 003), `robot_start_hour` (8), `robot_end_hour` (22).
 
 ## Fontes e bloqueios
 
 - 11 feeds (migration 002). GameSpot, Gematsu e a rede Push Square/Pure Xbox/Nintendo Life
   **bloqueiam robôs (403) na página da matéria**: o robô usa o texto do próprio RSS e **não**
   se disfarça de navegador para contornar o bloqueio.
+- Gematsu e a rede Push Square bloqueiam também as **imagens** (403). Pauta exclusiva deles só
+  vira matéria se outra fonte do mesmo assunto tiver imagem (sem capa, a pauta é descartada).
 - O robô junta fontes do mesmo assunto (semelhança de título ≥ 0,5) para escrever com mais
   substância; ao publicar, marca como `skipped` tudo da fila que trata do mesmo assunto.
 - Descartes automáticos na coleta: reviews/impressões de terceiros, enquetes/quizzes/sorteios,
@@ -59,14 +61,44 @@ MySQL local (127.0.0.1:3306)
 
 ## Pipeline de publicação (1 post por chamada)
 
-1. **Escolher**: itens `new` das últimas 48 h, com pontuação (fonte, palavras-chave, jogo conhecido,
-   quantas fontes falam do mesmo assunto). Agrupar duplicados.
-2. **Enriquecer**: dados do jogo (RAWG) e matérias relacionadas do próprio site para links internos.
-3. **Escrever** (Gemini, saída em JSON): título, linha fina, editoria, plataformas, jogo, corpo em
-   blocos (`p`, `h2`, `ul`, `quote`), tempo de leitura.
-4. **Validar**: tamanho mínimo, sem números/datas que não estejam na fonte, slug único, editoria válida.
-   Falhou → item `failed` com motivo; não publica.
-5. **Publicar**: grava em `posts` (`origin = 'auto'`), marca item como `used`.
+Código: `writer.server.ts` (redator), `quality.ts` (checagem), `assemble.ts` (corpo final),
+`media.ts`/`media.server.ts` (imagens e vídeos). Regras baseadas no robô do Anime Profile
+(`animeprofile/src/lib/ai-news/worker/`: prompt, quality, html, media, localize).
+
+1. **Escolher**: itens `new` das últimas 48 h, pela pontuação; junta até 2 fontes do mesmo assunto.
+2. **Fontes e mídia**: texto da página (ou do RSS) e mídia do RSS (`feed_items.media`, gravada na
+   coleta) + da página (`og:image`, imagens do `<article>`, vídeos do YouTube, links oficiais de lojas).
+3. **Imagens antes do Gemini** (`chooseMedia`): baixa até 10 candidatas na maior resolução que o CDN
+   oferece (`imageCandidates`: gnwcdn/IGN `width=1600`, WordPress sem `-300x169`, Future `-1920-`),
+   descarta repetidas (mesmo arquivo). **Capa**: horizontal, ≥ 1200 px (aceita ≥ 800 se não houver);
+   **sem capa a pauta é descartada** sem gastar cota. **Corpo**: até 3, ≥ 600 px, diferentes da capa.
+4. **Vídeo**: 1º vídeo do YouTube das fontes que o oEmbed confirma (existe e pode ser incorporado).
+5. **Escrever** (Gemini, JSON): `focusKeyword`, título 30–70 caracteres com a palavra-chave,
+   2 títulos alternativos, `metaDescription` 120–160, linha fina, 3–6 tags, plataformas e corpo em
+   blocos (`p`, `h2`, `h3`, `ul`, `quote`) com links `[texto](url)`. Guia editorial no `SYSTEM`:
+   lide com a palavra-chave, 2+ h2 informativos, "Para o jogador brasileiro" só com dado das fontes,
+   última seção "Mais sobre <palavra-chave>", 450–700 palavras, nada inventado, rumor sinalizado.
+6. **Links**: o prompt traz a lista permitida — internos (matérias do site mais parecidas, páginas
+   de plataforma, lançamentos) e externos (matérias originais, links oficiais de lojas).
+   `sanitizeLinks` tira qualquer link fora da lista (vira texto) e repetido.
+7. **Checar** (`autoFix` + `checkDraft`): troca expressões de IA com troca segura, encurta título
+   (usa alternativo) e meta description; reprova por: título/meta fora do tamanho, palavra-chave fora
+   do título ou do lide, expressões de IA, frase em inglês, < `robot_min_words`, < 2 h2, sem
+   "Mais sobre", h2 genérico, parágrafo > 110 palavras, parágrafos quase iguais, rumor da fonte
+   apresentado como fato, número que não está nas fontes. **Reprovou → o Gemini refaz com a lista
+   de problemas** (2 tentativas); reprovou de novo → item `failed` com os motivos.
+8. **Montar** (`assembleBody`): vídeo depois do lide, uma imagem abaixo de cada h2 (alt =
+   "palavra-chave: título da seção", crédito "Imagem: reprodução/<veículo>"), link interno garantido
+   (1ª menção de plataforma vira link se o Gemini não pôs nenhum) e "Leia também" depois do 3º parágrafo.
+9. **Publicar**: grava as imagens em WebP (sharp, até 1600 px) em `MEDIA_DIR` (padrão
+   `~/respawnou-media`, fora da pasta do app, que é trocada a cada deploy), servidas em `/media`
+   com cache de 1 ano; grava o post com `meta_description`, `focus_keyword`, `tags`, capa e crédito.
+10. **Refazer**: `/api/cron/publicar?token=...&refazer=<id do post>` reescreve um post do robô com
+    as regras atuais, no mesmo endereço (`&dry=1` para só ver).
+
+Página do post: `<h1>` = título; meta description; `robots max-image-preview:large` (Discover);
+JSON-LD NewsArticle com imagem, `keywords` (tags), `articleSection` e logo; crédito da capa;
+tags com link para a busca.
 
 ## Consenso da crítica (Reviews)
 

@@ -19,6 +19,10 @@ interface PostRow {
   art: string;
   image_url: string | null;
   image_alt: string | null;
+  image_credit: string | null;
+  meta_description?: string | null;
+  focus_keyword?: string | null;
+  tags?: unknown;
   body?: unknown;
   review: unknown;
   featured: number;
@@ -57,7 +61,10 @@ function toPost(r: PostRow): Post {
     author: r.author,
     readMinutes: r.read_minutes,
     art: art(r.art),
-    image: r.image_url ? { src: r.image_url, alt: r.image_alt ?? r.title } : undefined,
+    image: r.image_url ? { src: r.image_url, alt: r.image_alt ?? r.title, credit: r.image_credit ?? undefined } : undefined,
+    metaDescription: r.meta_description ?? undefined,
+    focusKeyword: r.focus_keyword ?? undefined,
+    tags: json<string[] | undefined>(r.tags, undefined),
     body: json<Block[]>(r.body, []),
     review: json<Review | undefined>(r.review, undefined),
     featured: Boolean(r.featured),
@@ -82,7 +89,7 @@ function toGame(r: GameRow): Game {
 
 // Listagens não precisam do corpo do texto: evita trafegar o JSON inteiro.
 const POST_COLS = `p.section, p.slug, p.title, p.excerpt, p.tag, p.platforms, g.slug AS game_slug, p.author, p.read_minutes,
-  p.art, p.image_url, p.image_alt, p.review, p.featured, p.views, p.source_name, p.source_url, p.published_at, p.updated_at`;
+  p.art, p.image_url, p.image_alt, p.image_credit, p.review, p.featured, p.views, p.source_name, p.source_url, p.published_at, p.updated_at`;
 const FROM_POSTS = `FROM posts p LEFT JOIN games g ON g.id = p.game_id`;
 const PUBLISHED = `p.status = 'published' AND p.published_at <= UTC_TIMESTAMP()`;
 
@@ -138,7 +145,7 @@ export const mysqlRepo: Repo = {
   },
 
   async findPost(section, slug) {
-    const rows = await query<PostRow>(`SELECT ${POST_COLS}, p.body ${FROM_POSTS} WHERE ${PUBLISHED} AND p.section = ? AND p.slug = ? LIMIT 1`, [section, slug]);
+    const rows = await query<PostRow>(`SELECT ${POST_COLS}, p.body, p.meta_description, p.focus_keyword, p.tags ${FROM_POSTS} WHERE ${PUBLISHED} AND p.section = ? AND p.slug = ? LIMIT 1`, [section, slug]);
     return rows[0] ? toPost(rows[0]) : null;
   },
 

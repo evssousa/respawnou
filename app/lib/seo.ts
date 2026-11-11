@@ -36,6 +36,7 @@ export function seo({ title, description = SITE.description, path, image, type =
   }
   if (publishedAt) tags.push({ property: "article:published_time", content: publishedAt });
   if (updatedAt) tags.push({ property: "article:modified_time", content: updatedAt });
-  if (noindex) tags.push({ name: "robots", content: "noindex, follow" });
+  // max-image-preview:large libera a imagem grande no Google Discover.
+  tags.push({ name: "robots", content: noindex ? "noindex, follow" : "index, follow, max-image-preview:large" });
   return tags;
 }

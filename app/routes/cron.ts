@@ -3,7 +3,8 @@
 //   GET /api/cron/publicar?token=...  publica 1 matéria (respeita horário, limite e intervalo)
 //   GET /api/cron/status?token=...    últimas execuções (com o rascunho dos testes dry=1)
 //   GET /api/cron/diag?token=...      testa os modelos do Gemini (resultado em /status)
-// Parâmetros extras de publicar: dry=1 (gera sem gravar), force=1 (ignora horário/limite).
+// Parâmetros extras de publicar: dry=1 (gera sem gravar), force=1 (ignora horário/limite),
+// refazer=<id do post> (reescreve um post do robô com as regras atuais, mesmo endereço).
 //
 // A CDN da Hostinger corta requisições com mais de ~1 min (devolve 307), e o Gemini pode levar
 // mais que isso. Por isso coletar/publicar respondem 202 na hora e rodam em segundo plano;
@@ -37,7 +38,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   let job: () => Promise<JobResult>;
   if (params.job === "coletar") job = collect;
   else if (params.job === "diag") job = diag;
-  else if (params.job === "publicar") job = () => publish({ dry: flag("dry"), force: flag("force") });
+  else if (params.job === "publicar") job = () => publish({ dry: flag("dry"), force: flag("force"), redoPostId: Number(url.searchParams.get("refazer")) || undefined });
   else return notFound();
 
   if (!flag("wait")) {

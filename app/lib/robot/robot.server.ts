@@ -4,11 +4,10 @@ import { createHash } from "node:crypto";
 import type { ResultSetHeader } from "mysql2";
 import { db, json, query } from "../db.server.ts";
 import { diagnose, generateJson, GeminiError } from "./gemini.server.ts";
-import { fetchArticle, fetchFeed } from "./rss.server.ts";
-import { countWords, keywords, numbersIn, similarity, slugify } from "./text.ts";
+import { fetchFeed } from "./rss.server.ts";
+import { keywords, similarity, slugify } from "./text.ts";
+import { localizeImages, writeArticle, type BuiltArticle, type SourceItem } from "./writer.server.ts";
 
-const PLATFORMS = ["pc", "playstation", "xbox", "switch", "mobile"] as const;
-const SECTIONS = ["noticias", "artigos", "reviews", "guias", "promocoes"] as const;
 const TZ = "America/Sao_Paulo";
 
 // ───────────── Configurações (tabela settings) ─────────────
@@ -143,14 +142,15 @@ export function collect(): Promise<JobResult> {
           if (!it.publishedAt || it.publishedAt.getTime() < cutoff || it.publishedAt.getTime() > Date.now() + 3600_000) continue;
           const skip = SKIP_PATTERNS.find(([re]) => re.test(it.title));
           const [res] = await db().query<ResultSetHeader>(
-            `INSERT IGNORE INTO feed_items (feed_id, guid_hash, title, url, summary, published_at, status, score, reason)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT IGNORE INTO feed_items (feed_id, guid_hash, title, url, summary, media, published_at, status, score, reason)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               feed.id,
               hash(it.guid || it.url),
               it.title.slice(0, 400),
               it.url.slice(0, 600),
               it.summary.slice(0, 20000),
+              JSON.stringify(it.media),
               sqlNow(it.publishedAt),
               skip ? "skipped" : "new",
               scoreItem(it.title, feed.weight),
@@ -180,93 +180,13 @@ export function collect(): Promise<JobResult> {
 
 // ───────────── Publicação ─────────────
 
-interface QueueItem {
-  id: number;
-  feed_id: number;
-  feed_name: string;
-  title: string;
-  url: string;
-  summary: string | null;
-  published_at: string;
-  score: number;
-}
-
-interface Draft {
-  publish: boolean;
-  reason: string;
-  section: string;
-  title: string;
-  excerpt: string;
-  platforms: string[];
-  body: { type: "p" | "h2" | "ul" | "quote"; text?: string; items?: string[] }[];
-}
-
-const SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    publish: { type: "BOOLEAN", description: "false se a pauta não serve (ver regras)" },
-    reason: { type: "STRING", description: "por que publicar ou não, em uma frase" },
-    section: { type: "STRING", enum: [...SECTIONS] },
-    title: { type: "STRING", description: "título em pt-BR, até 100 caracteres, informativo, sem caixa alta e sem clickbait" },
-    excerpt: { type: "STRING", description: "linha fina em pt-BR, 1 a 2 frases, até 220 caracteres" },
-    platforms: { type: "ARRAY", items: { type: "STRING", enum: [...PLATFORMS] } },
-    body: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        properties: {
-          type: { type: "STRING", enum: ["p", "h2", "ul", "quote"] },
-          text: { type: "STRING" },
-          items: { type: "ARRAY", items: { type: "STRING" } },
-        },
-        required: ["type"],
-      },
-    },
-  },
-  required: ["publish", "reason", "section", "title", "excerpt", "platforms", "body"],
-};
-
-const SYSTEM = `Você é redator do Respawnou, portal brasileiro de notícias de games. Escreve em português do Brasil, com tom direto, claro e sem enrolação.
-
-Regras obrigatórias:
-1. Use SOMENTE fatos presentes nas fontes fornecidas. Nunca invente datas, preços, números, nomes, declarações ou detalhes.
-2. Não traduza parágrafo por parágrafo: escreva um texto novo, com estrutura própria, a partir dos fatos.
-3. Organize a matéria assim: um parágrafo de abertura com o fato principal; depois 2 ou 3 intertítulos (h2) com contexto, detalhes e o que isso significa para quem joga. Use lista (ul) só quando houver itens de verdade (recursos, datas, plataformas).
-4. Mínimo de 350 palavras no corpo. Se as fontes não tiverem substância para isso sem enrolar, responda publish=false.
-5. Preços, dublagem/legendas em português e horários de Brasília só podem aparecer se estiverem nas fontes. Não converta moedas nem fusos.
-6. Citações diretas: no máximo uma, curta, entre aspas, atribuída a quem disse (tipo "quote" sem aspas no texto).
-7. Não mencione os sites de origem no corpo do texto (o crédito é adicionado automaticamente no fim).
-8. Títulos em português, com só a primeira letra maiúscula (e nomes próprios), sem caixa alta, sem emojis e sem clickbait.
-9. Responda publish=false quando: não for sobre games; for opinião, review ou impressões de outro veículo; for rumor sem fonte com histórico de acerto; for lista de ofertas de loja; for conteúdo patrocinado; ou o assunto já estiver na lista de matérias recentes do Respawnou.
-10. Escolha a editoria entre as permitidas. Plataformas: só as citadas nas fontes (pc, playstation, xbox, switch, mobile).`;
-
-function sourcesBlock(sources: { name: string; title: string; url: string; date: string; text: string }[]) {
-  return sources
-    .map((s, i) => `### FONTE ${i + 1}: ${s.name}\nTítulo: ${s.title}\nPublicado em: ${s.date}\nURL: ${s.url}\n\n${s.text}`)
-    .join("\n\n---\n\n");
-}
-
-const blockText = (b: Draft["body"][number]) => (b.type === "ul" ? (b.items ?? []).join(" ") : (b.text ?? ""));
-
-/** Confere a matéria gerada. Devolve o motivo da reprovação, ou null se estiver ok. */
-export function validateDraft(d: Draft, sourceText: string, allowedSections: string[], minWords: number): string | null {
-  if (!d.title || d.title.length > 140) return "título vazio ou longo demais";
-  if (!d.excerpt || d.excerpt.length > 400) return "linha fina vazia ou longa demais";
-  if (!allowedSections.includes(d.section)) return `editoria não permitida para o robô: ${d.section}`;
-  if (!Array.isArray(d.body) || d.body.length < 3) return "corpo com poucos blocos";
-  if (d.body.some((b) => !["p", "h2", "ul", "quote"].includes(b.type) || !blockText(b).trim())) return "bloco vazio ou de tipo inválido";
-  const words = countWords(d.body.map(blockText).join(" "));
-  if (words < minWords) return `texto curto (${words} palavras; mínimo ${minWords})`;
-  if (d.title === d.title.toUpperCase()) return "título em caixa alta";
-
-  // Todo número da matéria precisa existir nas fontes (anos atual e seguinte são tolerados).
-  const allowed = numbersIn(sourceText);
-  const year = new Date().getUTCFullYear();
-  [year - 1, year, year + 1].forEach((y) => allowed.add(String(y)));
-  const text = [d.title, d.excerpt, ...d.body.map(blockText)].join(" ");
-  const invented = [...numbersIn(text)].filter((n) => !allowed.has(n));
-  if (invented.length) return `números que não estão nas fontes: ${invented.slice(0, 5).join(", ")}`;
-  return null;
+/** Dia de hoje no fuso de Brasília, como intervalo UTC para o banco. */
+function todayRangeUTC() {
+  const now = new Date();
+  const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(now);
+  // Brasília é UTC-3 (sem horário de verão desde 2019).
+  const start = new Date(`${ymd}T03:00:00Z`);
+  return { start: sqlNow(start), hour: Number(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", hour12: false }).format(now)) };
 }
 
 async function uniqueSlug(section: string, base: string) {
@@ -277,13 +197,25 @@ async function uniqueSlug(section: string, base: string) {
   for (let i = 2; ; i++) if (!taken.has(`${slug}-${i}`)) return `${slug}-${i}`;
 }
 
-/** Dia de hoje no fuso de Brasília, como intervalo UTC para o banco. */
-function todayRangeUTC() {
-  const now = new Date();
-  const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(now);
-  // Brasília é UTC-3 (sem horário de verão desde 2019).
-  const start = new Date(`${ymd}T03:00:00Z`);
-  return { start: sqlNow(start), hour: Number(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", hour12: false }).format(now)) };
+/** Matérias do site para link interno: as que dividem palavras com o assunto vêm primeiro. */
+async function relatedPosts(titles: string[], excludeId?: number) {
+  const rows = await query<{ id: number; section: string; slug: string; title: string }>(
+    `SELECT id, section, slug, title FROM posts WHERE status = 'published' AND published_at <= UTC_TIMESTAMP()
+     AND published_at > UTC_TIMESTAMP() - INTERVAL 120 DAY ORDER BY published_at DESC LIMIT 200`,
+  );
+  const kw = new Set(titles.flatMap((t) => [...keywords(t)]));
+  return rows
+    .filter((r) => r.id !== excludeId)
+    .map((r, i) => ({ r, score: [...keywords(r.title)].filter((w) => kw.has(w)).length * 10 - i / 100 }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map(({ r }) => ({ title: r.title, url: `/${r.section}/${r.slug}` }));
+}
+
+/** Fontes do mesmo assunto (outros veículos) entram juntas: mais contexto, texto mais original. */
+function groupFor(item: SourceItem, queue: SourceItem[]) {
+  const kw = keywords(item.title);
+  return [item, ...queue.filter((q) => q.id !== item.id && q.feed_id !== item.feed_id && similarity(kw, keywords(q.title)) >= 0.5).slice(0, 2)];
 }
 
 export interface PublishOptions {
@@ -291,11 +223,46 @@ export interface PublishOptions {
   dry?: boolean;
   /** Ignora horário, limite diário e intervalo (não ignora robot_enabled, exceto em dry). */
   force?: boolean;
+  /** Reescreve um post já publicado (mesmo endereço) com as regras atuais. */
+  redoPostId?: number;
+}
+
+const ITEM_COLS = `fi.id, fi.feed_id, f.name AS feed_name, fi.title, fi.url, fi.summary, fi.media, fi.published_at`;
+
+function geminiFailure(err: unknown): JobResult | null {
+  // Limite do plano gratuito ou instabilidade: não queima a pauta; tenta de novo na próxima execução.
+  if (err instanceof GeminiError && err.isRateLimit) return { status: "error", message: `Limite do Gemini atingido; nova tentativa na próxima execução. (${err.message})` };
+  if (err instanceof GeminiError && err.isTransient) return { status: "error", message: `Gemini indisponível; nova tentativa na próxima execução. (${err.message})` };
+  return null;
+}
+
+/** Resumo do que foi gerado (para o teste dry e o registro em cron_runs). */
+function summary(a: BuiltArticle, slug: string) {
+  return {
+    url: `/${a.section}/${slug}`,
+    title: a.title,
+    focusKeyword: a.focusKeyword,
+    metaDescription: a.metaDescription,
+    excerpt: a.excerpt,
+    tags: a.tags,
+    platforms: a.platforms,
+    cover: { url: a.cover.url, size: `${a.cover.width}x${a.cover.height}` },
+    images: a.bodyImages.length,
+    video: a.video?.youtubeId ?? null,
+    words: a.words,
+    model: a.model,
+    attempts: a.attempts,
+    fixes: a.fixes,
+    sources: a.sources.map((s) => s.name),
+    body: a.body,
+  };
 }
 
 export function publish(opts: PublishOptions = {}): Promise<JobResult> {
-  return runJob(opts.dry ? "publicar-teste" : "publicar", async () => {
+  const job = opts.dry ? "publicar-teste" : opts.redoPostId ? "refazer" : "publicar";
+  return runJob(job, async () => {
     const cfg = await settings();
+    if (opts.redoPostId) return redo(opts.redoPostId, cfg, Boolean(opts.dry));
     if (!cfg.enabled && !opts.dry) return { status: "skipped", message: "Robô desligado (settings.robot_enabled)." };
 
     if (!opts.force && !opts.dry) {
@@ -305,122 +272,138 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
       if (Number(total) >= cfg.postsPerDay) return { status: "skipped", message: `Limite diário atingido (${total}/${cfg.postsPerDay}).` };
       // Espalha os posts pelo dia: intervalo mínimo entre publicações automáticas.
       const gapHours = Math.max(1, Math.floor((cfg.endHour - cfg.startHour) / cfg.postsPerDay));
-      const recent = await query<{ id: number }>(
-        "SELECT id FROM posts WHERE origin = 'auto' AND published_at > UTC_TIMESTAMP() - INTERVAL ? HOUR LIMIT 1",
-        [gapHours],
-      );
+      const recent = await query<{ id: number }>("SELECT id FROM posts WHERE origin = 'auto' AND published_at > UTC_TIMESTAMP() - INTERVAL ? HOUR LIMIT 1", [gapHours]);
       if (recent.length) return { status: "skipped", message: `Aguardando o intervalo de ${gapHours} h entre posts.` };
     }
 
-    const queue = await query<QueueItem>(
-      `SELECT fi.id, fi.feed_id, f.name AS feed_name, fi.title, fi.url, fi.summary, fi.published_at, fi.score
-       FROM feed_items fi JOIN feeds f ON f.id = fi.feed_id
+    const queue = await query<SourceItem>(
+      `SELECT ${ITEM_COLS} FROM feed_items fi JOIN feeds f ON f.id = fi.feed_id
        WHERE fi.status = 'new' AND fi.published_at > UTC_TIMESTAMP() - INTERVAL 48 HOUR
        ORDER BY fi.score DESC, fi.published_at DESC LIMIT 60`,
     );
     if (!queue.length) return { status: "skipped", message: "Fila vazia: nenhuma pauta nova." };
-
-    const recentPosts = await query<{ title: string }>(
-      "SELECT title FROM posts WHERE status = 'published' AND published_at > UTC_TIMESTAMP() - INTERVAL 5 DAY ORDER BY published_at DESC LIMIT 40",
-    );
+    const recentTitles = (
+      await query<{ title: string }>("SELECT title FROM posts WHERE status = 'published' AND published_at > UTC_TIMESTAMP() - INTERVAL 5 DAY ORDER BY published_at DESC LIMIT 40")
+    ).map((r) => r.title);
 
     const tried: string[] = [];
     // Até 3 pautas por execução: se uma for descartada, tenta a próxima.
     for (const item of queue.slice(0, 3)) {
-      // Fontes do mesmo assunto (outros veículos) entram juntas: mais contexto, texto mais original.
-      const kw = keywords(item.title);
-      const related = queue.filter((q) => q.id !== item.id && q.feed_id !== item.feed_id && similarity(kw, keywords(q.title)) >= 0.5).slice(0, 2);
-      const group = [item, ...related];
-
-      const sources = [];
-      for (const g of group) {
-        const page = await fetchArticle(g.url);
-        const full = countWords(page) >= countWords(g.summary ?? "") ? page : (g.summary ?? "");
-        // Limite por fonte: prompt menor = resposta mais rápida (e menos lixo de página).
-        const text = full.split(/\s+/).slice(0, 1500).join(" ");
-        if (countWords(text) >= 40) sources.push({ name: g.feed_name, title: g.title, url: g.url, date: g.published_at, text });
-      }
-      const sourceWords = sources.reduce((n, s) => n + countWords(s.text), 0);
-      if (sourceWords < 200) {
-        tried.push(`#${item.id}: pouco conteúdo nas fontes (${sourceWords} palavras)`);
-        if (!opts.dry) await markItems([item.id], "skipped", `pouco conteúdo nas fontes (${sourceWords} palavras)`);
-        continue;
-      }
-
-      const prompt = `Editorias permitidas: ${cfg.sections.join(", ")}.
-
-Matérias publicadas recentemente pelo Respawnou (não repita o assunto):
-${recentPosts.map((p) => `- ${p.title}`).join("\n") || "- (nenhuma)"}
-
-Escreva uma matéria a partir das fontes abaixo. A FONTE 1 é a principal; as outras são de outros veículos sobre o mesmo assunto.
-
-${sourcesBlock(sources)}`;
-
-      let draft: Draft;
-      let model: string;
+      const group = groupFor(item, queue);
+      let result;
       try {
-        ({ data: draft, model } = await generateJson<Draft>({ system: SYSTEM, prompt, schema: SCHEMA }));
+        result = await writeArticle(group, {
+          sections: cfg.sections,
+          minWords: cfg.minWords,
+          recentTitles,
+          related: await relatedPosts(group.map((g) => g.title)),
+        });
       } catch (err) {
-        // Limite do plano gratuito: não queima a pauta; tenta de novo na próxima execução.
-        if (err instanceof GeminiError && err.isRateLimit) return { status: "error", message: `Limite do Gemini atingido; nova tentativa na próxima execução. (${err.message})` };
-        if (err instanceof GeminiError && err.isTransient) return { status: "error", message: `Gemini indisponível; nova tentativa na próxima execução. (${err.message})` };
+        const fail = geminiFailure(err);
+        if (fail) return { ...fail, stats: { tried } };
         throw err;
       }
-
-      if (!draft.publish) {
-        tried.push(`#${item.id}: recusada pelo redator (${draft.reason})`);
-        if (!opts.dry) await markItems([item.id], "skipped", `recusada: ${draft.reason}`);
+      if (!result.ok) {
+        tried.push(`#${item.id}: ${result.reason}`);
+        if (!opts.dry) await markItems([item.id], result.status, result.reason);
         continue;
       }
-      const problem = validateDraft(draft, sources.map((s) => `${s.title} ${s.text}`).join(" "), cfg.sections, cfg.minWords);
-      if (problem) {
-        tried.push(`#${item.id}: reprovada na validação (${problem})`);
-        if (!opts.dry) await markItems([item.id], "failed", problem);
-        continue;
-      }
+      const a = result.article;
+      const slug = await uniqueSlug(a.section, slugify(a.title));
+      if (opts.dry) return { status: "ok", message: `Teste: matéria gerada (${a.words} palavras), nada foi gravado.`, post: summary(a, slug), stats: { tried } };
 
-      const words = countWords(draft.body.map(blockText).join(" "));
-      const post = {
-        section: draft.section,
-        slug: await uniqueSlug(draft.section, slugify(draft.title)),
-        title: draft.title.trim(),
-        excerpt: draft.excerpt.trim(),
-        platforms: draft.platforms.filter((p) => (PLATFORMS as readonly string[]).includes(p)),
-        body: draft.body.map((b) => (b.type === "ul" ? { type: "ul", items: b.items ?? [] } : { type: b.type, text: (b.text ?? "").trim() })),
-        readMinutes: Math.max(2, Math.round(words / 200)),
-        art: "abcd"[item.id % 4],
-        source: { name: item.feed_name, url: item.url },
-        words,
-        model,
-        sources: sources.map((s) => s.name),
-      };
-
-      if (opts.dry) return { status: "ok", message: `Teste: matéria gerada (${words} palavras), nada foi gravado.`, post, stats: { tried } };
-
+      const local = await localizeImages(a, slug);
       const [res] = await db().query<ResultSetHeader>(
-        `INSERT INTO posts (section, slug, status, origin, title, excerpt, platforms, author, read_minutes, art, body, source_name, source_url, published_at)
-         VALUES (?, ?, 'published', 'auto', ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
-        [post.section, post.slug, post.title, post.excerpt, JSON.stringify(post.platforms), post.readMinutes, post.art, JSON.stringify(post.body), post.source.name, post.source.url],
+        `INSERT INTO posts (section, slug, status, origin, title, excerpt, meta_description, focus_keyword, tags, platforms, author, read_minutes, art,
+           image_url, image_alt, image_credit, body, source_name, source_url, published_at)
+         VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+        [
+          a.section,
+          slug,
+          a.title,
+          a.excerpt,
+          a.metaDescription,
+          a.focusKeyword,
+          JSON.stringify(a.tags),
+          JSON.stringify(a.platforms),
+          a.readMinutes,
+          "abcd"[item.id % 4],
+          local.cover.src,
+          a.coverAlt,
+          local.coverCredit,
+          JSON.stringify(local.body),
+          item.feed_name,
+          item.url,
+        ],
       );
       await markItems([item.id], "used", null, res.insertId);
       // O mesmo assunto em outros veículos não vira outro post: marca tudo que se parece
       // com qualquer fonte do grupo (pega também quem só se parece com uma fonte relacionada).
       const groupKw = group.map((g) => keywords(g.title));
       const sameTopic = queue.filter((q) => q.id !== item.id && groupKw.some((k) => similarity(k, keywords(q.title)) >= 0.5));
-      await markItems(
-        sameTopic.map((r) => r.id),
-        "skipped",
-        `mesmo assunto do post #${res.insertId}`,
-      );
+      await markItems(sameTopic.map((r) => r.id), "skipped", `mesmo assunto do post #${res.insertId}`);
       return {
         status: "ok",
-        message: `Publicado: /${post.section}/${post.slug} (${words} palavras, fontes: ${post.sources.join(", ")})`,
-        stats: { postId: res.insertId, words, model, tried },
+        message: `Publicado: /${a.section}/${slug} (${a.words} palavras, ${a.bodyImages.length + 1} imagens${a.video ? ", vídeo" : ""}, fontes: ${a.sources.map((s) => s.name).join(", ")})`,
+        stats: { postId: res.insertId, words: a.words, model: a.model, attempts: a.attempts, fixes: a.fixes, tried },
       };
     }
-
     return { status: "skipped", message: `Nenhuma pauta aproveitada nesta execução. ${tried.join(" · ")}`, stats: { tried } };
   });
+}
+
+/** Reescreve um post (mesmo endereço e data) a partir das pautas que o originaram. */
+async function redo(postId: number, cfg: Settings, dry: boolean): Promise<JobResult> {
+  const [post] = await query<{ id: number; section: string; slug: string }>("SELECT id, section, slug FROM posts WHERE id = ?", [postId]);
+  if (!post) return { status: "error", message: `Post #${postId} não existe.` };
+  const items = await query<SourceItem & { status: string }>(
+    `SELECT ${ITEM_COLS}, fi.status FROM feed_items fi JOIN feeds f ON f.id = fi.feed_id
+     WHERE fi.post_id = ? OR fi.reason = ? ORDER BY fi.status = 'used' DESC, fi.score DESC`,
+    [postId, `mesmo assunto do post #${postId}`],
+  );
+  const main = items.find((i) => i.status === "used");
+  if (!main) return { status: "error", message: `Post #${postId} não tem pauta de origem (não foi feito pelo robô).` };
+  const group = groupFor(main, items);
+  let result;
+  try {
+    result = await writeArticle(group, {
+      sections: [post.section],
+      minWords: cfg.minWords,
+      recentTitles: [],
+      related: await relatedPosts(group.map((g) => g.title), postId),
+    });
+  } catch (err) {
+    const fail = geminiFailure(err);
+    if (fail) return fail;
+    throw err;
+  }
+  if (!result.ok) return { status: "error", message: `Não deu para refazer: ${result.reason}` };
+  const a = result.article;
+  if (dry) return { status: "ok", message: `Teste: post #${postId} refeito (${a.words} palavras), nada foi gravado.`, post: summary(a, post.slug) };
+  const local = await localizeImages(a, post.slug);
+  await db().query(
+    `UPDATE posts SET title = ?, excerpt = ?, meta_description = ?, focus_keyword = ?, tags = ?, platforms = ?, read_minutes = ?,
+       image_url = ?, image_alt = ?, image_credit = ?, body = ?, updated_at = UTC_TIMESTAMP() WHERE id = ?`,
+    [
+      a.title,
+      a.excerpt,
+      a.metaDescription,
+      a.focusKeyword,
+      JSON.stringify(a.tags),
+      JSON.stringify(a.platforms),
+      a.readMinutes,
+      local.cover.src,
+      a.coverAlt,
+      local.coverCredit,
+      JSON.stringify(local.body),
+      postId,
+    ],
+  );
+  return {
+    status: "ok",
+    message: `Refeito: /${post.section}/${post.slug} (${a.words} palavras, ${a.bodyImages.length + 1} imagens${a.video ? ", vídeo" : ""})`,
+    stats: { postId, words: a.words, model: a.model, attempts: a.attempts, fixes: a.fixes },
+  };
 }
 
 async function markItems(ids: number[], status: "used" | "skipped" | "failed", reason: string | null, postId?: number) {

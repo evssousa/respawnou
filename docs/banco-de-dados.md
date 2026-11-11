@@ -8,6 +8,8 @@ Datas em UTC.
 | Arquivo | Conteúdo | Rodada na Hostinger? |
 |---|---|---|
 | `db/migrations/001_inicial.sql` | Estrutura inicial (tabelas abaixo) + configurações padrão | ✅ 2026-11-10 |
+| `db/migrations/002_robo.sql` | 11 fontes RSS + configurações do robô (liga o robô) | ✅ 2026-11-10 |
+| `db/migrations/003_seo_midia.sql` | `posts.meta_description`, `focus_keyword`, `tags`; `feed_items.media`; mínimo de 350 palavras | automática no próximo deploy |
 
 Como aplicar:
 
@@ -26,9 +28,9 @@ Dados de exemplo para desenvolvimento: `npm run db:seed-dev` (apaga posts/jogos;
 | Tabela | Para quê | Campos importantes |
 |---|---|---|
 | `games` | Fichas de jogos, calendário | `slug` único, `platforms` JSON, `release_date`, `rawg_id` |
-| `posts` | Matérias | `section`+`slug` únicos, `status` (draft/published/archived), `origin` (auto/manual), `body` JSON em blocos, `review` JSON (consenso da crítica), `published_at` (UTC), `source_*` |
+| `posts` | Matérias | `section`+`slug` únicos, `status` (draft/published/archived), `origin` (auto/manual), `body` JSON em blocos, `review` JSON (consenso da crítica), `published_at` (UTC), `source_*`, `image_url`/`image_alt`/`image_credit` (capa), `meta_description`, `focus_keyword`, `tags` JSON |
 | `feeds` | Fontes RSS do robô | `url` única, `weight`, `active`, `last_error` |
-| `feed_items` | Fila de pautas | `guid_hash` (sha256) único, `status` (new/used/skipped/failed), `reason`, `post_id` |
+| `feed_items` | Fila de pautas | `guid_hash` (sha256) único, `status` (new/used/skipped/failed), `reason`, `post_id`, `media` JSON (imagens/vídeos/links do RSS) |
 | `free_games` | Jogos grátis por tempo limitado | `ends_at`, `starts_at` |
 | `cron_runs` | Histórico do robô | `job`, `status`, `message`, `stats` JSON |
 | `settings` | Configurações do admin | `posts_per_day`, `robot_sections`, `robot_enabled` |
@@ -37,9 +39,16 @@ Dados de exemplo para desenvolvimento: `npm run db:seed-dev` (apaga posts/jogos;
 ## Formato dos campos JSON
 
 ```jsonc
-// posts.body
-[{ "type": "p", "text": "..." }, { "type": "h2", "text": "..." },
- { "type": "ul", "items": ["..."] }, { "type": "quote", "text": "..." }]
+// posts.body — em p/ul/quote o texto aceita links [texto](url) ("/..." = interno)
+[{ "type": "p", "text": "... [PlayStation 5](/plataforma/playstation) ..." },
+ { "type": "video", "youtubeId": "abc123def45", "title": "..." },
+ { "type": "h2", "text": "..." },
+ { "type": "img", "src": "/media/2026/11/slug-2-1a2b3c4d.webp", "alt": "...", "width": 1600, "height": 900, "credit": "Imagem: reprodução/IGN" },
+ { "type": "h3", "text": "..." }, { "type": "ul", "items": ["..."] }, { "type": "quote", "text": "..." },
+ { "type": "p", "text": "Leia também: [Título](/noticias/slug)" }]
+
+// feed_items.media
+{ "images": [{ "url": "https://...", "alt": "..." }], "videos": ["youtubeId"], "links": ["https://store.steampowered.com/app/..."] }
 
 // posts.review (só na editoria reviews)
 { "score": 8.5, "verdict": "...", "pros": ["..."], "cons": ["..."],

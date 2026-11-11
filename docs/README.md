@@ -39,8 +39,9 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 3 | Robô de postagem: código, fontes RSS e rotas /api/cron (migration 002) | ✅ |
 | 3 | CRON_TOKEN no painel + teste em produção + Cron Jobs da Hostinger (1ª matéria no ar) | ✅ |
 | 3 | Dados de jogos (RAWG fora do ar; alternativa IGDB) | 💤 |
+| 3 | Matérias com SEO completo: capa e imagens próprias (WebP), vídeo, links internos/externos, checagem com refação (regras do Anime Profile, migration 003) | ✅ |
 | 3 | Painel admin (login, posts, fontes, execuções do robô) | ⏳ |
-| 4 | Imagens de capa reais (fonte/RAWG com crédito) + imagem OG padrão | 💤 |
+| 4 | Imagem OG padrão (páginas sem capa) | 💤 |
 | 4 | Google Search Console + sitemap (só depois das primeiras matérias) | 💤 |
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |
 | 4 | Banner de consentimento de cookies (obrigatório ao ativar AdSense/analytics) | 💤 |

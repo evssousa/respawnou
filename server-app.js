@@ -3,6 +3,7 @@ import compression from "compression";
 import express from "express";
 import { createRequestHandler } from "@react-router/express";
 import { dbConfigFromEnv, migrate } from "./db/migrate.mjs";
+import { mediaDir } from "./server-paths.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -39,6 +40,8 @@ async function main() {
   // Arquivos com hash no nome podem ficar em cache "para sempre".
   app.use("/assets", express.static("build/client/assets", { immutable: true, maxAge: "1y" }));
   app.use(express.static("build/client", { maxAge: "1h" }));
+  // Imagens das matérias (fora da pasta do app, sobrevivem aos deploys). Nome nunca é reaproveitado.
+  app.use("/media", express.static(mediaDir(), { immutable: true, maxAge: "1y", index: false }));
 
   const build = await import("./build/server/index.js");
   app.use(createRequestHandler({ build, mode: process.env.NODE_ENV }));

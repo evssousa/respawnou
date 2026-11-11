@@ -18,7 +18,8 @@ Status: ✅ no ar desde 2026-11-10 em https://respawnou.com.br
 | Build | Node 24, `npm install` + `npm run build`, app type `express` |
 | Entrada | `server.js` (define NODE_ENV) → `server-app.js` (Express + migrations) |
 | Banco | MySQL `u218539700_respawnou` em `127.0.0.1:3306` (só acesso local) |
-| Variáveis | `VITE_SITE_URL`, `DB_*`, `GEMINI_API_KEY`, `CRON_TOKEN` (segredos só no painel) |
+| Variáveis | `VITE_SITE_URL`, `DB_*`, `GEMINI_API_KEY`, `CRON_TOKEN` (segredos só no painel); `MEDIA_DIR` opcional |
+| Imagens das matérias | `~/respawnou-media` (fora da pasta do app: cada deploy cria uma versão nova do app), servidas em `/media` |
 | SSL | Let's Encrypt (Hostinger); HTTP → HTTPS pela Hostinger; `www` → apex pelo `server-app.js` |
 | Migrations | Aplicadas automaticamente a cada início do app (`db/migrate.mjs`) |
 | E-mail | `contato@respawnou.com.br` criado no hPanel (2026-11-10) |

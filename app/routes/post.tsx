@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { data, Link } from "react-router";
 import type { Route } from "./+types/post";
 import { MostRead, PostCard, ScoreBadge } from "~/components/cards";
@@ -29,7 +30,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return [
     ...seo({
       title: post.title,
-      description: post.excerpt,
+      description: post.metaDescription ?? post.excerpt,
       path: post.url,
       image: post.image?.src,
       type: "article",
@@ -42,11 +43,13 @@ export function meta({ loaderData }: Route.MetaArgs) {
         // Reviews são consenso da crítica: a nota não é nossa, então não marcamos como Review.
         "@type": "NewsArticle",
         headline: post.title,
-        description: post.excerpt,
+        description: post.metaDescription ?? post.excerpt,
+        articleSection: loaderData.section.label,
+        ...(post.tags?.length ? { keywords: post.tags.join(", ") } : {}),
         datePublished: post.publishedAt,
         dateModified: post.updatedAt ?? post.publishedAt,
         author: { "@type": "Organization", name: post.author },
-        publisher: { "@type": "Organization", name: SITE.name, url: SITE.url },
+        publisher: { "@type": "Organization", name: SITE.name, url: SITE.url, logo: { "@type": "ImageObject", url: absoluteUrl("/favicon.svg") } },
         mainEntityOfPage: url,
         inLanguage: "pt-BR",
         ...(post.image ? { image: [absoluteUrl(post.image.src)] } : {}),
@@ -86,9 +89,12 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
           </div>
         </header>
 
-        <Art variant={post.art} image={post.image} eager className="ch aspect-[16/9] w-full sm:aspect-[21/9]">
-          <Hud left="> ARQUIVO VISUAL" right={post.timeLabel} />
-        </Art>
+        <figure className="flex flex-col gap-2">
+          <Art variant={post.art} image={post.image} eager className="ch aspect-[16/9] w-full sm:aspect-[21/9]">
+            <Hud left="> ARQUIVO VISUAL" right={post.timeLabel} />
+          </Art>
+          {post.image?.credit && <figcaption className="font-mono text-xs text-muted">{post.image.credit}</figcaption>}
+        </figure>
 
         <div className="flex flex-wrap gap-12">
           <div className="min-w-0 max-w-[720px] flex-[999_1_560px]">
@@ -142,6 +148,20 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
 
             <div className="mt-10 flex flex-col gap-6 border-t border-dashed border-line-soft pt-6">
               <PlatformTags platforms={post.platforms} labels={platformLabels} />
+              {post.tags && post.tags.length > 0 && (
+                <ul aria-label="Tópicos" className="flex flex-wrap gap-2">
+                  {post.tags.map((t) => (
+                    <li key={t}>
+                      <Link
+                        to={`/busca?q=${encodeURIComponent(t)}`}
+                        className="inline-flex min-h-9 items-center border border-line px-3 font-mono text-xs text-body hover:border-acc hover:text-acc"
+                      >
+                        #{t}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <ShareButtons url={absoluteUrl(post.url)} title={post.title} />
               {post.source && (
                 <p className="font-mono text-xs text-muted">
@@ -194,21 +214,84 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
   );
 }
 
+const LINK = /\[([^\]\n]+)\]\(([^)\s]+)\)/g;
+
+/** Texto com links no formato [texto](url): interno vira <Link>, externo abre em outra aba. */
+function RichText({ text }: { text: string }) {
+  const parts: ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(LINK)) {
+    parts.push(text.slice(last, m.index));
+    const [, label, href] = m;
+    if (href.startsWith("/")) parts.push(<Link key={m.index} to={href}>{label}</Link>);
+    else if (/^https:\/\//.test(href))
+      parts.push(
+        <a key={m.index} href={href} target="_blank" rel="noopener">
+          {label}
+        </a>,
+      );
+    else parts.push(label);
+    last = m.index + m[0].length;
+  }
+  parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
 function BodyBlock({ block }: { block: Block }) {
   switch (block.type) {
-    case "p":
-      return <p>{block.text}</p>;
+    case "p": {
+      const also = block.text.match(/^Leia também:\s*(.+)$/);
+      if (also)
+        return (
+          <p className="read-also">
+            <span>&gt; LEIA TAMBÉM</span>
+            <RichText text={also[1]} />
+          </p>
+        );
+      return (
+        <p>
+          <RichText text={block.text} />
+        </p>
+      );
+    }
     case "h2":
       return <h2>{block.text}</h2>;
+    case "h3":
+      return <h3>{block.text}</h3>;
     case "quote":
-      return <blockquote>{block.text}</blockquote>;
+      return (
+        <blockquote>
+          <RichText text={block.text} />
+        </blockquote>
+      );
     case "ul":
       return (
         <ul>
           {block.items.map((item, i) => (
-            <li key={i}>{item}</li>
+            <li key={i}>
+              <RichText text={item} />
+            </li>
           ))}
         </ul>
+      );
+    case "img":
+      return (
+        <figure>
+          <img src={block.src} alt={block.alt} width={block.width} height={block.height} loading="lazy" decoding="async" />
+          {block.credit && <figcaption>{block.credit}</figcaption>}
+        </figure>
+      );
+    case "video":
+      return (
+        <div className="video">
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${block.youtubeId}`}
+            title={block.title}
+            loading="lazy"
+            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
       );
   }
 }
