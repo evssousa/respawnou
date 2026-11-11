@@ -2,6 +2,20 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+## 2026-11-11 — Repositório como portfólio, sem licença de uso
+
+O repositório continua público para servir de portfólio, mas **todos os direitos são reservados**:
+`LICENSE` própria (sem licença open source), `"license": "UNLICENSED"` no package.json e aviso no
+README. Observação: o GitHub permite que qualquer pessoa faça fork de um repositório público pela
+interface (faz parte dos termos do GitHub); a licença proíbe usar ou publicar a cópia, mas não impede
+o botão. Para impedir de fato, só tornando o repositório privado.
+
+## 2026-11-11 — Páginas vazias fora do índice e AdSense ligado por variável
+
+Editoria, plataforma ou calendário sem conteúdo some de menu, home e sitemap e leva `noindex`
+(`app/lib/availability.ts`, cache de 5 min). AdSense, `ads.txt` e banner de cookies ficam desligados
+até existir `ADSENSE_CLIENT` no hPanel, para não pedir consentimento de algo que o site ainda não usa.
+
 ## 2026-11-10 · Robô respeita bloqueios de sites
 
 - **Decisão:** quando um site bloqueia robôs na página da matéria (HTTP 403), usamos só o texto que

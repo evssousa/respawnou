@@ -1,6 +1,7 @@
 {
   "name": "respawnou",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "build": "react-router build",

@@ -48,6 +48,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 4 | Páginas vazias fora do menu/home/sitemap + `noindex` (availability.ts) | ✅ |
 | 4 | AdSense preparado: `ADSENSE_CLIENT` liga script + Modo de Consentimento v2 + `ads.txt` + banner (adsense.md) | ✅ |
 | 4 | Políticas de privacidade, cookies e termos citando o AdSense | ✅ |
+| — | README de portfólio (todos os direitos reservados, LICENSE própria, capturas em docs/screenshots) | ✅ |
 | 4 | Google Search Console + sitemap (só depois das primeiras matérias) | 💤 |
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |
 | 4 | Cadastrar `ADSENSE_CLIENT` no hPanel ao se inscrever no AdSense | 💤 dono |
