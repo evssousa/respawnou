@@ -44,8 +44,10 @@ Status: ✅ no ar desde 2026-11-10 em https://respawnou.com.br
    repositório nem com o Claude, **não usar essa operação**: mudanças de variáveis são feitas no hPanel.
 8. **Logs**: `hosting_nodejs_runtime-logs` (MCP) mostra o console do app; `hosting_get-deployment`
    mostra o build.
+9. **A CDN (hcdn) corta requisições com mais de ~55 s** e devolve `307 Temporary Redirect` do nginx.
+   O app continua processando, mas a resposta se perde: tarefas longas respondem 202 e rodam em
+   segundo plano (ver [automacao.md](automacao.md)).
 
 ## Pendente
 
-- Cron Jobs do robô (fase 3, ver [automacao.md](automacao.md)).
 - Google Search Console + envio do sitemap: decidido esperar as primeiras matérias publicadas.

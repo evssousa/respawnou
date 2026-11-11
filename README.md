@@ -81,7 +81,7 @@ As páginas só falam com `app/lib/content.server.ts` (`listPosts`, `getPost`, `
 O status completo está em [`docs/README.md`](docs/README.md). Em resumo:
 
 - [x] Deploy na Hostinger, banco criado e migration aplicada
-- [ ] Robô de postagem automática: rota protegida + Cron Job da Hostinger + Gemini
+- [x] Robô de postagem automática: rota protegida + Cron Job da Hostinger + Gemini
 - [ ] Painel administrativo em `/admin`
 - [ ] Imagens de capa reais e imagem Open Graph padrão
 - [ ] Search Console e pedido do AdSense

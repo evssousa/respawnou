@@ -1,7 +1,10 @@
 # Robô de postagem
 
-Status: ✅ código pronto e testado localmente (coleta real de 11 feeds, validação). 🔄 falta
-CRON_TOKEN no painel, teste em produção e criação dos Cron Jobs.
+Status: ✅ **no ar desde 2026-11-10.** Primeira matéria automática publicada em produção
+(`/noticias/sony-cancela-fairgame-jogo-como-servico-da-haven-studios`, 454 palavras, fontes IGN +
+GameSpot). Cron Jobs criados na conta da Hostinger: coletar `*/30 * * * *` e publicar `5 * * * *`
+(comando: `curl -s -m 50 -o /dev/null "https://respawnou.com.br/api/cron/<job>?token=..."`).
+O token fica só no painel (variável `CRON_TOKEN`) e nos Cron Jobs, nunca no repositório.
 
 Código: `app/lib/robot/` (text, rss, gemini, robot) e `app/routes/cron.ts`.
 
@@ -29,8 +32,10 @@ MySQL local (127.0.0.1:3306)
   mais que isso, então `coletar` e `publicar` respondem **202 na hora** e rodam em segundo plano;
   o resultado fica em `cron_runs` (consultar com `/api/cron/status?token=...&n=10`).
   `wait=1` faz a rota esperar o fim (só para uso local, sem CDN).
-- O Gemini às vezes responde 503 (modelo sobrecarregado): o cliente tenta de novo após 5 s e cai
-  para `gemini-flash-latest` e `gemini-2.5-flash-lite`; se tudo falhar, a pauta volta para a fila.
+- O Gemini às vezes responde 503 (sobrecarga) ou trava: o cliente tenta de novo após 5 s, tem
+  limite de 150 s por chamada e cai para o próximo modelo da lista; se tudo falhar, a pauta volta
+  para a fila. A mensagem de erro em `cron_runs` lista o que cada modelo respondeu.
+- `/api/cron/diag?token=...` testa os modelos com um prompt curto (resultado em `/status`, job `diag`).
 
 ## Parâmetros de /api/cron/publicar
 
@@ -73,8 +78,17 @@ MySQL local (127.0.0.1:3306)
 ## Gemini
 
 - Plano gratuito (decisão do projeto: sem APIs pagas). Chave em `GEMINI_API_KEY`.
-- Modelo: `GEMINI_MODEL` opcional; padrão `gemini-2.5-flash`, e se não existir mais o cliente
-  lista os modelos da chave e escolhe o "flash" mais novo.
+- Modelos (em ordem): `gemini-3.5-flash` → `gemini-3.5-flash-lite` → `gemini-3.8-flash`.
+  `GEMINI_MODEL` (opcional) passa na frente. Quando um modelo funciona depois de outro falhar, ele
+  vira o primeiro até o app reiniciar.
+- **Chaves novas não acessam mais a família 2.5** (404 "no longer available to new users"); o 404
+  sugere o substituto e o cliente tenta ele. Se nenhum existir, lista os modelos da chave e escolhe
+  o `gemini-N.N-flash` mais novo.
+- `gemini-flash-latest` aponta para `gemini-omni-*`, que **não tem cota gratuita** (limit 0): não usar.
+- Em 2026-11-10 o `gemini-3.8-flash` travava (sem resposta em 60 s) e o `3.5-flash` respondia em ~1,5 s.
+- Raciocínio reduzido (`thinkingLevel: "low"` na 3.x; `thinkingBudget: 512` na 2.x): reescrever
+  fontes não precisa de muito raciocínio, e o padrão deixava a resposta lenta.
+- Cada fonte entra no prompt com no máximo 1.500 palavras.
 - Cota do plano gratuito é **por projeto do Google Cloud**: a chave do Respawnou deve ficar num
   projeto separado do Anime Profile para não dividir limites.
 - Erro 429 (limite): a execução termina com erro e a pauta continua na fila.

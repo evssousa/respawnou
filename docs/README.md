@@ -37,7 +37,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 2 | Banco MySQL criado na Hostinger e migration 001 aplicada | ✅ |
 | 2 | E-mail contato@respawnou.com.br | ✅ |
 | 3 | Robô de postagem: código, fontes RSS e rotas /api/cron (migration 002) | ✅ |
-| 3 | CRON_TOKEN no painel + teste em produção + Cron Jobs da Hostinger | 🔄 |
+| 3 | CRON_TOKEN no painel + teste em produção + Cron Jobs da Hostinger (1ª matéria no ar) | ✅ |
 | 3 | Dados de jogos (RAWG fora do ar; alternativa IGDB) | 💤 |
 | 3 | Painel admin (login, posts, fontes, execuções do robô) | ⏳ |
 | 4 | Imagens de capa reais (fonte/RAWG com crédito) + imagem OG padrão | 💤 |
