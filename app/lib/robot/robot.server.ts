@@ -326,7 +326,9 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
       const sources = [];
       for (const g of group) {
         const page = await fetchArticle(g.url);
-        const text = countWords(page) >= countWords(g.summary ?? "") ? page : (g.summary ?? "");
+        const full = countWords(page) >= countWords(g.summary ?? "") ? page : (g.summary ?? "");
+        // Limite por fonte: prompt menor = resposta mais rápida (e menos lixo de página).
+        const text = full.split(/\s+/).slice(0, 1500).join(" ");
         if (countWords(text) >= 40) sources.push({ name: g.feed_name, title: g.title, url: g.url, date: g.published_at, text });
       }
       const sourceWords = sources.reduce((n, s) => n + countWords(s.text), 0);
@@ -351,8 +353,8 @@ ${sourcesBlock(sources)}`;
         ({ data: draft, model } = await generateJson<Draft>({ system: SYSTEM, prompt, schema: SCHEMA }));
       } catch (err) {
         // Limite do plano gratuito: não queima a pauta; tenta de novo na próxima execução.
-        if (err instanceof GeminiError && err.isRateLimit) return { status: "error", message: "Limite do Gemini atingido; nova tentativa na próxima execução." };
-        if (err instanceof GeminiError && err.isTransient) return { status: "error", message: `Gemini indisponível (${err.status}); nova tentativa na próxima execução.` };
+        if (err instanceof GeminiError && err.isRateLimit) return { status: "error", message: `Limite do Gemini atingido; nova tentativa na próxima execução. (${err.message})` };
+        if (err instanceof GeminiError && err.isTransient) return { status: "error", message: `Gemini indisponível; nova tentativa na próxima execução. (${err.message})` };
         throw err;
       }
 

@@ -79,6 +79,7 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
   const candidates = [...new Set([...(first ? [first] : []), ...PREFERRED])];
   let lastError: unknown;
   let anyMissing = false;
+  const attempts: string[] = [];
   for (const model of candidates) {
     // Sobrecarga (503) costuma passar em segundos: 1 nova tentativa antes de trocar de modelo.
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -88,6 +89,7 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
       } catch (err) {
         lastError = err;
         if (!(err instanceof GeminiError)) throw err;
+        attempts.push(`${model}: ${err.status} ${err.message.replace(/\s+/g, " ").slice(0, 160)}`);
         if (err.status === 404) { anyMissing = true; break; }
         if (err.isRateLimit || err.status === 504) break; // cota ou lentidão: tenta o próximo modelo
         if (!err.isTransient) throw err;
@@ -102,6 +104,7 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
     chosenModel = model;
     return { data: parse<T>(data), model };
   }
+  if (lastError instanceof GeminiError && attempts.length > 1) throw new GeminiError(attempts.join(" | "), lastError.status);
   throw lastError;
 }
 
