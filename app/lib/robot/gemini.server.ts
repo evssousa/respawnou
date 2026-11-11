@@ -50,7 +50,11 @@ async function call(path: string, init?: RequestInit, timeoutMs = 30_000) {
       detail = JSON.parse(body)?.error?.message ?? body;
     } catch {}
     // Mantém a parte útil (ex.: "Quota exceeded for metric ..., limit: 0, model: ...").
-    detail = detail.replace(/For more information[^.]*\.|To monitor your current usage[^.]*\./g, "").replace(/\s+/g, " ").trim();
+    detail = detail
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/(For more information|To monitor your current usage)[^\n*]*/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
     throw new GeminiError(`Gemini ${res.status}: ${detail.slice(0, 400)}`, res.status);
   }
   return JSON.parse(body);
