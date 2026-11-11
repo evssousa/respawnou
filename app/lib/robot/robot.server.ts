@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import type { ResultSetHeader } from "mysql2";
 import { db, json, query } from "../db.server.ts";
-import { generateJson, GeminiError } from "./gemini.server.ts";
+import { diagnose, generateJson, GeminiError } from "./gemini.server.ts";
 import { fetchArticle, fetchFeed } from "./rss.server.ts";
 import { countWords, keywords, numbersIn, similarity, slugify } from "./text.ts";
 
@@ -90,6 +90,15 @@ export async function recentRuns(limit = 10) {
     [limit],
   );
   return rows.map((r) => ({ ...r, stats: json<Record<string, unknown>>(r.stats, {}) }));
+}
+
+/** Teste dos modelos do Gemini; o resultado fica em cron_runs.stats (job "diag"). */
+export function diag(): Promise<JobResult> {
+  return runJob("diag", async () => {
+    const stats = await diagnose();
+    const ok = stats.tests.filter((t) => t.ok).map((t) => t.model);
+    return { status: "ok", message: ok.length ? `Respondendo: ${ok.join(", ")}` : "Nenhum modelo respondeu", stats };
+  });
 }
 
 // ───────────── Coleta ─────────────
