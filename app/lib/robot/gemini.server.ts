@@ -44,7 +44,15 @@ async function call(path: string, init?: RequestInit, timeoutMs = 30_000) {
     throw new GeminiError(timeout ? `Gemini não respondeu em ${timeoutMs / 1000} s` : `Falha de rede com o Gemini: ${err}`, 504);
   }
   const body = await res.text();
-  if (!res.ok) throw new GeminiError(`Gemini ${res.status}: ${body.slice(0, 300)}`, res.status);
+  if (!res.ok) {
+    let detail = body;
+    try {
+      detail = JSON.parse(body)?.error?.message ?? body;
+    } catch {}
+    // Mantém a parte útil (ex.: "Quota exceeded for metric ..., limit: 0, model: ...").
+    detail = detail.replace(/For more information[^.]*\.|To monitor your current usage[^.]*\./g, "").replace(/\s+/g, " ").trim();
+    throw new GeminiError(`Gemini ${res.status}: ${detail.slice(0, 400)}`, res.status);
+  }
   return JSON.parse(body);
 }
 
@@ -89,7 +97,7 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
       } catch (err) {
         lastError = err;
         if (!(err instanceof GeminiError)) throw err;
-        attempts.push(`${model}: ${err.status} ${err.message.replace(/\s+/g, " ").slice(0, 160)}`);
+        attempts.push(`${model}: ${err.status} ${err.message.slice(0, 300)}`);
         if (err.status === 404) { anyMissing = true; break; }
         if (err.isRateLimit || err.status === 504) break; // cota ou lentidão: tenta o próximo modelo
         if (!err.isTransient) throw err;
