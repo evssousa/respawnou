@@ -223,12 +223,12 @@ export interface PromoCandidate {
   extra: unknown;
 }
 
-/** Grátis da Epic que já começou, ainda tem 6 h pela frente e não virou matéria. */
+/** Grátis da Epic que já começou, ainda tem 6 h ou mais pela frente e não virou matéria. */
 export async function promoCandidate(): Promise<PromoCandidate | null> {
   const [row] = await query<PromoCandidate>(
     `SELECT id, name, store, url, worth, description, image_url, starts_at, ends_at, extra FROM free_games
      WHERE source = 'epic' AND post_id IS NULL AND post_status IS NULL
-       AND starts_at <= UTC_TIMESTAMP() AND starts_at > UTC_TIMESTAMP() - INTERVAL 3 DAY
+       AND starts_at <= UTC_TIMESTAMP()
        AND ends_at > UTC_TIMESTAMP() + INTERVAL 6 HOUR
      ORDER BY starts_at, id LIMIT 1`,
   );
