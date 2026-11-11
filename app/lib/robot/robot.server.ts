@@ -72,13 +72,24 @@ async function runJob(job: string, fn: () => Promise<JobResult>): Promise<JobRes
   if (!id) return { status: "skipped", message: "Outra execução ainda está em andamento." };
   try {
     const result = await fn();
-    await finishRun(id, result.status, result.message, result.stats);
+    // A rota responde antes de o job terminar (a CDN corta em ~1 min); o resultado completo,
+    // inclusive o rascunho de um teste (dry), fica em cron_runs.stats para /api/cron/status.
+    await finishRun(id, result.status, result.message, { ...result.stats, ...(result.post ? { post: result.post } : {}) });
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await finishRun(id, "error", message);
     return { status: "error", message };
   }
+}
+
+/** Últimas execuções do robô (para /api/cron/status). */
+export async function recentRuns(limit = 10) {
+  const rows = await query<{ id: number; job: string; status: string; started_at: string; finished_at: string | null; message: string | null; stats: unknown }>(
+    "SELECT id, job, status, started_at, finished_at, message, stats FROM cron_runs ORDER BY id DESC LIMIT ?",
+    [limit],
+  );
+  return rows.map((r) => ({ ...r, stats: json<Record<string, unknown>>(r.stats, {}) }));
 }
 
 // ───────────── Coleta ─────────────

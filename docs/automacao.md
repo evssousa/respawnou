@@ -16,7 +16,8 @@ Cron Job da Hostinger (hPanel → Avançado → Cron Jobs)
    ▼
 Rotas do próprio site (React Router, resource routes)
    ├─ /api/cron/coletar   lê os feeds RSS ativos → grava itens novos em feed_items (status "new")
-   └─ /api/cron/publicar  escolhe 1 item → Gemini escreve → valida → grava em posts (published)
+   ├─ /api/cron/publicar  escolhe 1 item → Gemini escreve → valida → grava em posts (published)
+   └─ /api/cron/status    últimas execuções (cron_runs), com o rascunho dos testes dry=1
    ▼
 MySQL local (127.0.0.1:3306)
 ```
@@ -24,10 +25,16 @@ MySQL local (127.0.0.1:3306)
 - Token secreto em `CRON_TOKEN` (variável de ambiente). Sem token correto → 404.
 - Cada chamada grava uma linha em `cron_runs` (início, fim, status, mensagem, estatísticas).
 - Trava: se existir execução `running` há menos de 10 min, a nova chamada sai sem fazer nada.
+- **A CDN da Hostinger corta requisições com mais de ~55 s (responde 307).** O Gemini pode levar
+  mais que isso, então `coletar` e `publicar` respondem **202 na hora** e rodam em segundo plano;
+  o resultado fica em `cron_runs` (consultar com `/api/cron/status?token=...&n=10`).
+  `wait=1` faz a rota esperar o fim (só para uso local, sem CDN).
+- O Gemini às vezes responde 503 (modelo sobrecarregado): o cliente tenta de novo após 5 s e cai
+  para `gemini-flash-latest` e `gemini-2.5-flash-lite`; se tudo falhar, a pauta volta para a fila.
 
 ## Parâmetros de /api/cron/publicar
 
-- `dry=1`: gera a matéria e devolve o JSON, sem gravar nada (para testar o Gemini em produção).
+- `dry=1`: gera a matéria sem gravar post (o rascunho aparece em `/api/cron/status`, job `publicar-teste`).
 - `force=1`: ignora janela de horário, limite diário e intervalo (não ignora `robot_enabled`).
 
 ## Configurações (tabela `settings`)
