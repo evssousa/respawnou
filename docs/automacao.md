@@ -149,10 +149,25 @@ Código: `app/lib/robot/offers.server.ts`. Roda dentro da coleta, no máximo a c
 
 ## Consenso da crítica (Reviews)
 
-- Disparado quando um jogo acumula análises suficientes (mínimo de 5 veículos).
-- Coleta notas publicadas, normaliza para 0–10, calcula a média simples.
-- Gemini resume pontos mais elogiados e mais criticados **a partir dos trechos das análises**.
-- Lista cada veículo com nota e link. Atualiza o post quando surgem novas análises.
+Código: `app/lib/robot/critics.server.ts` (+ tabelas `critic_reviews` e `critic_consensus`, migration 007).
+
+- **Coleta**: título com "review" (sem "review bomb", "review scores", etc.) não vira notícia; a página
+  é lida e a nota vem do **JSON-LD** `Review.reviewRating` do próprio veículo (`bestRating` padrão 5).
+  Análises valem por 21 dias na coleta e 30 dias no agrupamento. Até 40 análises lidas por coleta;
+  o motivo fica em `feed_items.reason`.
+- **Só jogos**: `itemReviewed.@type` = `VideoGame` ou `Game` (IGN); sem tipo (PC Gamer, GamesRadar+), o endereço precisa
+  ter `/games/` e não `hardware`. Filmes/séries da IGN e hardware da PC Gamer ficam de fora.
+- **Agrupamento**: nome do jogo tirado do título ("X review", "Review: X"); chave sem acento,
+  parênteses e ™, com romanos em arábicos ("Diablo IV" = "Diablo 4"). Uma análise por veículo.
+- **Veículos que funcionam** (2026-11-11): IGN (+ feed `?tags=review`), Game Informer (+ `reviews.xml`),
+  Eurogamer, VG247, PC Gamer, GamesRadar+. GameSpot e Hookshot (Nintendo Life, Push Square, Pure Xbox)
+  dão 403 nas páginas; RPS não publica nota.
+- **Publicação**: com **4 veículos** ou mais (`MIN_CRITICS`), o consenso entra na fila de publicação
+  depois do grátis da Epic e antes das notícias. Média e lista de veículos são **calculadas pelo
+  código**; o Gemini escreve o texto e o quadro (veredito, 3–5 elogios, 2–5 críticas) a partir das
+  análises, sempre atribuindo a opinião ao veículo e sem citar a média. Tentativa que falha só volta
+  com 2 análises novas.
+- **Atualização**: análises que chegam depois recalculam a média e a lista do post (o texto fica).
 
 ## Gemini
 

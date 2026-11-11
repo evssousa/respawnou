@@ -6,7 +6,17 @@ import { db, json, query } from "../db.server.ts";
 import { diagnose, generateJson, GeminiError } from "./gemini.server.ts";
 import { youtubeCheck } from "./enrich.server.ts";
 import { fetchFeed } from "./rss.server.ts";
+import type { Review } from "../types.ts";
 import { keywords, similarity, slugify } from "./text.ts";
+import {
+  consensusCandidate,
+  consensusNumbers,
+  consensusSources,
+  looksLikeReview,
+  markConsensus,
+  recordReview,
+  refreshPublishedConsensus,
+} from "./critics.server.ts";
 import { fetchEpic, fetchGamerPower, markPromo, promoCandidate, promoSources, saveOffers, type Offer } from "./offers.server.ts";
 import { localizeImages, writeArticle, writeFromSources, type BuiltArticle, type SourceItem } from "./writer.server.ts";
 
@@ -148,13 +158,18 @@ export function collect(): Promise<JobResult> {
     let added = 0;
     let skipped = 0;
     const errors: string[] = [];
+    // Análises de outros veículos não viram notícia: a nota alimenta o consenso da crítica.
+    const toRead: { itemId: number; feedId: number; feedName: string; title: string; url: string; publishedAt: Date }[] = [];
 
     for (const feed of feeds) {
       try {
         const items = await fetchFeed(feed.url);
         for (const it of items) {
-          if (!it.publishedAt || it.publishedAt.getTime() < cutoff || it.publishedAt.getTime() > Date.now() + 3600_000) continue;
-          const skip = SKIP_PATTERNS.find(([re]) => re.test(it.title));
+          const review = looksLikeReview(it.title);
+          // Análise vale por mais tempo: as notas do mesmo jogo saem ao longo de dias.
+          const oldest = review ? Date.now() - 21 * 86400_000 : cutoff;
+          if (!it.publishedAt || it.publishedAt.getTime() < oldest || it.publishedAt.getTime() > Date.now() + 3600_000) continue;
+          const skip: [RegExp, string] | undefined = review ? [/./, "análise de outro veículo (vai para o consenso da crítica)"] : SKIP_PATTERNS.find(([re]) => re.test(it.title));
           const [res] = await db().query<ResultSetHeader>(
             `INSERT IGNORE INTO feed_items (feed_id, guid_hash, title, url, summary, media, published_at, status, score, reason)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -172,6 +187,7 @@ export function collect(): Promise<JobResult> {
             ],
           );
           if (res.affectedRows) skip ? skipped++ : added++;
+          if (res.affectedRows && review) toRead.push({ itemId: res.insertId, feedId: feed.id, feedName: feed.name, title: it.title, url: it.url, publishedAt: it.publishedAt });
         }
         await db().query("UPDATE feeds SET last_fetched_at = UTC_TIMESTAMP(), last_error = NULL WHERE id = ?", [feed.id]);
       } catch (err) {
@@ -183,6 +199,15 @@ export function collect(): Promise<JobResult> {
       }
     }
 
+    // Notas das análises novas (até 40 por coleta; o resto fica para a próxima vez que aparecer no feed).
+    let reviews = 0;
+    for (const r of toRead.slice(0, 40)) {
+      const res = await recordReview(r).catch((err) => ({ ok: false, reason: `análise: erro ${err instanceof Error ? err.message : err}` }));
+      if (res.ok) reviews++;
+      await db().query("UPDATE feed_items SET reason = ? WHERE id = ?", [res.reason.slice(0, 500), r.itemId]);
+    }
+    const refreshed = await refreshPublishedConsensus();
+
     // Jogos grátis (Epic + GamerPower): no máximo a cada 3 h, registrado como job "ofertas".
     const offers = await maybeCollectOffers();
 
@@ -191,8 +216,8 @@ export function collect(): Promise<JobResult> {
 
     return {
       status: errors.length === feeds.length && feeds.length ? "error" : "ok",
-      message: `${added} novos na fila, ${skipped} descartados${errors.length ? `; falhas: ${errors.join(" | ")}` : ""}${offers ? ` · ofertas: ${offers.message}` : ""}`,
-      stats: { feeds: feeds.length, added, skipped, errors: errors.length },
+      message: `${added} novos na fila, ${skipped} descartados${reviews ? `, ${reviews} nota(s) de análise para o consenso` : ""}${refreshed ? `, ${refreshed} consenso(s) atualizado(s)` : ""}${errors.length ? `; falhas: ${errors.join(" | ")}` : ""}${offers ? ` · ofertas: ${offers.message}` : ""}`,
+      stats: { feeds: feeds.length, added, skipped, reviews, refreshed, errors: errors.length },
     };
   });
 }
@@ -280,6 +305,8 @@ export interface PublishOptions {
   force?: boolean;
   /** Reescreve um post já publicado (mesmo endereço) com as regras atuais. */
   redoPostId?: number;
+  /** Só com dry: testa o consenso da crítica de um jogo (nome), mesmo abaixo do mínimo de análises. */
+  consensusGame?: string;
 }
 
 const ITEM_COLS = `fi.id, fi.feed_id, f.name AS feed_name, fi.title, fi.url, fi.summary, fi.media, fi.published_at`;
@@ -337,7 +364,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     const tried: string[] = [];
 
     // 1º: jogo grátis da Epic que ainda não virou matéria (é pauta com hora para acabar).
-    const promo = await promoCandidate();
+    const promo = opts.consensusGame ? null : await promoCandidate();
     if (promo) {
       let result;
       try {
@@ -367,6 +394,44 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
       }
       tried.push(`grátis "${promo.name}": ${result.reason}`);
       if (!opts.dry) await markPromo(promo.id, result.status, result.reason);
+    }
+
+    // 2º: consenso da crítica de um jogo que juntou análises suficientes.
+    const cons = await consensusCandidate(opts.dry ? opts.consensusGame : undefined);
+    if (cons) {
+      const prepared = await consensusSources(cons);
+      let result;
+      if (prepared.usable < 3) {
+        result = { ok: false as const, status: "skipped" as const, reason: `só ${prepared.usable} análise(s) com texto legível` };
+      } else {
+        try {
+          result = await writeFromSources(prepared, { sections: ["reviews"], minWords: cfg.minWords, recentTitles, related: await relatedPosts([cons.name]) });
+        } catch (err) {
+          const fail = geminiFailure(err);
+          if (fail) return { ...fail, stats: { tried } };
+          throw err;
+        }
+      }
+      if (result.ok) {
+        const a = { ...result.article, section: "reviews" };
+        const nums = consensusNumbers(cons.rows);
+        const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
+        const review: Review = { score: nums.score, verdict: String(a.extra.verdict ?? ""), pros: list(a.extra.pros), cons: list(a.extra.cons), critics: nums.critics };
+        const slug = await uniqueSlug(a.section, slugify(a.title));
+        if (opts.dry)
+          return { status: "ok", message: `Teste: consenso da crítica gerado (${cons.name}, ${cons.rows.length} análises, ${a.words} palavras), nada foi gravado.`, post: { ...summary(a, slug), review }, stats: { tried } };
+        const outlets = cons.rows.map((r) => r.outlet);
+        const sourceName = outlets.length > 3 ? `${outlets.slice(0, 3).join(", ")} e outros` : outlets.join(", ");
+        const postId = await insertPost(a, slug, { name: sourceName, url: cons.rows[0].url, art: "abcd"[cons.rows.length % 4] }, review);
+        await markConsensus(cons, "used", null, postId);
+        return {
+          status: "ok",
+          message: `Publicado: /${a.section}/${slug} (consenso: ${cons.name}, média ${nums.score} de ${cons.rows.length} análises; ${a.words} palavras)`,
+          stats: { postId, words: a.words, model: a.model, attempts: a.attempts, fixes: a.fixes, tried },
+        };
+      }
+      tried.push(`consenso "${cons.name}": ${result.reason}`);
+      if (!opts.dry) await markConsensus(cons, result.status, result.reason);
     }
 
     const queue = await query<SourceItem>(
@@ -419,12 +484,12 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
 }
 
 /** Grava a matéria (imagens já baixadas para /media) e devolve o id. */
-async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }) {
+async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, review?: Review) {
   const local = await localizeImages(a, slug);
   const [res] = await db().query<ResultSetHeader>(
     `INSERT INTO posts (section, slug, status, origin, title, excerpt, meta_description, focus_keyword, tags, platforms, author, read_minutes, art,
-       image_url, image_alt, image_credit, body, source_name, source_url, published_at)
-     VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+       image_url, image_alt, image_credit, body, source_name, source_url, review, published_at)
+     VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
     [
       a.section,
       slug,
@@ -442,6 +507,7 @@ async function insertPost(a: BuiltArticle, slug: string, source: { name: string;
       JSON.stringify(local.body),
       source.name,
       source.url,
+      review ? JSON.stringify(review) : null,
     ],
   );
   return res.insertId;

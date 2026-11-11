@@ -37,7 +37,7 @@ function date(v: unknown) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-async function fetchText(url: string, timeoutMs = 15000) {
+export async function fetchText(url: string, timeoutMs = 15000) {
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml,application/rss+xml,application/xml;q=0.9,*/*;q=0.8" },
     redirect: "follow",

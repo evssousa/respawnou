@@ -62,6 +62,8 @@ export interface BuiltArticle {
   model: string;
   attempts: number;
   fixes: string[];
+  /** Valores dos campos de extraSchema, como o Gemini devolveu. */
+  extra: Record<string, unknown>;
 }
 
 export type WriteResult = { ok: true; article: BuiltArticle } | { ok: false; status: "skipped" | "failed"; reason: string };
@@ -212,13 +214,20 @@ export interface PreparedSources {
   media: SourceMedia;
   /** Instruções extras para este tipo de pauta (promoção, consenso, compilação...). */
   brief?: string;
+  /** Campos a mais pedidos ao Gemini (ex.: veredito, prós e contras do consenso). */
+  extraSchema?: { properties: Record<string, unknown>; required: string[] };
+  /** Confere os campos extras; problemas voltam para o Gemini como na checagem normal. */
+  extraCheck?: (raw: Record<string, unknown>) => string[];
 }
 
 /**
  * Núcleo comum a todas as editorias: escolhe a mídia, pede a matéria ao Gemini, confere a qualidade
  * (refazendo com a lista de problemas) e monta o corpo. Quem chama só prepara as fontes.
  */
-export async function writeFromSources({ sources, media, brief }: PreparedSources, ctx: WriteContext): Promise<WriteResult> {
+export async function writeFromSources({ sources, media, brief, extraSchema, extraCheck }: PreparedSources, ctx: WriteContext): Promise<WriteResult> {
+  const schema = extraSchema
+    ? { ...SCHEMA, properties: { ...SCHEMA.properties, ...extraSchema.properties }, required: [...SCHEMA.required, ...extraSchema.required] }
+    : SCHEMA;
   const sourceWords = sources.reduce((n, s) => n + countWords(s.text), 0);
   if (sourceWords < 200) return { ok: false, status: "skipped", reason: `pouco conteúdo nas fontes (${sourceWords} palavras)` };
 
@@ -263,7 +272,7 @@ ${sourcesBlock(sources)}`;
     const retry = previous
       ? `\n\n---\nSUA VERSÃO ANTERIOR (JSON):\n${JSON.stringify(previous)}\n\nEla foi reprovada na checagem de qualidade. Gere de novo a matéria COMPLETA, mantendo o que estava certo (sem encurtar o texto) e corrigindo especificamente:\n${lastIssues.map((i) => `- ${i}`).join("\n")}`
       : "";
-    const res = await generateJson<GeminiDraft>({ system: SYSTEM, prompt: prompt + retry, schema: SCHEMA });
+    const res = await generateJson<GeminiDraft>({ system: SYSTEM, prompt: prompt + retry, schema });
     model = res.model;
     const raw = res.data;
     if (!raw.publish && attempt === 1) return { ok: false, status: "skipped", reason: `recusada pelo redator (${raw.reason})` };
@@ -271,7 +280,10 @@ ${sourcesBlock(sources)}`;
     const { draft, fixes } = autoFix({ ...raw, body: raw.body ?? [] });
     const { body: linked, removed } = sanitizeLinks(draft.body as DraftBlock[], allowed);
     if (removed.length) fixes.push(`links fora da lista removidos: ${removed.length}`);
-    const issues = checkDraft({ ...draft, body: linked }, { sourceText, minWords: ctx.minWords, allowedSections: ctx.sections, section: raw.section });
+    const issues = [
+      ...checkDraft({ ...draft, body: linked }, { sourceText, minWords: ctx.minWords, allowedSections: ctx.sections, section: raw.section }),
+      ...(extraCheck?.(raw as unknown as Record<string, unknown>) ?? []),
+    ];
     if (issues.length) {
       lastIssues = issues;
       previous = raw;
@@ -338,6 +350,7 @@ ${sourcesBlock(sources)}`;
         model,
         attempts: attempt,
         fixes,
+        extra: extraSchema ? Object.fromEntries(Object.keys(extraSchema.properties).map((k) => [k, (raw as unknown as Record<string, unknown>)[k]])) : {},
       },
     };
   }

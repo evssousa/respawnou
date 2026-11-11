@@ -40,10 +40,10 @@ const sections: DocSection[] = [
     title: "Como calculamos",
     body: (
       <ol>
-        <li>reunimos análises de veículos reconhecidos, no Brasil e no exterior;</li>
+        <li>reunimos análises de veículos especializados reconhecidos (hoje, principalmente de fora do Brasil), uma por veículo;</li>
+        <li>usamos a nota exatamente como o veículo a publicou, lida dos dados da própria página da análise;</li>
         <li>convertemos cada nota para a escala de 0 a 10 (por exemplo, 4 de 5 estrelas vira 8 e 85 de 100 vira 8,5);</li>
-        <li>calculamos a média simples, arredondada para uma casa decimal;</li>
-        <li>análises sem nota entram no resumo dos pontos positivos e negativos, mas não na média.</li>
+        <li>calculamos a média simples, arredondada para uma casa decimal. Só entram análises com nota.</li>
       </ol>
     ),
   },
@@ -52,8 +52,8 @@ const sections: DocSection[] = [
     title: "Quando publicamos",
     body: (
       <p>
-        Só publicamos o consenso quando um jogo tem pelo menos 5 análises com nota. Com menos do que isso, a média ainda não representa bem a recepção do
-        jogo.
+        Só publicamos o consenso quando um jogo tem pelo menos 4 análises com nota, de veículos diferentes, publicadas em até 30 dias. Com menos do que
+        isso, a média ainda não representa bem a recepção do jogo.
       </p>
     ),
   },

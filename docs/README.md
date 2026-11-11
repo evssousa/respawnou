@@ -54,8 +54,8 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |
 | 4 | Cadastrar `ADSENSE_CLIENT` no hPanel ao se inscrever no AdSense | 💤 dono |
 | 5 | Editorias novas, etapa 1: Promoções — jogos grátis da Epic e GamerPower, matéria do grátis da Epic, página /promocoes (migration 006) | ✅ |
-| 5 | Etapa 2: IGDB — lançamentos e fichas de jogos (dono cria conta de desenvolvedor na Twitch) | ⏳ |
-| 5 | Etapa 3: consenso da crítica (análises dos próprios feeds) | 💤 |
+| 5 | Etapa 2: IGDB — lançamentos e fichas de jogos (dono cria conta de desenvolvedor na Twitch; adiado: falta a verificação em duas etapas) | 💤 dono |
+| 5 | Etapa 3: consenso da crítica — notas do JSON-LD das análises, mínimo de 4 veículos, quadro calculado pelo código (migration 007) | ✅ |
 | 5 | Etapa 4: artigos de compilação (resumo da semana, lançamentos do mês, grátis do mês, ofertas) | 💤 |
 | 5 | Etapa 5: guias de requisitos de PC + botão "Nova matéria" no painel | 💤 |
 
