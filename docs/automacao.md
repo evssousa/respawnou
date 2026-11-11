@@ -86,7 +86,10 @@ Código: `writer.server.ts` (redator), `quality.ts` (checagem), `assemble.ts` (c
    do título ou do lide, expressões de IA, frase em inglês, < `robot_min_words`, < 2 h2, sem
    "Mais sobre", h2 genérico, parágrafo > 110 palavras, parágrafos quase iguais, rumor da fonte
    apresentado como fato, número que não está nas fontes. **Reprovou → o Gemini refaz com a lista
-   de problemas** (2 tentativas); reprovou de novo → item `failed` com os motivos.
+   de problemas** (até 3 tentativas); reprovou em todas → item `failed` com os motivos.
+   Rumor = só "rumor/leak/insider/unconfirmed" na fonte ("reportedly" é reportagem atribuída e
+   causava falso positivo). Na 1ª versão o Gemini ficava em 260–310 palavras: o prompt pede 500–700
+   (mínimo 400) e a reprovação diz quantas palavras faltam.
 8. **Montar** (`assembleBody`): vídeo depois do lide, uma imagem abaixo de cada h2 (alt =
    "palavra-chave: título da seção", crédito "Imagem: reprodução/<veículo>"), link interno garantido
    (1ª menção de plataforma vira link se o Gemini não pôs nenhum) e "Leia também" depois do 3º parágrafo.
@@ -95,6 +98,10 @@ Código: `writer.server.ts` (redator), `quality.ts` (checagem), `assemble.ts` (c
    com cache de 1 ano; grava o post com `meta_description`, `focus_keyword`, `tags`, capa e crédito.
 10. **Refazer**: `/api/cron/publicar?token=...&refazer=<id do post>` reescreve um post do robô com
     as regras atuais, no mesmo endereço (`&dry=1` para só ver).
+
+Teste real (2026-11-11): post #1 refeito com 564 palavras, capa própria em WebP (55 KB, cache de
+1 ano), links internos e para IGN/GameSpot, tags e meta description. Sem imagem no corpo porque as
+pautas antigas não tinham a mídia do RSS gravada (só as coletadas depois da migration 003 têm).
 
 Página do post: `<h1>` = título; meta description; `robots max-image-preview:large` (Discover);
 JSON-LD NewsArticle com imagem, `keywords` (tags), `articleSection` e logo; crédito da capa;
