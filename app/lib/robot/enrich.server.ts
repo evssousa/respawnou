@@ -46,9 +46,12 @@ export interface SteamGame {
   /** Ex.: "interface e legendas em português do Brasil; áudio em inglês" (null se a loja não informa). */
   languages: string | null;
   minRequirements: string | null;
+  /** Preço na Steam Brasil agora (null se gratuito ou indisponível). */
+  price: { normal: string; now: string; discount: number } | null;
 }
 
 interface SteamAppData {
+  price_overview?: { initial_formatted?: string; final_formatted?: string; discount_percent?: number; final?: number };
   type: string;
   name: string;
   short_description?: string;
@@ -80,17 +83,21 @@ export async function steamGame(keyword: string): Promise<SteamGame | null> {
     `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(keyword)}&l=brazilian&cc=BR`,
   );
   const hit = search?.items?.find((i) => i.type === "app" && sameGame(i.name, keyword));
-  if (!hit) return null;
+  return hit ? steamApp(hit.id) : null;
+}
+
+/** Ficha de um jogo da Steam pelo ID (em português do Brasil, preço em reais). */
+export async function steamApp(appId: number): Promise<SteamGame | null> {
   const details = await getJson<Record<string, { success: boolean; data?: SteamAppData }>>(
-    `https://store.steampowered.com/api/appdetails?appids=${hit.id}&l=brazilian&cc=BR`,
+    `https://store.steampowered.com/api/appdetails?appids=${appId}&l=brazilian&cc=BR`,
   );
-  const data = details?.[hit.id]?.data;
+  const data = details?.[appId]?.data;
   if (!data || data.type !== "game") return null;
   const req = Array.isArray(data.pc_requirements) ? undefined : data.pc_requirements?.minimum;
   return {
-    appId: hit.id,
+    appId,
     name: data.name,
-    url: `https://store.steampowered.com/app/${hit.id}/`,
+    url: `https://store.steampowered.com/app/${appId}/`,
     screenshots: (data.screenshots ?? []).map((s) => s.path_full.split("?")[0]),
     shortDescription: stripTags(data.short_description ?? ""),
     about: stripTags(data.about_the_game ?? "").slice(0, 4000),
@@ -99,6 +106,13 @@ export async function steamGame(keyword: string): Promise<SteamGame | null> {
     publishers: data.publishers ?? [],
     releaseDate: data.release_date?.date ?? null,
     languages: steamLanguages(data.supported_languages),
+    price: data.price_overview?.final_formatted
+      ? {
+          normal: data.price_overview.initial_formatted || data.price_overview.final_formatted,
+          now: data.price_overview.final_formatted,
+          discount: data.price_overview.discount_percent ?? 0,
+        }
+      : null,
     minRequirements: req ? stripTags(req.replace(/<li>/g, "; ")).replace(/^Mínimos:\s*;?\s*/i, "").slice(0, 800) : null,
   };
 }

@@ -147,6 +147,21 @@ Código: `app/lib/robot/offers.server.ts`. Roda dentro da coleta, no máximo a c
   matéria. A home mostra até 3.
 - Ofertas de desconto (Steam etc.) ficam para os artigos de compilação (etapa 4).
 
+## Artigos de compilação
+
+Código: `app/lib/robot/compilations.server.ts`. Matérias feitas a partir de dados (não reescrevem
+outra matéria), no fuso de Brasília, no máximo uma por período (`settings.compilations`). Prioridade
+na publicação: grátis da Epic → consenso → compilação do dia → notícias.
+
+| Tipo | Editoria | Quando | Fontes |
+|---|---|---|---|
+| `ofertas` | Promoções (tag Ofertas) | sexta | CheapShark (seleção: Steam, ≥ 85% de avaliações positivas, ≥ 2 mil análises, ≥ 50% de desconto) + Steam Brasil (preço em reais, que também precisa ter ≥ 50%; descrição, gêneros, idiomas). 5 a 8 jogos. |
+| `resumo` | Artigos (tag Resumo) | domingo | As matérias do próprio site nos últimos 7 dias (mínimo 5), com link interno para cada uma. |
+| `gratis-mes` | Artigos (tag Lista) | dias 1 a 3 | `free_games` do mês anterior, só se o registro cobre o mês inteiro (o primeiro sai em 1º/1/2027, sobre dezembro). Link para a nossa matéria do jogo quando existe. |
+
+Se a geração falhar, o período fica marcado (não insiste a cada hora). Teste sem gravar:
+`/api/cron/publicar?dry=1&compilacao=ofertas|resumo|gratis-mes`.
+
 ## Consenso da crítica (Reviews)
 
 Código: `app/lib/robot/critics.server.ts` (+ tabelas `critic_reviews` e `critic_consensus`, migration 007).

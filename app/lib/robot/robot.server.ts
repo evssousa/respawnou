@@ -8,6 +8,7 @@ import { youtubeCheck } from "./enrich.server.ts";
 import { fetchFeed } from "./rss.server.ts";
 import type { Review } from "../types.ts";
 import { keywords, similarity, slugify } from "./text.ts";
+import { dueCompilation, markCompilation, type CompilationKind } from "./compilations.server.ts";
 import {
   consensusCandidate,
   consensusNumbers,
@@ -307,6 +308,8 @@ export interface PublishOptions {
   redoPostId?: number;
   /** Só com dry: testa o consenso da crítica de um jogo (nome), mesmo abaixo do mínimo de análises. */
   consensusGame?: string;
+  /** Só com dry: gera uma compilação (ofertas | resumo | gratis-mes) fora do dia dela. */
+  compilation?: CompilationKind;
 }
 
 const ITEM_COLS = `fi.id, fi.feed_id, f.name AS feed_name, fi.title, fi.url, fi.summary, fi.media, fi.published_at`;
@@ -364,7 +367,8 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     const tried: string[] = [];
 
     // 1º: jogo grátis da Epic que ainda não virou matéria (é pauta com hora para acabar).
-    const promo = opts.consensusGame ? null : await promoCandidate();
+    const testing = Boolean(opts.dry && (opts.consensusGame || opts.compilation));
+    const promo = testing ? null : await promoCandidate();
     if (promo) {
       let result;
       try {
@@ -397,7 +401,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     }
 
     // 2º: consenso da crítica de um jogo que juntou análises suficientes.
-    const cons = await consensusCandidate(opts.dry ? opts.consensusGame : undefined);
+    const cons = opts.dry && opts.compilation ? null : await consensusCandidate(opts.dry ? opts.consensusGame : undefined);
     if (cons) {
       const prepared = await consensusSources(cons);
       let result;
@@ -422,7 +426,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
           return { status: "ok", message: `Teste: consenso da crítica gerado (${cons.name}, ${cons.rows.length} análises, ${a.words} palavras), nada foi gravado.`, post: { ...summary(a, slug), review }, stats: { tried } };
         const outlets = cons.rows.map((r) => r.outlet);
         const sourceName = outlets.length > 3 ? `${outlets.slice(0, 3).join(", ")} e outros` : outlets.join(", ");
-        const postId = await insertPost(a, slug, { name: sourceName, url: cons.rows[0].url, art: "abcd"[cons.rows.length % 4] }, review);
+        const postId = await insertPost(a, slug, { name: sourceName, url: cons.rows[0].url, art: "abcd"[cons.rows.length % 4] }, { review });
         await markConsensus(cons, "used", null, postId);
         return {
           status: "ok",
@@ -432,6 +436,39 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
       }
       tried.push(`consenso "${cons.name}": ${result.reason}`);
       if (!opts.dry) await markConsensus(cons, result.status, result.reason);
+    }
+
+    // 3º: artigo de compilação no dia dele (ofertas na sexta, resumo no domingo, grátis do mês no dia 1º).
+    const comp = opts.consensusGame ? null : await dueCompilation(opts.dry ? opts.compilation : undefined);
+    if (comp) {
+      let result;
+      try {
+        result = await writeFromSources(comp.prepared, {
+          sections: [comp.section],
+          minWords: cfg.minWords,
+          recentTitles,
+          related: comp.kind === "resumo" ? [] : await relatedPosts([comp.tag, comp.kind === "ofertas" ? "promoção Steam desconto" : "jogos grátis"]),
+        });
+      } catch (err) {
+        const fail = geminiFailure(err);
+        if (fail) return { ...fail, stats: { tried } };
+        throw err;
+      }
+      if (result.ok) {
+        const a = { ...result.article, section: comp.section, platforms: comp.kind === "ofertas" ? ["pc"] : result.article.platforms };
+        const slug = await uniqueSlug(a.section, slugify(a.title));
+        if (opts.dry) return { status: "ok", message: `Teste: compilação "${comp.kind}" gerada (${a.words} palavras), nada foi gravado.`, post: summary(a, slug), stats: { tried } };
+        const postId = await insertPost(a, slug, { ...comp.source, art: "abcd"[a.words % 4] }, { tag: comp.tag });
+        await markCompilation(comp.kind, comp.period);
+        return {
+          status: "ok",
+          message: `Publicado: /${a.section}/${slug} (compilação ${comp.kind}, ${comp.period}; ${a.words} palavras)`,
+          stats: { postId, words: a.words, model: a.model, attempts: a.attempts, fixes: a.fixes, tried },
+        };
+      }
+      tried.push(`compilação ${comp.kind}: ${result.reason}`);
+      // Não insiste a cada hora: o período fica marcado e a próxima sai no período seguinte.
+      if (!opts.dry) await markCompilation(comp.kind, comp.period);
     }
 
     const queue = await query<SourceItem>(
@@ -484,12 +521,13 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
 }
 
 /** Grava a matéria (imagens já baixadas para /media) e devolve o id. */
-async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, review?: Review) {
+async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, extra: { review?: Review; tag?: string } = {}) {
+  const { review, tag } = extra;
   const local = await localizeImages(a, slug);
   const [res] = await db().query<ResultSetHeader>(
     `INSERT INTO posts (section, slug, status, origin, title, excerpt, meta_description, focus_keyword, tags, platforms, author, read_minutes, art,
-       image_url, image_alt, image_credit, body, source_name, source_url, review, published_at)
-     VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+       image_url, image_alt, image_credit, body, source_name, source_url, review, tag, published_at)
+     VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
     [
       a.section,
       slug,
@@ -508,6 +546,7 @@ async function insertPost(a: BuiltArticle, slug: string, source: { name: string;
       source.name,
       source.url,
       review ? JSON.stringify(review) : null,
+      tag ?? null,
     ],
   );
   return res.insertId;

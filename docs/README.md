@@ -56,7 +56,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 5 | Editorias novas, etapa 1: Promoções — jogos grátis da Epic e GamerPower, matéria do grátis da Epic, página /promocoes (migration 006) | ✅ |
 | 5 | Etapa 2: IGDB — lançamentos e fichas de jogos (dono cria conta de desenvolvedor na Twitch; adiado: falta a verificação em duas etapas) | 💤 dono |
 | 5 | Etapa 3: consenso da crítica — notas do JSON-LD das análises, mínimo de 4 veículos, quadro calculado pelo código (migration 007) | ✅ |
-| 5 | Etapa 4: artigos de compilação (resumo da semana, lançamentos do mês, grátis do mês, ofertas) | 💤 |
+| 5 | Etapa 4: compilações — ofertas da Steam (sexta), resumo da semana (domingo), grátis do mês (dia 1º); "lançamentos do mês" espera o IGDB | ✅ |
 | 5 | Etapa 5: guias de requisitos de PC + botão "Nova matéria" no painel | 💤 |
 
 ## Histórico de commits relevantes

@@ -6,7 +6,8 @@
 //   GET /api/cron/ofertas?token=...   atualiza os jogos grátis (a coleta já faz isso a cada 3 h)
 // Parâmetros extras de publicar: dry=1 (gera sem gravar), force=1 (ignora horário/limite),
 // refazer=<id do post> (reescreve um post do robô com as regras atuais, mesmo endereço),
-// consenso=<nome do jogo> (só com dry=1: testa o consenso da crítica daquele jogo).
+// consenso=<nome do jogo> (só com dry=1: testa o consenso da crítica daquele jogo),
+// compilacao=ofertas|resumo|gratis-mes (só com dry=1: gera a compilação fora do dia dela).
 //
 // A CDN da Hostinger corta requisições com mais de ~1 min (devolve 307), e o Gemini pode levar
 // mais que isso. Por isso coletar/publicar respondem 202 na hora e rodam em segundo plano;
@@ -48,6 +49,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
         force: flag("force"),
         redoPostId: Number(url.searchParams.get("refazer")) || undefined,
         consensusGame: url.searchParams.get("consenso") ?? undefined,
+        compilation: (["ofertas", "resumo", "gratis-mes"] as const).find((k) => k === url.searchParams.get("compilacao")),
       });
   else return notFound();
 
