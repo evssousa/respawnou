@@ -106,5 +106,17 @@ export interface FreeGame {
   untilLabel: string;
   /** Dias até a oferta acabar (0 = acaba hoje). */
   daysLeft: number;
+  /** Página da oferta na loja (ou o redirecionamento da GamerPower). */
   url: string;
+  /** Arte do jogo servida pelo site (/media/...). */
+  image?: string | null;
+  /** Preço normal ("R$ 47,49" na Epic, "$24.99" na GamerPower). */
+  worth?: string | null;
+  /** epic | gamerpower | manual — a GamerPower exige crédito. */
+  source?: string;
+  /** Matéria do Respawnou sobre a oferta, se houver. */
+  postUrl?: string | null;
+  /** Início (só nas ofertas que ainda vão começar). */
+  startsAt?: string | null;
+  startsLabel?: string | null;
 }

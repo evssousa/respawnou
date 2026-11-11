@@ -2,7 +2,8 @@ import { data, Link, useLocation } from "react-router";
 import type { Route } from "./+types/section";
 import { MostRead, Pagination, PostRow } from "~/components/cards";
 import { FilterLink, SectionTitle } from "~/components/ui";
-import { getMostRead, listPosts } from "~/lib/content.server";
+import { FreeGamesBoard } from "~/components/free-games";
+import { getFreeGames, getMostRead, getUpcomingFreeGames, listPosts } from "~/lib/content.server";
 import { seo } from "~/lib/seo";
 import { PLATFORMS, platformBySlug, sectionBySlug } from "~/lib/site";
 
@@ -13,13 +14,20 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const platform = platformBySlug(url.searchParams.get("plataforma") ?? "")?.slug;
   const page = Number(url.searchParams.get("pagina")) || 1;
-  const [posts, mostRead] = await Promise.all([listPosts({ section: section.slug, platform, page }), getMostRead(5)]);
-  return { section, platform: platform ?? null, posts, mostRead };
+  // Promoções: a lista de jogos grátis fica no topo (só na 1ª página, sem filtro de plataforma).
+  const withFree = section.slug === "promocoes" && page === 1 && !platform;
+  const [posts, mostRead, free, upcoming] = await Promise.all([
+    listPosts({ section: section.slug, platform, page }),
+    getMostRead(5),
+    withFree ? getFreeGames() : [],
+    withFree ? getUpcomingFreeGames() : [],
+  ]);
+  return { section, platform: platform ?? null, posts, mostRead, free, upcoming };
 }
 
 export function meta({ loaderData, location }: Route.MetaArgs) {
   if (!loaderData) return [];
-  const { section, posts, platform } = loaderData;
+  const { section, posts, platform, free } = loaderData;
   const platformLabel = platform ? platformBySlug(platform)?.label : null;
   const title = platformLabel ? `${section.label} de ${platformLabel}` : section.label;
   return seo({
@@ -27,12 +35,12 @@ export function meta({ loaderData, location }: Route.MetaArgs) {
     description: section.description,
     path: location.pathname + (posts.page > 1 ? `?pagina=${posts.page}` : ""),
     // Filtros por plataforma já têm página própria em /plataforma/:slug.
-    noindex: Boolean(platform) || posts.total === 0,
+    noindex: Boolean(platform) || (posts.total === 0 && free.length === 0),
   });
 }
 
 export default function SectionPage({ loaderData }: Route.ComponentProps) {
-  const { section, posts, mostRead, platform } = loaderData;
+  const { section, posts, mostRead, platform, free, upcoming } = loaderData;
   const location = useLocation();
   const base = `/${section.slug}`;
 
@@ -55,10 +63,12 @@ export default function SectionPage({ loaderData }: Route.ComponentProps) {
         </nav>
       </div>
 
+      <FreeGamesBoard free={free} upcoming={upcoming} />
+
       <div className="flex flex-wrap gap-10">
         <div className="flex min-w-0 flex-[999_1_560px] flex-col">
           {posts.items.length === 0 ? (
-            <p className="border-y border-line py-10 text-lg text-body">Nenhuma matéria por aqui ainda. Volte em breve!</p>
+            !free.length && <p className="border-y border-line py-10 text-lg text-body">Nenhuma matéria por aqui ainda. Volte em breve!</p>
           ) : (
             posts.items.map((p) => <PostRow key={p.url} post={p} />)
           )}

@@ -27,7 +27,7 @@ export interface SourceItem {
   media: unknown;
 }
 
-interface Source {
+export interface Source {
   name: string;
   title: string;
   url: string;
@@ -204,6 +204,21 @@ const cleanTags = (tags: string[]) =>
 
 export async function writeArticle(group: SourceItem[], ctx: WriteContext): Promise<WriteResult> {
   const { sources, media } = await gatherSources(group);
+  return writeFromSources({ sources, media }, ctx);
+}
+
+export interface PreparedSources {
+  sources: Source[];
+  media: SourceMedia;
+  /** Instruções extras para este tipo de pauta (promoção, consenso, compilação...). */
+  brief?: string;
+}
+
+/**
+ * Núcleo comum a todas as editorias: escolhe a mídia, pede a matéria ao Gemini, confere a qualidade
+ * (refazendo com a lista de problemas) e monta o corpo. Quem chama só prepara as fontes.
+ */
+export async function writeFromSources({ sources, media, brief }: PreparedSources, ctx: WriteContext): Promise<WriteResult> {
   const sourceWords = sources.reduce((n, s) => n + countWords(s.text), 0);
   if (sourceWords < 200) return { ok: false, status: "skipped", reason: `pouco conteúdo nas fontes (${sourceWords} palavras)` };
 
@@ -236,7 +251,7 @@ ${external.map(([u, t]) => `- ${u} — ${t}`).join("\n")}
 
 MÍDIA: a matéria terá ${chosen.body.length + 1} imagem(ns)${video ? " e um vídeo do YouTube logo depois do lide" : ""}, inseridas automaticamente. Não descreva imagens nem escreva "veja o vídeo".
 
-Escreva uma matéria a partir das fontes abaixo. A FONTE 1 é a principal; as outras são de outros veículos sobre o mesmo assunto.
+${brief ? `${brief}\n\n` : ""}Escreva uma matéria a partir das fontes abaixo. A FONTE 1 é a principal; as outras complementam o mesmo assunto.
 
 ${sourcesBlock(sources)}`;
 
@@ -290,7 +305,7 @@ ${sourcesBlock(sources)}`;
       if (video) fixes.push("trailer do YouTube pela busca");
     }
 
-    const credit = (p: ProbedImage) => (p.source === "Steam" ? "Imagem: divulgação/Steam" : p.source ? `Imagem: reprodução/${p.source}` : undefined);
+    const credit = imageCredit;
     const body = assembleBody({
       draft: linked,
       focusKeyword: keyword,
@@ -329,6 +344,11 @@ ${sourcesBlock(sources)}`;
   return { ok: false, status: "failed", reason: `reprovada na checagem após ${MAX_ATTEMPTS} tentativas: ${lastIssues.join(" | ")}` };
 }
 
+/** Lojas oficiais publicam material de divulgação; veículos de imprensa, reprodução. */
+const OFFICIAL_SOURCES = new Set(["Steam", "Epic Games Store"]);
+const imageCredit = (p: ProbedImage) =>
+  p.source ? (OFFICIAL_SOURCES.has(p.source) ? `Imagem: divulgação/${p.source}` : `Imagem: reprodução/${p.source}`) : undefined;
+
 /** Grava as imagens em MEDIA_DIR e troca os endereços remotos pelos nossos. */
 export async function localizeImages(a: BuiltArticle, slug: string) {
   const cover = await storeImage(a.cover, slug);
@@ -340,5 +360,5 @@ export async function localizeImages(a: BuiltArticle, slug: string) {
     const local = map.get(b.src);
     return local ? { ...b, ...local } : b;
   });
-  return { cover, body, coverCredit: a.cover.source ? `Imagem: reprodução/${a.cover.source}` : null };
+  return { cover, body, coverCredit: imageCredit(a.cover) ?? null };
 }

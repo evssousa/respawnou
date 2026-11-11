@@ -82,4 +82,7 @@ export const mockRepo: Repo = {
   async freeGames(nowIso) {
     return MOCK_FREE_GAMES.filter((f) => f.until >= nowIso.slice(0, 10));
   },
+  async upcomingFreeGames() {
+    return [];
+  },
 };

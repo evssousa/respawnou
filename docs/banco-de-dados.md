@@ -11,7 +11,8 @@ Datas em UTC.
 | `db/migrations/002_robo.sql` | 11 fontes RSS + configurações do robô (liga o robô) | ✅ 2026-11-10 |
 | `db/migrations/003_seo_midia.sql` | `posts.meta_description`, `focus_keyword`, `tags`; `feed_items.media`; mínimo de 350 palavras | ✅ 2026-11-11 |
 | `db/migrations/004_fontes.sql` | Desativa Polygon (bloqueia o servidor); + GamesRadar+, Game Informer, Kotaku, Destructoid, Siliconera | ✅ 2026-11-11 |
-| `db/migrations/005_fontes_bloqueadas.sql` | Desativa Destructoid e Siliconera (403 ao servidor); tira ofertas de varejo da fila | automática no próximo deploy |
+| `db/migrations/005_fontes_bloqueadas.sql` | Desativa Destructoid e Siliconera (403 ao servidor); tira ofertas de varejo da fila | ✅ 2026-11-11 |
+| `db/migrations/006_ofertas.sql` | `free_games` preenchida pelo robô: `source`, `external_id` (único por origem), `image_url`, `worth`, `description`, `extra`, `post_id`/`post_status`/`post_note` (matéria sobre a oferta) | automática no deploy de 2026-11-11 |
 
 Como aplicar:
 
@@ -33,7 +34,7 @@ Dados de exemplo para desenvolvimento: `npm run db:seed-dev` (apaga posts/jogos;
 | `posts` | Matérias | `section`+`slug` únicos, `status` (draft/published/archived), `origin` (auto/manual), `body` JSON em blocos, `review` JSON (consenso da crítica), `published_at` (UTC), `source_*`, `image_url`/`image_alt`/`image_credit` (capa), `meta_description`, `focus_keyword`, `tags` JSON |
 | `feeds` | Fontes RSS do robô | `url` única, `weight`, `active`, `last_error` |
 | `feed_items` | Fila de pautas | `guid_hash` (sha256) único, `status` (new/used/skipped/failed), `reason`, `post_id`, `media` JSON (imagens/vídeos/links do RSS) |
-| `free_games` | Jogos grátis por tempo limitado | `ends_at`, `starts_at` |
+| `free_games` | Jogos grátis por tempo limitado (Epic + GamerPower, job `ofertas`) | `ends_at`, `starts_at`, `(source, external_id)` |
 | `cron_runs` | Histórico do robô | `job`, `status`, `message`, `stats` JSON |
 | `settings` | Configurações do admin | `posts_per_day`, `robot_sections`, `robot_enabled` |
 | `schema_migrations` | Controle das migrations | `version` |

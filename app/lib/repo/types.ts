@@ -12,7 +12,7 @@ export interface PostFilter {
   exclude?: string[];
 }
 
-export type RawFreeGame = Omit<FreeGame, "untilLabel" | "daysLeft">;
+export type RawFreeGame = Omit<FreeGame, "untilLabel" | "daysLeft" | "startsLabel">;
 
 export interface Repo {
   findPosts(filter: PostFilter, offset: number, limit: number): Promise<{ items: Post[]; total: number }>;
@@ -34,4 +34,6 @@ export interface Repo {
 
   /** Ofertas grátis ainda válidas. */
   freeGames(nowIso: string): Promise<RawFreeGame[]>;
+  /** Ofertas grátis já anunciadas que ainda não começaram (ex.: o próximo grátis da Epic). */
+  upcomingFreeGames(nowIso: string): Promise<RawFreeGame[]>;
 }

@@ -7,7 +7,8 @@ import { diagnose, generateJson, GeminiError } from "./gemini.server.ts";
 import { youtubeCheck } from "./enrich.server.ts";
 import { fetchFeed } from "./rss.server.ts";
 import { keywords, similarity, slugify } from "./text.ts";
-import { localizeImages, writeArticle, type BuiltArticle, type SourceItem } from "./writer.server.ts";
+import { fetchEpic, fetchGamerPower, markPromo, promoCandidate, promoSources, saveOffers, type Offer } from "./offers.server.ts";
+import { localizeImages, writeArticle, writeFromSources, type BuiltArticle, type SourceItem } from "./writer.server.ts";
 
 const TZ = "America/Sao_Paulo";
 
@@ -182,15 +183,54 @@ export function collect(): Promise<JobResult> {
       }
     }
 
+    // Jogos grátis (Epic + GamerPower): no máximo a cada 3 h, registrado como job "ofertas".
+    const offers = await maybeCollectOffers();
+
     // Itens velhos que nunca foram usados saem da fila.
     await db().query("UPDATE feed_items SET status = 'skipped', reason = 'expirou (mais de 48 h)' WHERE status = 'new' AND published_at < UTC_TIMESTAMP() - INTERVAL 48 HOUR");
 
     return {
       status: errors.length === feeds.length && feeds.length ? "error" : "ok",
-      message: `${added} novos na fila, ${skipped} descartados${errors.length ? `; falhas: ${errors.join(" | ")}` : ""}`,
+      message: `${added} novos na fila, ${skipped} descartados${errors.length ? `; falhas: ${errors.join(" | ")}` : ""}${offers ? ` · ofertas: ${offers.message}` : ""}`,
       stats: { feeds: feeds.length, added, skipped, errors: errors.length },
     };
   });
+}
+
+// ───────────── Ofertas (jogos grátis) ─────────────
+
+/** Busca os jogos grátis na Epic e na GamerPower e atualiza free_games. */
+export function collectOffers(): Promise<JobResult> {
+  return runJob("ofertas", async () => {
+    const settle = async (source: Offer["source"], fn: () => Promise<Offer[]>) => {
+      try {
+        return { source, offers: await fn(), ok: true };
+      } catch {
+        return { source, offers: [] as Offer[], ok: false };
+      }
+    };
+    const results = await Promise.all([settle("epic", fetchEpic), settle("gamerpower", fetchGamerPower)]);
+    // Só encerra ofertas "sumidas" de uma origem que respondeu (falha de rede não apaga nada).
+    const answered = results.filter((r) => r.ok && r.offers.length).map((r) => r.source);
+    const offers = results.flatMap((r) => r.offers);
+    const added = await saveOffers(offers, answered);
+    const epic = results[0].offers;
+    const now = Date.now();
+    const freeNow = epic.filter((o) => o.startsAt && o.startsAt.getTime() <= now).map((o) => o.name);
+    const failed = results.filter((r) => !r.ok || !r.offers.length).map((r) => r.source);
+    return {
+      status: failed.length === results.length ? "error" : "ok",
+      message: `${offers.length} oferta(s), ${added} nova(s). Epic grátis agora: ${freeNow.join(", ") || "nenhum"}${failed.length ? `; sem resposta: ${failed.join(", ")}` : ""}`,
+      stats: { total: offers.length, added, epic: epic.map((o) => ({ name: o.name, from: o.startsAt, to: o.endsAt })), failed },
+    };
+  });
+}
+
+async function maybeCollectOffers() {
+  const recent = await query<{ id: number }>(
+    "SELECT id FROM cron_runs WHERE job = 'ofertas' AND status IN ('ok','running') AND started_at > UTC_TIMESTAMP() - INTERVAL 3 HOUR LIMIT 1",
+  );
+  return recent.length ? null : collectOffers();
 }
 
 // ───────────── Publicação ─────────────
@@ -291,17 +331,50 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
       if (recent.length) return { status: "skipped", message: `Aguardando o intervalo de ${gapHours} h entre posts.` };
     }
 
+    const recentTitles = (
+      await query<{ title: string }>("SELECT title FROM posts WHERE status = 'published' AND published_at > UTC_TIMESTAMP() - INTERVAL 5 DAY ORDER BY published_at DESC LIMIT 40")
+    ).map((r) => r.title);
+    const tried: string[] = [];
+
+    // 1º: jogo grátis da Epic que ainda não virou matéria (é pauta com hora para acabar).
+    const promo = await promoCandidate();
+    if (promo) {
+      let result;
+      try {
+        const prepared = await promoSources(promo);
+        result = await writeFromSources(prepared, {
+          sections: ["promocoes"],
+          minWords: cfg.minWords,
+          recentTitles,
+          related: await relatedPosts([promo.name]),
+        });
+      } catch (err) {
+        const fail = geminiFailure(err);
+        if (fail) return { ...fail, stats: { tried } };
+        throw err;
+      }
+      if (result.ok) {
+        const a = { ...result.article, section: "promocoes", platforms: ["pc"] };
+        const slug = await uniqueSlug(a.section, slugify(a.title));
+        if (opts.dry) return { status: "ok", message: `Teste: matéria de promoção gerada (${a.words} palavras), nada foi gravado.`, post: summary(a, slug), stats: { tried } };
+        const postId = await insertPost(a, slug, { name: promo.store, url: promo.url, art: "abcd"[promo.id % 4] });
+        await markPromo(promo.id, "used", null, postId);
+        return {
+          status: "ok",
+          message: `Publicado: /${a.section}/${slug} (grátis: ${promo.name}; ${a.words} palavras, ${a.bodyImages.length + 1} imagens${a.video ? ", vídeo" : ""})`,
+          stats: { postId, words: a.words, model: a.model, attempts: a.attempts, fixes: a.fixes, tried },
+        };
+      }
+      tried.push(`grátis "${promo.name}": ${result.reason}`);
+      if (!opts.dry) await markPromo(promo.id, result.status, result.reason);
+    }
+
     const queue = await query<SourceItem>(
       `SELECT ${ITEM_COLS} FROM feed_items fi JOIN feeds f ON f.id = fi.feed_id
        WHERE fi.status = 'new' AND fi.published_at > UTC_TIMESTAMP() - INTERVAL 48 HOUR
        ORDER BY fi.score DESC, fi.published_at DESC LIMIT 60`,
     );
-    if (!queue.length) return { status: "skipped", message: "Fila vazia: nenhuma pauta nova." };
-    const recentTitles = (
-      await query<{ title: string }>("SELECT title FROM posts WHERE status = 'published' AND published_at > UTC_TIMESTAMP() - INTERVAL 5 DAY ORDER BY published_at DESC LIMIT 40")
-    ).map((r) => r.title);
-
-    const tried: string[] = [];
+    if (!queue.length) return { status: "skipped", message: `Fila vazia: nenhuma pauta nova.${tried.length ? ` ${tried.join(" · ")}` : ""}`, stats: { tried } };
     // Até 3 pautas por execução: se uma for descartada, tenta a próxima.
     for (const item of queue.slice(0, 3)) {
       const group = groupFor(item, queue);
@@ -327,31 +400,9 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
       const slug = await uniqueSlug(a.section, slugify(a.title));
       if (opts.dry) return { status: "ok", message: `Teste: matéria gerada (${a.words} palavras), nada foi gravado.`, post: summary(a, slug), stats: { tried } };
 
-      const local = await localizeImages(a, slug);
-      const [res] = await db().query<ResultSetHeader>(
-        `INSERT INTO posts (section, slug, status, origin, title, excerpt, meta_description, focus_keyword, tags, platforms, author, read_minutes, art,
-           image_url, image_alt, image_credit, body, source_name, source_url, published_at)
-         VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
-        [
-          a.section,
-          slug,
-          a.title,
-          a.excerpt,
-          a.metaDescription,
-          a.focusKeyword,
-          JSON.stringify(a.tags),
-          JSON.stringify(a.platforms),
-          a.readMinutes,
-          "abcd"[item.id % 4],
-          local.cover.src,
-          a.coverAlt,
-          local.coverCredit,
-          JSON.stringify(local.body),
-          item.feed_name,
-          item.url,
-        ],
-      );
-      await markItems([item.id], "used", null, res.insertId);
+      const postId = await insertPost(a, slug, { name: item.feed_name, url: item.url, art: "abcd"[item.id % 4] });
+      const res = { insertId: postId };
+      await markItems([item.id], "used", null, postId);
       // O mesmo assunto em outros veículos não vira outro post: marca tudo que se parece
       // com qualquer fonte do grupo (pega também quem só se parece com uma fonte relacionada).
       const groupKw = group.map((g) => keywords(g.title));
@@ -365,6 +416,35 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     }
     return { status: "skipped", message: `Nenhuma pauta aproveitada nesta execução. ${tried.join(" · ")}`, stats: { tried } };
   });
+}
+
+/** Grava a matéria (imagens já baixadas para /media) e devolve o id. */
+async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }) {
+  const local = await localizeImages(a, slug);
+  const [res] = await db().query<ResultSetHeader>(
+    `INSERT INTO posts (section, slug, status, origin, title, excerpt, meta_description, focus_keyword, tags, platforms, author, read_minutes, art,
+       image_url, image_alt, image_credit, body, source_name, source_url, published_at)
+     VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+    [
+      a.section,
+      slug,
+      a.title,
+      a.excerpt,
+      a.metaDescription,
+      a.focusKeyword,
+      JSON.stringify(a.tags),
+      JSON.stringify(a.platforms),
+      a.readMinutes,
+      source.art,
+      local.cover.src,
+      a.coverAlt,
+      local.coverCredit,
+      JSON.stringify(local.body),
+      source.name,
+      source.url,
+    ],
+  );
+  return res.insertId;
 }
 
 /** Reescreve um post (mesmo endereço e data) a partir das pautas que o originaram. */

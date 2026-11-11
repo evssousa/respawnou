@@ -2,6 +2,7 @@
 // sem chave) e trailer no YouTube (API de dados, opcional: só com YOUTUBE_API_KEY).
 // Chamado depois do Gemini, quando já se sabe a palavra-chave (nome do jogo).
 import { USER_AGENT } from "./rss.server.ts";
+import { stripTags } from "./text.ts";
 
 const norm = (s: string) =>
   s
@@ -35,25 +36,70 @@ export interface SteamGame {
   name: string;
   url: string;
   screenshots: string[];
+  /** Ficha da loja (em português quando a Steam tem a tradução), já em texto puro. */
+  shortDescription: string;
+  about: string;
+  genres: string[];
+  developers: string[];
+  publishers: string[];
+  releaseDate: string | null;
+  /** Ex.: "interface e legendas em português do Brasil; áudio em inglês" (null se a loja não informa). */
+  languages: string | null;
+  minRequirements: string | null;
+}
+
+interface SteamAppData {
+  type: string;
+  name: string;
+  short_description?: string;
+  about_the_game?: string;
+  supported_languages?: string;
+  pc_requirements?: { minimum?: string } | [];
+  developers?: string[];
+  publishers?: string[];
+  genres?: { description: string }[];
+  release_date?: { date?: string };
+  screenshots?: { path_full: string }[];
+}
+
+/** "Português do Brasil<strong>*</strong>, Inglês<strong>*</strong>..." → resumo legível. */
+function steamLanguages(html?: string) {
+  if (!html) return null;
+  const items = html
+    .split(/<br>/i)[0]
+    .split(",")
+    .map((s) => ({ name: stripTags(s.replace(/<strong>\*<\/strong>/g, "")), audio: /<strong>\*<\/strong>/.test(s) }));
+  const ptbr = items.find((i) => /portugu[eê]s.*brasil/i.test(i.name));
+  if (!ptbr) return "sem português do Brasil na lista de idiomas da loja";
+  return ptbr.audio ? "interface, legendas e áudio em português do Brasil" : "interface e legendas em português do Brasil (áudio em outros idiomas)";
 }
 
 /** Jogo na Steam pelo nome (null se não achar um que seja claramente o mesmo). */
 export async function steamGame(keyword: string): Promise<SteamGame | null> {
   const search = await getJson<{ items?: { id: number; name: string; type: string }[] }>(
-    `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(keyword)}&l=portuguese&cc=BR`,
+    `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(keyword)}&l=brazilian&cc=BR`,
   );
   const hit = search?.items?.find((i) => i.type === "app" && sameGame(i.name, keyword));
   if (!hit) return null;
-  const details = await getJson<Record<string, { success: boolean; data?: { type: string; name: string; screenshots?: { path_full: string }[] } }>>(
-    `https://store.steampowered.com/api/appdetails?appids=${hit.id}&l=portuguese&cc=BR`,
+  const details = await getJson<Record<string, { success: boolean; data?: SteamAppData }>>(
+    `https://store.steampowered.com/api/appdetails?appids=${hit.id}&l=brazilian&cc=BR`,
   );
   const data = details?.[hit.id]?.data;
   if (!data || data.type !== "game") return null;
+  const req = Array.isArray(data.pc_requirements) ? undefined : data.pc_requirements?.minimum;
   return {
     appId: hit.id,
     name: data.name,
     url: `https://store.steampowered.com/app/${hit.id}/`,
     screenshots: (data.screenshots ?? []).map((s) => s.path_full.split("?")[0]),
+    shortDescription: stripTags(data.short_description ?? ""),
+    about: stripTags(data.about_the_game ?? "").slice(0, 4000),
+    genres: (data.genres ?? []).map((g) => g.description),
+    developers: data.developers ?? [],
+    publishers: data.publishers ?? [],
+    releaseDate: data.release_date?.date ?? null,
+    languages: steamLanguages(data.supported_languages),
+    minRequirements: req ? stripTags(req.replace(/<li>/g, "; ")).replace(/^Mínimos:\s*;?\s*/i, "").slice(0, 800) : null,
   };
 }
 

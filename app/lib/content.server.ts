@@ -116,6 +116,16 @@ export async function getFreeGames(): Promise<FreeGame[]> {
   return free.map((f) => ({ ...f, untilLabel: formatDate(f.until), daysLeft: daysUntil(f.until) }));
 }
 
+export async function getUpcomingFreeGames(): Promise<FreeGame[]> {
+  const free = await repo().upcomingFreeGames(new Date().toISOString());
+  return free.map((f) => ({
+    ...f,
+    untilLabel: formatDate(f.until),
+    daysLeft: daysUntil(f.until),
+    startsLabel: f.startsAt ? formatDate(f.startsAt) : null,
+  }));
+}
+
 export interface SectionStat {
   slug: SectionSlug;
   label: string;
@@ -138,12 +148,15 @@ let availabilityCache: { at: number; value: Availability } | undefined;
 /** O que tem conteúdo (ver availability.ts). Cache de 5 min: uma editoria nova aparece no menu em até 5 min. */
 export async function getAvailability(): Promise<Availability> {
   if (availabilityCache && Date.now() - availabilityCache.at < 5 * 60_000) return availabilityCache.value;
-  const [stats, platforms, releases] = await Promise.all([
+  const [stats, platforms, releases, free] = await Promise.all([
     repo().sectionStats(),
     Promise.all(PLATFORMS.map(async (p) => ((await repo().findPosts({ platform: p.slug }, 0, 1)).total > 0 ? p.slug : null))),
     getReleases(),
+    repo().freeGames(new Date().toISOString()),
   ]);
-  const sections = SECTIONS.filter((s) => s.slug === "noticias" || stats.some((x) => x.section === s.slug && x.total > 0)).map((s) => s.slug);
+  const sections = SECTIONS.filter(
+    (s) => s.slug === "noticias" || (s.slug === "promocoes" && free.length > 0) || stats.some((x) => x.section === s.slug && x.total > 0),
+  ).map((s) => s.slug);
   const value: Availability = { sections, platforms: platforms.filter((p) => p !== null), releases: releases.length > 0 };
   availabilityCache = { at: Date.now(), value };
   return value;

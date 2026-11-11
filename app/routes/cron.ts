@@ -3,6 +3,7 @@
 //   GET /api/cron/publicar?token=...  publica 1 matéria (respeita horário, limite e intervalo)
 //   GET /api/cron/status?token=...    últimas execuções (com o rascunho dos testes dry=1)
 //   GET /api/cron/diag?token=...      testa os modelos do Gemini (resultado em /status)
+//   GET /api/cron/ofertas?token=...   atualiza os jogos grátis (a coleta já faz isso a cada 3 h)
 // Parâmetros extras de publicar: dry=1 (gera sem gravar), force=1 (ignora horário/limite),
 // refazer=<id do post> (reescreve um post do robô com as regras atuais, mesmo endereço).
 //
@@ -13,7 +14,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Route } from "./+types/cron";
 import { hasDatabase } from "~/lib/db.server";
-import { collect, diag, publish, recentRuns, type JobResult } from "~/lib/robot/robot.server";
+import { collect, collectOffers, diag, publish, recentRuns, type JobResult } from "~/lib/robot/robot.server";
 
 function authorized(request: Request) {
   const expected = process.env.CRON_TOKEN;
@@ -38,6 +39,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   let job: () => Promise<JobResult>;
   if (params.job === "coletar") job = collect;
   else if (params.job === "diag") job = diag;
+  else if (params.job === "ofertas") job = collectOffers;
   else if (params.job === "publicar") job = () => publish({ dry: flag("dry"), force: flag("force"), redoPostId: Number(url.searchParams.get("refazer")) || undefined });
   else return notFound();
 

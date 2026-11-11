@@ -5,7 +5,7 @@ import { adminMeta, Button, Card, Notice, PageTitle, Pill, when } from "~/compon
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { blocksToText } from "~/lib/admin/body-text";
 import { iso } from "~/lib/db.server";
-import { collect, diag, publish, recentRuns, type JobResult } from "~/lib/robot/robot.server";
+import { collect, collectOffers, diag, publish, recentRuns, type JobResult } from "~/lib/robot/robot.server";
 import type { Block } from "~/lib/types";
 
 export const meta = () => adminMeta("Robô");
@@ -18,6 +18,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 const JOBS: Record<string, () => Promise<JobResult>> = {
   coletar: collect,
+  ofertas: collectOffers,
   publicar: () => publish({ force: true }),
   testar: () => publish({ dry: true }),
   diag,
@@ -34,6 +35,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 const MSG: Record<string, string> = {
   coletar: "Coleta iniciada.",
+  ofertas: "Busca de jogos grátis iniciada (Epic e GamerPower).",
   publicar: "Publicação iniciada (ignora horário, limite diário e intervalo).",
   testar: "Teste iniciado: gera uma matéria sem gravar; o rascunho aparece abaixo.",
   diag: "Diagnóstico iniciado (Gemini e YouTube).",
@@ -70,6 +72,9 @@ export default function AdminRobot({ loaderData }: Route.ComponentProps) {
           >
             Publicar uma agora
           </Button>
+          <Button name="intent" value="ofertas" disabled={busy}>
+            Buscar jogos grátis
+          </Button>
           <Button name="intent" value="testar" disabled={busy}>
             Testar (sem gravar)
           </Button>
@@ -78,7 +83,7 @@ export default function AdminRobot({ loaderData }: Route.ComponentProps) {
           </Button>
         </Form>
         <p className="mt-3 text-xs text-muted">
-          Automático: coleta a cada 30 min e tentativa de publicação de hora em hora (Cron Jobs da Hostinger). {running && "Atualizando a cada 5 s..."}
+          Automático: coleta a cada 30 min (jogos grátis a cada 3 h) e tentativa de publicação de hora em hora (Cron Jobs da Hostinger). O grátis da Epic tem prioridade sobre as notícias. {running && "Atualizando a cada 5 s..."}
         </p>
       </Card>
 

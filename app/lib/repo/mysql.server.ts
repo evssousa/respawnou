@@ -2,7 +2,37 @@
 import { iso, json, query } from "../db.server";
 import { SECTIONS, type PlatformSlug, type SectionSlug } from "../site";
 import type { ArtVariant, Block, Game, Post, Review } from "../types";
-import type { PostFilter, Repo } from "./types";
+import type { PostFilter, RawFreeGame, Repo } from "./types";
+
+interface FreeRow {
+  name: string;
+  store: string;
+  platform: string;
+  url: string;
+  image_url: string | null;
+  worth: string | null;
+  source: string;
+  starts_at: string | null;
+  ends_at: string;
+  section: string | null;
+  slug: string | null;
+}
+
+const FREE_SELECT = `SELECT f.name, f.store, f.platform, f.url, f.image_url, f.worth, f.source, f.starts_at, f.ends_at, p.section, p.slug
+  FROM free_games f LEFT JOIN posts p ON p.id = f.post_id AND p.status = 'published' AND p.published_at <= UTC_TIMESTAMP()`;
+
+const freeFromRow = (r: FreeRow): RawFreeGame => ({
+  name: r.name,
+  store: r.store,
+  platform: r.platform,
+  url: r.url,
+  until: iso(r.ends_at)!,
+  image: r.image_url,
+  worth: r.worth,
+  source: r.source,
+  postUrl: r.section && r.slug ? `/${r.section}/${r.slug}` : null,
+  startsAt: iso(r.starts_at),
+});
 
 // ───────────── Linhas do banco → tipos do site ─────────────
 
@@ -211,10 +241,14 @@ export const mysqlRepo: Repo = {
   },
 
   async freeGames(nowIso) {
-    const rows = await query<{ name: string; store: string; platform: string; ends_at: string; url: string }>(
-      `SELECT name, store, platform, ends_at, url FROM free_games WHERE ends_at >= ? AND (starts_at IS NULL OR starts_at <= ?) ORDER BY ends_at`,
-      [nowIso.slice(0, 19).replace("T", " "), nowIso.slice(0, 19).replace("T", " ")],
-    );
-    return rows.map((r) => ({ name: r.name, store: r.store, platform: r.platform, until: iso(r.ends_at)!, url: r.url }));
+    const now = nowIso.slice(0, 19).replace("T", " ");
+    // Epic primeiro (é o grátis que o público procura), depois o que acaba antes.
+    const rows = await query<FreeRow>(`${FREE_SELECT} WHERE f.ends_at >= ? AND (f.starts_at IS NULL OR f.starts_at <= ?) ORDER BY f.source = 'epic' DESC, f.ends_at`, [now, now]);
+    return rows.map(freeFromRow);
+  },
+
+  async upcomingFreeGames(nowIso) {
+    const rows = await query<FreeRow>(`${FREE_SELECT} WHERE f.starts_at > ? ORDER BY f.starts_at LIMIT 6`, [nowIso.slice(0, 19).replace("T", " ")]);
+    return rows.map(freeFromRow);
   },
 };

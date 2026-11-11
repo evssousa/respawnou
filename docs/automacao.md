@@ -122,6 +122,31 @@ Página do post: `<h1>` = título; meta description; `robots max-image-preview:l
 JSON-LD NewsArticle com imagem, `keywords` (tags), `articleSection` e logo; crédito da capa;
 tags com link para a busca.
 
+## Promoções: jogos grátis (job `ofertas`)
+
+Código: `app/lib/robot/offers.server.ts`. Roda dentro da coleta, no máximo a cada 3 h (ou pelo botão
+"Buscar jogos grátis" no painel / `GET /api/cron/ofertas`).
+
+- **Epic Games Store** (`freeGamesPromotions`, endpoint público da loja, `country=BR`): grátis atual e
+  próximos, com datas exatas e preço normal em reais. Ignora free-to-play (preço original 0), DLC e
+  "jogo misterioso".
+- **GamerPower** (`gamerpower.com/api/giveaways?type=game`, pública, exige crédito): só lojas grandes
+  (Steam, GOG, Prime Gaming, Ubisoft, EA, PlayStation, Xbox, Switch, mobile) e só com prazo definido.
+  IndieGala, itch.io, Stove, VR e brindes sem prazo ficam de fora. A Epic vem só da própria loja.
+- A arte de cada oferta é baixada uma vez e servida em `/media` (WebP). Brinde que some da origem
+  antes do prazo é encerrado; se a origem não responder, nada é apagado.
+- **Matéria**: o grátis da Epic que já começou, ainda tem 6 h ou mais e não virou post tem
+  **prioridade** sobre as notícias na próxima publicação (conta no limite diário). Fontes: dados da
+  Epic (datas em horário de Brasília, preço, como resgatar, próximos grátis) + ficha da Steam em
+  português do Brasil (`l=brazilian`: descrição, gêneros, idiomas, requisitos mínimos). Passa pelo
+  mesmo `writeFromSources` (checagem e até 3 tentativas). Sem material suficiente, o jogo fica só na
+  lista (`post_status` = skipped/failed, com o motivo em `post_note`).
+- **Site**: `/promocoes` mostra "Grátis agora" (cards com arte, prazo, preço normal, botão para a loja
+  com `nofollow` e link para a nossa matéria) e "Próximos grátis já anunciados", com o crédito
+  "Dados: Epic Games Store e GamerPower". A editoria entra no menu quando há grátis ativo, mesmo sem
+  matéria. A home mostra até 3.
+- Ofertas de desconto (Steam etc.) ficam para os artigos de compilação (etapa 4).
+
 ## Consenso da crítica (Reviews)
 
 - Disparado quando um jogo acumula análises suficientes (mínimo de 5 veículos).

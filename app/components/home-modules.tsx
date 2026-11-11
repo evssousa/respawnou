@@ -286,8 +286,13 @@ export function LootDrop({ free, promos }: { free: FreeGame[]; promos: PostView[
       <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-3">
         <h3 className="font-mono text-xs font-bold text-acc">&gt; LOOT GRÁTIS DETECTADO</h3>
         {free.length === 0 && <p className="text-body">Nenhum jogo grátis no momento.</p>}
-        {free.map((g) => (
-          <a key={g.name} href={g.url} className="group ch flex bg-acc text-ink">
+        {free.slice(0, 3).map((g) => (
+          <a
+            key={`${g.store}-${g.name}`}
+            href={g.postUrl ?? g.url}
+            {...(g.postUrl ? {} : { target: "_blank", rel: "nofollow noopener" })}
+            className="group ch flex bg-acc text-ink"
+          >
             <span className="flex min-w-0 flex-1 flex-col gap-1 p-5">
               <span className="font-mono text-[11px] font-bold opacity-70">{g.store.toUpperCase()}</span>
               <span className="font-display text-[32px] uppercase leading-none">{g.name}</span>
