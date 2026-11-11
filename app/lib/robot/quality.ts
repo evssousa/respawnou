@@ -202,8 +202,10 @@ export function keywordInLead(paragraphs: string[], keyword: string) {
   return words.length > 0 && words.every((w) => firstWords.has(w));
 }
 
-const RUMOR_SOURCE = ["rumor", "rumour", "leak", "leaked", "reportedly", "allegedly", "unconfirmed", "insider"];
-const RUMOR_PT = ["rumor", "rumores", "vazamento", "vazou", "vazad", "boato", "nao confirmad", "segundo fontes", "nao oficial"];
+// Só rumor de verdade. "reportedly" (= "segundo a Bloomberg") é reportagem atribuída, não rumor:
+// antes entrava aqui e reprovava matéria correta (post #1, 2026-11-11).
+const RUMOR_SOURCE = ["rumor", "rumors", "rumour", "rumours", "leak", "leaked", "leaks", "unconfirmed", "insider"];
+const RUMOR_PT = ["rumor", "rumores", "vazamento", "vazou", "vazad", "boato", "nao confirmad", "nao oficial", "ainda nao foi oficializad", "sem confirmacao"];
 
 export interface CheckContext {
   sourceText: string;
@@ -234,7 +236,10 @@ export function checkDraft(d: DraftArticle, ctx: CheckContext): string[] {
   if (hasEnglishSentence(plain)) issues.push("Há frase inteira em inglês sem tradução no corpo.");
 
   const words = countWords(plain);
-  if (words < ctx.minWords) issues.push(`Corpo com ${words} palavras; mínimo ${ctx.minWords}. Acrescente contexto concreto das fontes, sem enrolação.`);
+  if (words < ctx.minWords)
+    issues.push(
+      `Corpo com ${words} palavras; mínimo ${ctx.minWords} (alvo 500). Faltam pelo menos ${ctx.minWords - words + 60}: acrescente uma seção h2 com detalhes das fontes ainda não usados (contexto, histórico, números, declarações), sem enrolação e sem encurtar o resto.`,
+    );
   if (d.body.some((b) => !["p", "h2", "h3", "ul", "quote"].includes(b.type) || !blockText(b).trim())) issues.push("Há bloco vazio ou de tipo inválido.");
   if (d.body[0]?.type !== "p") issues.push("O texto deve começar por um parágrafo (o lide), não por intertítulo.");
   if (d.focusKeyword && !keywordInLead(paragraphs, d.focusKeyword)) issues.push(`A palavra-chave "${d.focusKeyword}" precisa aparecer no primeiro parágrafo.`);

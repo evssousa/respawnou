@@ -13,7 +13,7 @@ import { countWords } from "./text.ts";
 
 export const PLATFORMS = ["pc", "playstation", "xbox", "switch", "mobile"] as const;
 export const SECTIONS = ["noticias", "artigos", "reviews", "guias", "promocoes"] as const;
-const MAX_ATTEMPTS = 2;
+const MAX_ATTEMPTS = 3;
 
 export interface SourceItem {
   id: number;
@@ -122,7 +122,7 @@ ESTRUTURA (nesta ordem)
 6. Não escreva "Fonte:" no fim: o crédito entra automaticamente.
 
 TAMANHO E VALOR PRÓPRIO
-- Alvo: 450 a 700 palavras no corpo. Mínimo 380. Se as fontes não tiverem substância para isso sem enrolar, responda publish=false.
+- Alvo: 500 a 700 palavras no corpo (conte!). Mínimo absoluto 400: abaixo disso a matéria é reprovada. Use TODOS os detalhes das fontes. Se as fontes não tiverem substância para isso sem enrolar, responda publish=false.
 - Junte o que cada fonte traz de diferente: a matéria deve ser a mais completa em português sobre o assunto.
 - Explique o que isso muda para quem joga, o que já está confirmado e o que ainda falta saber.
 - Nunca encha linguiça repetindo o lide com outras palavras.
@@ -244,7 +244,7 @@ ${sourcesBlock(sources)}`;
   let model = "";
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const retry = previous
-      ? `\n\n---\nSUA VERSÃO ANTERIOR (JSON):\n${JSON.stringify(previous)}\n\nEla foi reprovada na checagem de qualidade. Gere de novo, mantendo o que estava certo e corrigindo especificamente:\n${lastIssues.map((i) => `- ${i}`).join("\n")}`
+      ? `\n\n---\nSUA VERSÃO ANTERIOR (JSON):\n${JSON.stringify(previous)}\n\nEla foi reprovada na checagem de qualidade. Gere de novo a matéria COMPLETA, mantendo o que estava certo (sem encurtar o texto) e corrigindo especificamente:\n${lastIssues.map((i) => `- ${i}`).join("\n")}`
       : "";
     const res = await generateJson<GeminiDraft>({ system: SYSTEM, prompt: prompt + retry, schema: SCHEMA });
     model = res.model;
