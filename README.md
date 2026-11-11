@@ -10,13 +10,13 @@ Um robô lê os principais sites de games do mundo, escolhe as pautas, escreve a
 com IA, monta imagens, vídeo e links, confere a qualidade e publica — várias vezes por dia, sem
 ninguém apertar um botão.
 
-[**respawnou.com.br**](https://respawnou.com.br) · projeto pessoal de portfólio
+[**respawnou.com.br**](https://respawnou.com.br)
 
 </div>
 
 > [!IMPORTANT]
-> **Projeto pessoal. Todos os direitos reservados.**
-> O código está público apenas para ser lido e avaliado como portfólio. Não é um projeto open source:
+> **Todos os direitos reservados.**
+> O código está público apenas para leitura. Não é um projeto open source:
 > não é permitido copiar, redistribuir, publicar outra versão do site nem reaproveitar o código, o
 > visual ou os textos, no todo ou em parte. Veja [LICENSE](LICENSE).
 
@@ -103,70 +103,6 @@ nada de se passar por navegador.
 | Mídia | `sharp` (WebP), Steam Store API, YouTube Data API v3 |
 | Hospedagem | Hostinger (app Node.js + MySQL + Cron Jobs), deploy automático a cada push |
 
-## Estrutura do código
-
-```
-app/
-├── root.tsx                 # documento HTML, cabeçalho, rodapé, anúncios e banner de cookies
-├── routes.ts                # mapa de rotas
-├── routes/                  # páginas públicas, sitemap.xml, rss.xml, robots.txt, ads.txt
-│   ├── admin/               # painel: login, matérias, fila, fontes, robô, configurações
-│   └── cron.ts              # rotas do robô (/api/cron/:job), protegidas por token
-├── components/              # UI do tema "Central de Comando"
-└── lib/
-    ├── content.server.ts    # única API de dados usada pelas páginas
-    ├── repo/                # fontes de dados: MySQL (produção) e dados de exemplo (dev)
-    ├── availability.ts      # o que tem conteúdo (menu, home e sitemap escondem o que está vazio)
-    ├── seo.ts               # meta tags, Open Graph, canonical
-    ├── ads.ts               # AdSense + Modo de Consentimento
-    ├── admin/               # autenticação (scrypt + sessão assinada) e consultas do painel
-    └── robot/
-        ├── robot.server.ts  # orquestra coleta e publicação, travas e histórico
-        ├── rss.server.ts    # leitura de feeds e do texto das matérias de origem
-        ├── gemini.server.ts # cliente do Gemini, reservas e novas tentativas
-        ├── writer.server.ts # guia editorial, escrita e laço de correção
-        ├── quality.ts       # regras de qualidade e limpeza de links
-        ├── media*.ts        # escolha, download e conversão de imagens
-        ├── enrich.server.ts # Steam e YouTube
-        └── assemble.ts      # monta o corpo final da matéria
-db/migrations/               # esquema do banco, em ordem (001_inicial.sql …)
-server.js / server-app.js    # servidor Express: arquivos estáticos, /media, migrations, SSR
-docs/                        # documentação interna: arquitetura, banco, robô, deploy, decisões
-```
-
-## Executar localmente (para avaliação)
-
-Requisitos: Node.js 22.18 ou mais novo.
-
-```bash
-git clone https://github.com/evssousa/respawnou.git
-cd respawnou
-npm install
-npm run dev          # http://localhost:5173
-```
-
-Sem banco configurado, o site sobe com **dados de exemplo** (fictícios), então dá para navegar por
-todas as páginas sem configurar nada.
-
-Para usar um MySQL local, copie `.env.example` para `.env`, preencha as variáveis `DB_*` e rode:
-
-```bash
-npm run db:migrate   # cria as tabelas
-npm run db:seed-dev  # opcional: preenche com os dados de exemplo
-```
-
-O robô precisa de uma chave do Gemini (`GEMINI_API_KEY`) e de um `CRON_TOKEN`. O painel precisa de
-`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` e `SESSION_SECRET` (gerados com `npm run admin:hash`). Todas as
-variáveis estão descritas em [`.env.example`](.env.example).
-
-Outros comandos:
-
-```bash
-npm run typecheck    # tipos do TypeScript e das rotas
-npm run build        # build de produção
-npm start            # serve o build (porta 3000 ou $PORT)
-```
-
 ## Decisões técnicas
 
 Algumas escolhas que valem a explicação (o registro completo está em
@@ -194,6 +130,6 @@ A pasta [`docs/`](docs/README.md) tem o status do projeto e os detalhes de cada 
 
 ## Licença
 
-© 2026 Respawnou. **Todos os direitos reservados.** Este repositório é público só para leitura, como
-portfólio. Nenhuma licença de uso, cópia, modificação ou distribuição é concedida. As marcas e
+© 2026 Respawnou. **Todos os direitos reservados.** Este repositório é público só para leitura.
+Nenhuma licença de uso, cópia, modificação ou distribuição é concedida. As marcas e
 imagens de jogos citadas no site pertencem aos seus donos. Detalhes em [LICENSE](LICENSE).
