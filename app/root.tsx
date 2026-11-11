@@ -1,4 +1,4 @@
-import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteLoaderData } from "react-router";
+import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useLocation, useRouteLoaderData } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -26,6 +26,8 @@ export async function loader() {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
+  // O painel /admin tem o próprio cabeçalho: sem barra de status, menu e rodapé do site.
+  const admin = useLocation().pathname.startsWith("/admin");
   return (
     <html lang="pt-BR">
       <head>
@@ -39,11 +41,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <a href="#conteudo" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-acc focus:px-4 focus:py-3 focus:text-ink">
           Pular para o conteúdo
         </a>
-        <StatusBar status={data?.status ?? null} />
-        <Header />
-        <PlatformBar />
+        {!admin && <StatusBar status={data?.status ?? null} />}
+        {!admin && <Header />}
+        {!admin && <PlatformBar />}
         {children}
-        <Footer />
+        {!admin && <Footer />}
         <ScrollRestoration />
         <Scripts />
       </body>

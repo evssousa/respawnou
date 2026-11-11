@@ -31,6 +31,19 @@ export default [
   route("rss.xml", "routes/rss.ts"),
   route("robots.txt", "routes/robots.ts"),
 
+  // Painel administrativo (só o dono; fora dos menus, noindex, Disallow no robots.txt).
+  route("admin/login", "routes/admin/login.tsx"),
+  route("admin/sair", "routes/admin/logout.ts"),
+  route("admin", "routes/admin/layout.tsx", [
+    index("routes/admin/home.tsx"),
+    route("materias", "routes/admin/posts.tsx"),
+    route("materias/:id", "routes/admin/post-edit.tsx"),
+    route("fila", "routes/admin/queue.tsx"),
+    route("fontes", "routes/admin/feeds.tsx"),
+    route("robo", "routes/admin/robot.tsx"),
+    route("config", "routes/admin/settings.tsx"),
+  ]),
+
   // Robô de postagem (Cron Job da Hostinger), protegido por CRON_TOKEN.
   route("api/cron/:job", "routes/cron.ts"),
 

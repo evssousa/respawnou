@@ -36,6 +36,12 @@ async function main() {
     next();
   });
   app.use(compression());
+  // Painel e rotas do robô nunca entram no Google (além do Disallow no robots.txt).
+  app.use(["/admin", "/api"], (_req, res, next) => {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+    res.setHeader("Cache-Control", "no-store");
+    next();
+  });
 
   // Arquivos com hash no nome podem ficar em cache "para sempre".
   app.use("/assets", express.static("build/client/assets", { immutable: true, maxAge: "1y" }));

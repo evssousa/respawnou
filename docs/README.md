@@ -40,9 +40,10 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 3 | CRON_TOKEN no painel + teste em produção + Cron Jobs da Hostinger (1ª matéria no ar) | ✅ |
 | 3 | Dados de jogos (RAWG fora do ar; alternativa IGDB) | 💤 |
 | 3 | Matérias com SEO completo: capa e imagens próprias (WebP), vídeo, links internos/externos, checagem com refação (regras do Anime Profile, migration 003) | ✅ |
-| 3 | Imagens extras da Steam + trailer pelo YouTube (chave `YOUTUBE_API_KEY` no painel) | 🔄 |
+| 3 | Imagens extras da Steam + trailer pelo YouTube (`YOUTUBE_API_KEY` cadastrada) | ✅ |
 | 3 | Polygon bloqueia o servidor → desativado; 5 fontes novas (migration 004) | ✅ |
-| 3 | Painel admin (login, posts, fontes, execuções do robô) | ⏳ |
+| 3 | Painel admin (login, matérias, fila, fontes, robô, configurações) — ver admin.md | ✅ |
+| 3 | Cadastrar ADMIN_EMAIL, ADMIN_PASSWORD_HASH e SESSION_SECRET no hPanel (`npm run admin:hash`) | ⏳ dono |
 | 4 | Imagem OG padrão (páginas sem capa) | 💤 |
 | 4 | Google Search Console + sitemap (só depois das primeiras matérias) | 💤 |
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |
