@@ -10,7 +10,8 @@ Datas em UTC.
 | `db/migrations/001_inicial.sql` | Estrutura inicial (tabelas abaixo) + configurações padrão | ✅ 2026-11-10 |
 | `db/migrations/002_robo.sql` | 11 fontes RSS + configurações do robô (liga o robô) | ✅ 2026-11-10 |
 | `db/migrations/003_seo_midia.sql` | `posts.meta_description`, `focus_keyword`, `tags`; `feed_items.media`; mínimo de 350 palavras | ✅ 2026-11-11 |
-| `db/migrations/004_fontes.sql` | Desativa Polygon (bloqueia o servidor); + GamesRadar+, Game Informer, Kotaku, Destructoid, Siliconera | automática no próximo deploy |
+| `db/migrations/004_fontes.sql` | Desativa Polygon (bloqueia o servidor); + GamesRadar+, Game Informer, Kotaku, Destructoid, Siliconera | ✅ 2026-11-11 |
+| `db/migrations/005_fontes_bloqueadas.sql` | Desativa Destructoid e Siliconera (403 ao servidor); tira ofertas de varejo da fila | automática no próximo deploy |
 
 Como aplicar:
 

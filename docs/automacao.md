@@ -54,7 +54,12 @@ MySQL local (127.0.0.1:3306)
   se disfarça de navegador para contornar o bloqueio.
 - **Polygon** derruba a conexão vinda do servidor da Hostinger (`UND_ERR_SOCKET other side closed`,
   só lá; do PC local funciona): desativado na migration 004. Entraram GamesRadar+, Game Informer,
-  Kotaku, Destructoid e Siliconera (15 fontes ativas). TheGamer ficou de fora (mesmo grupo do Polygon).
+  Kotaku, Destructoid e Siliconera; Destructoid e Siliconera dão 403 ao servidor e foram desativadas
+  na migration 005 (13 fontes ativas). TheGamer ficou de fora (mesmo grupo do Polygon).
+- **Ofertas de varejo** (Amazon/Walmart/Best Buy, Black Friday, "% off", "lowest price") são descartadas
+  na coleta: preço em dólar de loja americana tem pouco valor para o leitor brasileiro e cara de
+  afiliado (ruim para o AdSense). "Deal" sozinho não conta ("Xbox signs deal with Riot" é notícia).
+- O prompt proíbe frase só para encaixar link ou falar do próprio site ("na seção PC do site").
 - Gematsu e a rede Push Square bloqueiam também as **imagens** (403). Pauta exclusiva deles só
   vira matéria se outra fonte do mesmo assunto tiver imagem (sem capa, a pauta é descartada).
 - O robô junta fontes do mesmo assunto (semelhança de título ≥ 0,5) para escrever com mais

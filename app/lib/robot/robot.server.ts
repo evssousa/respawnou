@@ -111,6 +111,13 @@ const SKIP_PATTERNS: [RegExp, string][] = [
   [/\breview\b|\banalise\b|\bimpressions?\b|\bhands[- ]on\b|\bpreview\b/i, "review/impressões de terceiros (não reescrevemos opinião)"],
   [/\bquiz\b|\bpodcast\b|\bpoll\b|\bgiveaway\b|\bwin an?\b|\bsweepstakes\b/i, "quiz, podcast ou sorteio"],
   [/\b(best|cheapest)\b.*\b(deals?|prices?)\b|\bdeal of the day\b|\bblack friday\b.*\bdeals?\b|\bcyber monday\b/i, "lista de ofertas de loja"],
+  // Oferta de varejo (Amazon/Walmart dos EUA, preço em dólar): pouco valor para o leitor brasileiro
+  // e cara de afiliado. Promoções do site = jogo grátis, PS Plus, Game Pass, liquidação de loja digital.
+  // ("Xbox signs deal with Riot" é notícia: "deal" sozinho não conta.)
+  [
+    /\bdeals? (on|for|at)\b|\bon sale\b|\b\d+% off\b|\bblack friday\b|\bprime day\b|\b(amazon|walmart|best buy|target)\b.*\b(price|discount|sale|cheap|deal)|\b(lowest|record[- ]low) price\b|\bprice (drop|cut)\b.*\b(amazon|walmart|best buy|target)\b/i,
+    "oferta de varejo",
+  ],
   [/\bwordle\b|\bconnections\b.*\bhints?\b|\bnyt\b|\bcrossword\b|\bstrands\b/i, "fora do tema (passatempos)"],
   [/\b(movie|film|tv series|tv show|netflix|hbo|box office)\b/i, "cinema/TV"],
   [/\btalking point\b|\bopinion\b|\bfeature:|\bsoapbox\b|\bi (tried|played|feel|think|love|hate|spent|was)\b|\bwhy i\b|\bi'm\b/i, "texto de opinião"],

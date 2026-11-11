@@ -129,10 +129,11 @@ TAMANHO E VALOR PRÓPRIO
 - Nunca encha linguiça repetindo o lide com outras palavras.
 
 LINKS (formato [texto âncora](url), dentro de "p" ou "ul")
-- Use de 2 a 3 LINKS INTERNOS e de 1 a 2 LINKS EXTERNOS, escolhidos SOMENTE das listas da mensagem. Endereço fora das listas é removido.
+- Use até 3 LINKS INTERNOS e de 1 a 2 LINKS EXTERNOS, escolhidos SOMENTE das listas da mensagem. Endereço fora das listas é removido.
 - Texto âncora descritivo (ex.: "[o anúncio oficial no blog da PlayStation](url)"), nunca "clique aqui" ou o endereço cru.
 - Pode citar a matéria original uma vez, de forma natural (ex.: "segundo a [IGN](url)").
 - No máximo 1 link por parágrafo. Não ponha link no lide.
+- Link só onde o trecho tem relação real com a página linkada. NUNCA escreva frase só para encaixar link nem fale do próprio site ("na seção X do site", "aqui no Respawnou"). Sem relação, use menos links.
 
 PRECISÃO — NUNCA INVENTE
 1. Use SOMENTE fatos presentes nas fontes. Nunca invente datas, preços, números, nomes, declarações, plataformas ou detalhes. Na dúvida, omita.
@@ -227,7 +228,7 @@ export async function writeArticle(group: SourceItem[], ctx: WriteContext): Prom
 Matérias publicadas recentemente pelo Respawnou (não repita o assunto nem a estrutura do título):
 ${ctx.recentTitles.map((t) => `- ${t}`).join("\n") || "- (nenhuma)"}
 
-LINKS INTERNOS PERMITIDOS (use 2 a 3, os que tiverem relação com o assunto):
+LINKS INTERNOS PERMITIDOS (até 3, só os que tiverem relação real com o assunto):
 ${internal.map(([u, t]) => `- ${u} — ${t}`).join("\n")}
 
 LINKS EXTERNOS PERMITIDOS (use 1 a 2):
