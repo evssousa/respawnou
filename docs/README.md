@@ -40,6 +40,8 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 3 | CRON_TOKEN no painel + teste em produção + Cron Jobs da Hostinger (1ª matéria no ar) | ✅ |
 | 3 | Dados de jogos (RAWG fora do ar; alternativa IGDB) | 💤 |
 | 3 | Matérias com SEO completo: capa e imagens próprias (WebP), vídeo, links internos/externos, checagem com refação (regras do Anime Profile, migration 003) | ✅ |
+| 3 | Imagens extras da Steam + trailer pelo YouTube (chave `YOUTUBE_API_KEY` no painel) | 🔄 |
+| 3 | Feed do Polygon falha só no servidor ("fetch failed"): causa agora registrada em cron_runs | 🔄 |
 | 3 | Painel admin (login, posts, fontes, execuções do robô) | ⏳ |
 | 4 | Imagem OG padrão (páginas sem capa) | 💤 |
 | 4 | Google Search Console + sitemap (só depois das primeiras matérias) | 💤 |

@@ -6,7 +6,8 @@ import { json } from "../db.server.ts";
 import { assembleBody, stripLinks } from "./assemble.ts";
 import { generateJson } from "./gemini.server.ts";
 import { emptyMedia, mergeMedia, type SourceMedia } from "./media.ts";
-import { chooseMedia, storeImage, type ProbedImage } from "./media.server.ts";
+import { steamGame, youtubeTrailer } from "./enrich.server.ts";
+import { chooseMedia, probeImage, storeImage, type ProbedImage } from "./media.server.ts";
 import { autoFix, checkDraft, sanitizeLinks, type DraftArticle, type DraftBlock } from "./quality.ts";
 import { fetchArticle } from "./rss.server.ts";
 import { countWords } from "./text.ts";
@@ -262,11 +263,37 @@ ${sourcesBlock(sources)}`;
     }
 
     const platforms = (raw.platforms ?? []).filter((p) => (PLATFORMS as readonly string[]).includes(p));
-    const credit = (p: ProbedImage) => (p.source ? `Imagem: reprodução/${p.source}` : undefined);
+    const keyword = draft.focusKeyword.trim();
+
+    // Fontes com pouca imagem: completa com capturas oficiais da Steam (uma por h2, até 3).
+    const bodyImages = [...chosen.body];
+    const wanted = Math.min(3, linked.filter((b) => b.type === "h2").length);
+    if (bodyImages.length < wanted) {
+      const steam = await steamGame(keyword);
+      if (steam) {
+        const seen = new Set([chosen.cover.hash, ...bodyImages.map((b) => b.hash)]);
+        for (const url of steam.screenshots.slice(0, 6)) {
+          if (bodyImages.length >= wanted) break;
+          const shot = await probeImage({ url, source: "Steam" });
+          if (shot && !seen.has(shot.hash) && shot.width >= 600) {
+            seen.add(shot.hash);
+            bodyImages.push(shot);
+          }
+        }
+        if (bodyImages.length > chosen.body.length) fixes.push(`${bodyImages.length - chosen.body.length} captura(s) da Steam (${steam.name})`);
+      }
+    }
+    // Sem vídeo nas fontes: trailer no YouTube (só com YOUTUBE_API_KEY).
+    if (!video) {
+      video = (await youtubeTrailer(keyword)) ?? undefined;
+      if (video) fixes.push("trailer do YouTube pela busca");
+    }
+
+    const credit = (p: ProbedImage) => (p.source === "Steam" ? "Imagem: divulgação/Steam" : p.source ? `Imagem: reprodução/${p.source}` : undefined);
     const body = assembleBody({
       draft: linked,
-      focusKeyword: draft.focusKeyword.trim(),
-      images: chosen.body.map((p) => ({ src: p.url, width: p.width, height: p.height, credit: credit(p) })),
+      focusKeyword: keyword,
+      images: bodyImages.map((p) => ({ src: p.url, width: p.width, height: p.height, credit: credit(p) })),
       video: video && { youtubeId: video.youtubeId, title: `${draft.focusKeyword}: ${video.title}`.slice(0, 200) },
       related: ctx.related,
       platforms,
@@ -289,7 +316,7 @@ ${sourcesBlock(sources)}`;
         readMinutes: Math.max(2, Math.round(words / 200)),
         cover: chosen.cover,
         coverAlt: draft.title,
-        bodyImages: chosen.body,
+        bodyImages,
         video,
         sources: sources.map((s) => ({ name: s.name, url: s.url })),
         model,

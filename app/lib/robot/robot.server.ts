@@ -161,7 +161,9 @@ export function collect(): Promise<JobResult> {
         }
         await db().query("UPDATE feeds SET last_fetched_at = UTC_TIMESTAMP(), last_error = NULL WHERE id = ?", [feed.id]);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
+        // "fetch failed" sozinho não diz nada: inclui a causa (DNS, TLS, conexão recusada...).
+        const cause = err instanceof Error && err.cause instanceof Error ? ` (${(err.cause as Error & { code?: string }).code ?? ""} ${err.cause.message})` : "";
+        const msg = `${err instanceof Error ? err.message : String(err)}${cause}`;
         errors.push(`${feed.name}: ${msg}`);
         await db().query("UPDATE feeds SET last_fetched_at = UTC_TIMESTAMP(), last_error = ? WHERE id = ?", [msg.slice(0, 500), feed.id]);
       }

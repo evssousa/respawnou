@@ -90,13 +90,20 @@ Código: `writer.server.ts` (redator), `quality.ts` (checagem), `assemble.ts` (c
    Rumor = só "rumor/leak/insider/unconfirmed" na fonte ("reportedly" é reportagem atribuída e
    causava falso positivo). Na 1ª versão o Gemini ficava em 260–310 palavras: o prompt pede 500–700
    (mínimo 400) e a reprovação diz quantas palavras faltam.
-8. **Montar** (`assembleBody`): vídeo depois do lide, uma imagem abaixo de cada h2 (alt =
+8. **Completar mídia** (`enrich.server.ts`, depois da checagem, com a palavra-chave já definida):
+   - poucas imagens nas fontes → **capturas oficiais da loja Steam** (API pública, sem chave:
+     `storesearch` + `appdetails`), até uma por h2 (máx. 3), crédito "Imagem: divulgação/Steam".
+     Só aceita o mesmo jogo (`sameGame`: nome começa pela palavra-chave, tipo "game", sem DLC/trilha/demo);
+   - sem vídeo nas fontes → **trailer no YouTube** (API de dados v3, só com `YOUTUBE_API_KEY`; 100 da cota
+     grátis de 10.000/dia por busca). Aceita título com o nome do jogo + trailer/gameplay/teaser/reveal
+     e recusa reaction/review/leak.
+9. **Montar** (`assembleBody`): vídeo depois do lide, uma imagem abaixo de cada h2 (alt =
    "palavra-chave: título da seção", crédito "Imagem: reprodução/<veículo>"), link interno garantido
    (1ª menção de plataforma vira link se o Gemini não pôs nenhum) e "Leia também" depois do 3º parágrafo.
-9. **Publicar**: grava as imagens em WebP (sharp, até 1600 px) em `MEDIA_DIR` (padrão
+10. **Publicar**: grava as imagens em WebP (sharp, até 1600 px) em `MEDIA_DIR` (padrão
    `~/respawnou-media`, fora da pasta do app, que é trocada a cada deploy), servidas em `/media`
    com cache de 1 ano; grava o post com `meta_description`, `focus_keyword`, `tags`, capa e crédito.
-10. **Refazer**: `/api/cron/publicar?token=...&refazer=<id do post>` reescreve um post do robô com
+11. **Refazer**: `/api/cron/publicar?token=...&refazer=<id do post>` reescreve um post do robô com
     as regras atuais, no mesmo endereço (`&dry=1` para só ver).
 
 Teste real (2026-11-11): post #1 refeito com 564 palavras, capa própria em WebP (55 KB, cache de
