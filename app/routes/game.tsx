@@ -1,6 +1,7 @@
 import { data } from "react-router";
 import type { Route } from "./+types/game";
 import { PostGrid } from "~/components/cards";
+import { Gallery } from "~/components/Gallery";
 import { Art, Hud, Kicker, PlatformTags, SectionTitle } from "~/components/ui";
 import { getGame, listPosts } from "~/lib/content.server";
 import { formatDate } from "~/lib/format";
@@ -60,6 +61,12 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export default function GamePage({ loaderData }: Route.ComponentProps) {
   const { game, posts, upcoming } = loaderData;
+  // Miniatura leve na página; a versão 1080p só carrega ao ampliar.
+  const shots = (game.screenshots ?? []).map((src, i) => ({
+    thumb: src,
+    full: src.replace(/\/t_[a-z0-9_]+\//, "/t_1080p/"),
+    alt: `${game.name}: imagem ${i + 1}`,
+  }));
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-14 px-4 pt-10 sm:px-6">
       <section className="flex flex-wrap gap-8">
@@ -90,30 +97,27 @@ export default function GamePage({ loaderData }: Route.ComponentProps) {
         </div>
       </section>
 
-      {(game.trailer || (game.screenshots?.length ?? 0) > 0) && (
+      {(game.trailer || shots.length > 0) && (
         <section className="flex flex-col gap-6">
-          <SectionTitle code="ARQUIVO VISUAL" accent="e imagens">Trailer</SectionTitle>
-          {game.trailer && (
-            <div className="ch aspect-video w-full max-w-4xl overflow-hidden bg-ink-2">
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${game.trailer}`}
-                title={`Trailer de ${game.name}`}
-                loading="lazy"
-                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
-            </div>
-          )}
-          {(game.screenshots?.length ?? 0) > 0 && (
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {game.screenshots!.map((src, i) => (
-                <li key={src}>
-                  <img src={src} alt={`${game.name}: imagem ${i + 1}`} loading="lazy" className="chs aspect-video w-full object-cover" />
-                </li>
-              ))}
-            </ul>
-          )}
+          <SectionTitle code="ARQUIVO VISUAL" accent={game.trailer ? "e imagens" : undefined}>
+            {game.trailer ? "Trailer" : "Imagens"}
+          </SectionTitle>
+          {/* Desktop: trailer à esquerda e imagens 2×2 à direita, ocupando a largura toda. */}
+          <div className={game.trailer && shots.length ? "grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}>
+            {game.trailer && (
+              <div className="ch aspect-video w-full overflow-hidden bg-ink-2">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${game.trailer}`}
+                  title={`Trailer de ${game.name}`}
+                  loading="lazy"
+                  allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="h-full w-full"
+                />
+              </div>
+            )}
+            {shots.length > 0 && <Gallery images={shots} className={game.trailer ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4"} />}
+          </div>
         </section>
       )}
 
