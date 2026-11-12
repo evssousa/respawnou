@@ -11,7 +11,8 @@ export interface GalleryImage {
   alt: string;
 }
 
-export function Gallery({ images, className }: { images: GalleryImage[]; className?: string }) {
+/** fill: as miniaturas esticam para ocupar a altura do contêiner (ex.: ao lado do trailer). */
+export function Gallery({ images, className, fill }: { images: GalleryImage[]; className?: string; fill?: boolean }) {
   const [open, setOpen] = useState<number | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const lastTrigger = useRef<HTMLButtonElement | null>(null);
@@ -45,7 +46,7 @@ export function Gallery({ images, className }: { images: GalleryImage[]; classNa
     <>
       <ul className={cx("grid gap-3", className)}>
         {images.map((img, i) => (
-          <li key={img.full}>
+          <li key={img.full} className={fill ? "min-h-0" : undefined}>
             <button
               type="button"
               onClick={(e) => {
@@ -53,9 +54,9 @@ export function Gallery({ images, className }: { images: GalleryImage[]; classNa
                 setOpen(i);
               }}
               aria-label={`Ampliar: ${img.alt}`}
-              className="group chs relative block w-full overflow-hidden"
+              className={cx("group chs relative block w-full overflow-hidden", fill && "lg:h-full")}
             >
-              <img src={img.thumb} alt={img.alt} loading="lazy" decoding="async" className="aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+              <img src={img.thumb} alt={img.alt} loading="lazy" decoding="async" className={cx("aspect-video w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]", fill && "lg:aspect-auto lg:h-full")} />
               <span aria-hidden className="absolute right-2 bottom-2 bg-ink/80 px-2 py-1 font-mono text-[10px] font-bold text-acc opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                 AMPLIAR +
               </span>

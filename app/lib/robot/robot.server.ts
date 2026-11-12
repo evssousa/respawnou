@@ -9,6 +9,7 @@ import { fetchFeed } from "./rss.server.ts";
 import type { Review } from "../types.ts";
 import { keywords, similarity, slugify } from "./text.ts";
 import { dueCompilation, markCompilation, type CompilationKind } from "./compilations.server.ts";
+import { guideCandidate, markGuide } from "./guides.server.ts";
 import {
   consensusCandidate,
   consensusNumbers,
@@ -344,6 +345,8 @@ export interface PublishOptions {
   consensusGame?: string;
   /** Só com dry: gera uma compilação (ofertas | resumo | gratis-mes) fora do dia dela. */
   compilation?: CompilationKind;
+  /** Só com dry: testa o guia de requisitos de PC (ignora o limite diário). */
+  guide?: boolean;
 }
 
 const ITEM_COLS = `fi.id, fi.feed_id, f.name AS feed_name, fi.title, fi.url, fi.summary, fi.media, fi.published_at`;
@@ -401,7 +404,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     const tried: string[] = [];
 
     // 1º: jogo grátis da Epic que ainda não virou matéria (é pauta com hora para acabar).
-    const testing = Boolean(opts.dry && (opts.consensusGame || opts.compilation));
+    const testing = Boolean(opts.dry && (opts.consensusGame || opts.compilation || opts.guide));
     const promo = testing ? null : await promoCandidate();
     if (promo) {
       let result;
@@ -435,7 +438,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     }
 
     // 2º: consenso da crítica de um jogo que juntou análises suficientes.
-    const cons = opts.dry && opts.compilation ? null : await consensusCandidate(opts.dry ? opts.consensusGame : undefined);
+    const cons = opts.dry && (opts.compilation || opts.guide) ? null : await consensusCandidate(opts.dry ? opts.consensusGame : undefined);
     if (cons) {
       const prepared = await consensusSources(cons);
       let result;
@@ -473,7 +476,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     }
 
     // 3º: artigo de compilação no dia dele (ofertas na sexta, resumo no domingo, grátis do mês no dia 1º).
-    const comp = opts.consensusGame ? null : await dueCompilation(opts.dry ? opts.compilation : undefined);
+    const comp = opts.consensusGame || (opts.dry && opts.guide) ? null : await dueCompilation(opts.dry ? opts.compilation : undefined);
     if (comp) {
       let result;
       try {
@@ -504,6 +507,34 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
       // Não insiste a cada hora: o período fica marcado e a próxima sai no período seguinte.
       if (!opts.dry) await markCompilation(comp.kind, comp.period);
     }
+
+    // 4º: guia de requisitos de PC de um jogo grande que está saindo (no máximo 1 por dia).
+    const guide = (opts.dry && (opts.consensusGame || opts.compilation)) ? null : await guideCandidate(Boolean(opts.dry && opts.guide));
+    if (guide) {
+      let result;
+      try {
+        result = await writeFromSources(guide.prepared, { sections: ["guias"], minWords: cfg.minWords, recentTitles, related: await relatedPosts([guide.name]) });
+      } catch (err) {
+        const fail = geminiFailure(err);
+        if (fail) return { ...fail, stats: { tried } };
+        throw err;
+      }
+      if (result.ok) {
+        const a = { ...result.article, section: "guias", platforms: ["pc"] };
+        const slug = await uniqueSlug(a.section, slugify(a.title));
+        if (opts.dry) return { status: "ok", message: `Teste: guia de requisitos gerado (${guide.name}, ${a.words} palavras), nada foi gravado.`, post: summary(a, slug), stats: { tried } };
+        const postId = await insertPost(a, slug, { name: "Steam", url: guide.storeUrl, art: "abcd"[guide.gameId % 4] }, { tag: "Requisitos", gameId: guide.gameId });
+        await markGuide(guide.gameId, `publicado #${postId}`);
+        return {
+          status: "ok",
+          message: `Publicado: /${a.section}/${slug} (guia de requisitos: ${guide.name}; ${a.words} palavras)`,
+          stats: { postId, words: a.words, model: a.model, attempts: a.attempts, fixes: a.fixes, tried },
+        };
+      }
+      tried.push(`guia "${guide.name}": ${result.reason}`);
+      if (!opts.dry) await markGuide(guide.gameId, result.reason);
+    }
+    if (opts.dry && opts.guide) return { status: "skipped", message: `Teste: nenhum guia gerado. ${tried.join(" · ") || "Nenhum jogo de PC saindo agora com requisitos mínimo e recomendado na Steam."}`, stats: { tried } };
 
     const queue = await query<SourceItem>(
       `SELECT ${ITEM_COLS} FROM feed_items fi JOIN feeds f ON f.id = fi.feed_id
@@ -555,11 +586,11 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
 }
 
 /** Grava a matéria (imagens já baixadas para /media) e devolve o id. */
-async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, extra: { review?: Review; tag?: string } = {}) {
+async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, extra: { review?: Review; tag?: string; gameId?: number } = {}) {
   const { review, tag } = extra;
   const local = await localizeImages(a, slug);
   // Ficha do jogo (/jogos/:slug): liga quando a palavra-chave é o nome de um jogo do IGDB.
-  const gameId = await gameIdFor(a.focusKeyword, gameKey).catch(() => null);
+  const gameId = extra.gameId ?? (await gameIdFor(a.focusKeyword, gameKey).catch(() => null));
   const [res] = await db().query<ResultSetHeader>(
     `INSERT INTO posts (section, slug, status, origin, title, excerpt, meta_description, focus_keyword, tags, platforms, author, read_minutes, art,
        image_url, image_alt, image_credit, body, source_name, source_url, review, tag, game_id, published_at)

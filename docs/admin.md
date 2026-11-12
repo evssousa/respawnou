@@ -63,7 +63,18 @@ vídeo/imagem; edição aparece no site; tirar do ar → 404; publicar de novo; 
 histórico do robô com rascunho; salvar configurações; celular sem rolagem lateral; sair; POST de
 outro site recusado; bloqueio após 5 senhas erradas.
 
+## Matéria manual e envio de imagens (2026-11-12)
+
+- **Nova matéria** (`/admin/materias/nova`): editoria + título → rascunho `origin = manual` → editor.
+  Enquanto nunca foi publicada, editoria e endereço acompanham o título (`updateDraftAddress`).
+- **Publicar** exige corpo e capa salvos.
+- **Enviar imagem** (`POST /admin/upload`, só admin, até 10 MB, JPG/PNG/WebP/AVIF/GIF): vira WebP até
+  1600 px em `/media` (`storeUpload`). "Enviar capa" preenche o campo da capa; "Enviar imagem para o
+  corpo" insere `![Descreva a imagem](/media/... "Imagem: ") =LxA` onde está o cursor (troque o texto
+  alternativo e o crédito).
+- Testado localmente: criar, barrar publicação sem corpo/capa, enviar capa e imagem do corpo, salvar,
+  publicar, endereço pelo título, página pública com a imagem; envio sem login redireciona ao login.
+
 ## Próximos passos
 
-- Enviar imagem própria (upload) para a capa e o corpo.
-- Criar matéria manual do zero (hoje edita as existentes).
+- Pré-visualizar rascunho antes de publicar.

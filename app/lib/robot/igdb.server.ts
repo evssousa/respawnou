@@ -185,7 +185,7 @@ export async function syncGames() {
       image_url: hero ? img("t_1080p", hero) : img("t_cover_big_2x", g.cover!.image_id),
       image_credit: "Imagem: IGDB",
       cover_url: g.cover ? img("t_cover_big_2x", g.cover.image_id) : null,
-      screenshots: JSON.stringify((g.screenshots ?? []).slice(0, 4).map((s) => img("t_screenshot_big", s.image_id))),
+      screenshots: JSON.stringify((g.screenshots ?? []).slice(0, 6).map((s) => img("t_screenshot_big", s.image_id))),
       trailer: trailerOf(g),
       summary_en: (g.summary ?? "").slice(0, 4000),
       igdb_url: g.url ?? null,

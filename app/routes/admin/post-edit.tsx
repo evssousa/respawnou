@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/post-edit";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { blocksToText, textToBlocks } from "~/lib/admin/body-text";
-import { getPost, setPostStatus, toggleFeatured, updatePost } from "~/lib/admin/data.server";
+import { getPost, setPostStatus, toggleFeatured, updateDraftAddress, updatePost } from "~/lib/admin/data.server";
 import { publish } from "~/lib/robot/robot.server";
-import { PLATFORMS } from "~/lib/site";
+import { PLATFORMS, SECTIONS } from "~/lib/site";
 
 export const meta = ({ loaderData }: Route.MetaArgs) => adminMeta(loaderData?.post.title ?? "Matéria");
 
@@ -19,6 +19,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 const MESSAGES: Record<string, string> = {
+  criado: "Rascunho criado. Escreva o texto, envie a capa e clique em Salvar; depois, Publicar.",
   salvo: "Alterações salvas.",
   publicado: "Matéria publicada.",
   rascunho: "Matéria tirada do ar (voltou para rascunho).",
@@ -34,7 +35,12 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = String(form.get("intent"));
   const back = (ok: string) => redirect(`/admin/materias/${id}?ok=${ok}`);
 
-  if (intent === "publicar") return (await setPostStatus(id, "published"), back("publicado"));
+  if (intent === "publicar") {
+    const current = await getPost(id);
+    const missing = [!current?.body.length && "o corpo", !current?.image_url && "a capa"].filter(Boolean);
+    if (missing.length) return data({ errors: [`Antes de publicar, preencha ${missing.join(" e ")} e clique em Salvar.`] }, { status: 400 });
+    return (await setPostStatus(id, "published"), back("publicado"));
+  }
   if (intent === "rascunho") return (await setPostStatus(id, "draft"), back("rascunho"));
   if (intent === "arquivar") return (await setPostStatus(id, "archived"), back("arquivado"));
   if (intent === "destaque") return (await toggleFeatured(id), back("destaque"));
@@ -63,6 +69,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     imageCredit: String(form.get("imageCredit") ?? "").trim(),
     body,
   });
+  if (form.get("section")) await updateDraftAddress(id, String(form.get("section")), title);
   return back("salvo");
 }
 
@@ -76,7 +83,22 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
   const busy = useNavigation().state !== "idle";
   const [title, setTitle] = useState(post.title);
   const [metaDesc, setMetaDesc] = useState(post.meta_description ?? "");
+  const [cover, setCover] = useState(post.image_url ?? "");
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const url = `/${post.section}/${post.slug}`;
+  // Nunca publicada: editoria e endereço ainda podem mudar.
+  const neverPublished = !post.published_at;
+
+  /** Coloca o texto da imagem enviada onde está o cursor do corpo (numa linha própria). */
+  function insertInBody(snippet: string) {
+    const el = bodyRef.current;
+    if (!el) return;
+    const at = el.selectionStart ?? el.value.length;
+    const before = el.value.slice(0, at).replace(/\s*$/, "");
+    const after = el.value.slice(at).replace(/^\s*/, "");
+    el.value = `${before}${before ? "\n\n" : ""}${snippet}\n\n${after}`;
+    el.focus();
+  }
 
   return (
     <>
@@ -113,6 +135,17 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <Form method="post" className="flex flex-col gap-4">
+          {neverPublished && (
+            <Field label="Editoria" hint="Enquanto não for publicada, editoria e endereço acompanham o título.">
+              <select name="section" defaultValue={post.section} className={inputCls}>
+                {SECTIONS.map((s) => (
+                  <option key={s.slug} value={s.slug}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label="Título" hint={<Counter value={title} min={30} max={70} />}>
             <input name="title" value={title} onChange={(e) => setTitle(e.target.value)} required className={inputCls} />
           </Field>
@@ -140,8 +173,8 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
             ))}
           </fieldset>
           <div className="grid gap-4 sm:grid-cols-[1fr_1fr]">
-            <Field label="Capa (endereço da imagem)">
-              <input name="imageUrl" defaultValue={post.image_url ?? ""} className={inputCls} />
+            <Field label="Capa (endereço da imagem)" hint={<UploadButton label="Enviar capa do computador" name={title} onDone={(img) => setCover(img.src)} />}>
+              <input name="imageUrl" value={cover} onChange={(e) => setCover(e.target.value)} className={inputCls} />
             </Field>
             <Field label="Crédito da capa">
               <input name="imageCredit" defaultValue={post.image_credit ?? ""} className={inputCls} />
@@ -155,11 +188,16 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
             hint={
               <>
                 Parágrafos separados por linha em branco · <code>## Intertítulo</code> · <code>### Subtítulo</code> · <code>- item</code> ·{" "}
-                <code>&gt; citação</code> · <code>[texto](url)</code> · <code>![alt](imagem "crédito")</code> · <code>@video(ID) título</code>
+                <code>&gt; citação</code> · <code>[texto](url)</code> · <code>![alt](imagem "crédito")</code> · <code>@video(ID) título</code> ·{" "}
+                <UploadButton
+                  label="Enviar imagem para o corpo (entra onde está o cursor)"
+                  name={title}
+                  onDone={(img) => insertInBody(`![Descreva a imagem](${img.src} "Imagem: ") =${img.width}x${img.height}`)}
+                />
               </>
             }
           >
-            <textarea name="body" defaultValue={bodyText} rows={28} className={`${inputCls} font-mono text-sm leading-relaxed`} />
+            <textarea ref={bodyRef} name="body" defaultValue={bodyText} rows={28} className={`${inputCls} font-mono text-sm leading-relaxed`} />
           </Field>
           <div className="flex flex-wrap gap-2">
             <Button tone="primary" name="intent" value="salvar" disabled={busy}>
@@ -172,7 +210,7 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
         </Form>
 
         <aside className="flex flex-col gap-4">
-          {post.image_url && <img src={post.image_url} alt="" className="w-full border border-line" />}
+          {cover && <img src={cover} alt="" className="w-full border border-line" />}
           <Card title="Ações">
             <Form method="post" className="flex flex-col gap-2">
               {post.status !== "published" && (
@@ -218,5 +256,40 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
         </aside>
       </div>
     </>
+  );
+}
+
+/** Botão que envia uma imagem do computador para /admin/upload e devolve o endereço gravado. */
+function UploadButton({ label, name, onDone }: { label: string; name: string; onDone: (img: { src: string; width: number; height: number }) => void }) {
+  const [state, setState] = useState<{ busy: boolean; error?: string }>({ busy: false });
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-2 font-mono text-[11px] font-bold text-acc underline">
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+        className="sr-only"
+        disabled={state.busy}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          setState({ busy: true });
+          const body = new FormData();
+          body.append("file", file);
+          body.append("name", name);
+          try {
+            const res = await fetch("/admin/upload", { method: "POST", body });
+            const json = (await res.json()) as { src?: string; width?: number; height?: number; error?: string };
+            if (!res.ok || !json.src) throw new Error(json.error ?? `erro ${res.status}`);
+            onDone({ src: json.src, width: json.width ?? 0, height: json.height ?? 0 });
+            setState({ busy: false });
+          } catch (err) {
+            setState({ busy: false, error: err instanceof Error ? err.message : "falhou" });
+          }
+        }}
+      />
+      {state.busy ? "Enviando..." : label}
+      {state.error && <span className="text-warn no-underline">({state.error})</span>}
+    </label>
   );
 }

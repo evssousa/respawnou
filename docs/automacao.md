@@ -162,13 +162,22 @@ painel / `GET /api/cron/jogos`). O diagnóstico testa o acesso.
 - Só jogo principal, expansão, expansão independente, remake, remaster e edição expandida; precisa de
   arte ou capa. Data exata (dia) nas nossas plataformas vai para `release_date`; data imprecisa vira
   `release_label` ("4º tri. de 2027") e não entra no calendário.
-- Gêneros traduzidos por tabela; arte 1080p, capa, 4 capturas e trailer (YouTube) do próprio IGDB.
+- Gêneros traduzidos por tabela; arte 1080p, capa, 6 capturas e trailer (YouTube) do próprio IGDB.
 - Descrição em português: 1 pedido ao Gemini por execução, até 12 jogos (os mais aguardados), só com o
   que o resumo em inglês diz. Até traduzir, a ficha mostra uma frase montada com os dados.
 - Matéria nova é ligada à ficha quando a palavra-chave é o nome do jogo (`posts.game_id`).
 - **Fichas sem matéria têm `noindex` e ficam fora do sitemap** (só dados não é conteúdo próprio).
 - Crédito "Dados: IGDB.com" na ficha e no calendário. Termos: grátis também para uso comercial; com
   anúncios, pedir a parceria em partner@igdb.com (lembrete em adsense.md).
+
+## Guias de requisitos de PC
+
+Código: `app/lib/robot/guides.server.ts`. Jogo de PC do calendário (IGDB) saindo entre 10 dias atrás e
+21 dias à frente, dos mais aguardados, com requisitos **mínimo e recomendado** na Steam (pt-BR). Vira
+"Requisitos de PC de X: mínimo e recomendado" na editoria Guias (tag Requisitos), ligado à ficha do
+jogo. No máximo 1 por dia; prioridade depois das compilações e antes das notícias. Jogo tentado (com
+ou sem sucesso) fica em `settings.guides_tried` e não volta. Só os requisitos da Steam: nada de
+benchmark inventado. Teste: `/api/cron/publicar?dry=1&guia=1`.
 
 ## Artigos de compilação
 

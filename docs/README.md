@@ -58,7 +58,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 5 | Etapa 2: IGDB — calendário, fichas (noindex sem matéria), descrições em pt-BR, "Lançamentos do mês" (migration 008) | ✅ |
 | 5 | Etapa 3: consenso da crítica — notas do JSON-LD das análises, mínimo de 4 veículos, quadro calculado pelo código (migration 007) | ✅ |
 | 5 | Etapa 4: compilações — ofertas da Steam (sexta), resumo da semana (domingo), grátis do mês (dia 1º); "lançamentos do mês" espera o IGDB | ✅ |
-| 5 | Etapa 5: guias de requisitos de PC + botão "Nova matéria" no painel | 💤 |
+| 5 | Etapa 5: guias de requisitos de PC (1/dia, Steam) + "Nova matéria" e envio de imagens no painel | ✅ |
 
 ## Histórico de commits relevantes
 

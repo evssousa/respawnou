@@ -28,7 +28,18 @@ export default function AdminPosts({ loaderData }: Route.ComponentProps) {
   };
   return (
     <>
-      <PageTitle aside={<span className="font-mono text-xs text-muted">{loaderData.total} matéria(s)</span>}>Matérias</PageTitle>
+      <PageTitle
+        aside={
+          <div className="flex items-center gap-4">
+            <span className="font-mono text-xs text-muted">{loaderData.total} matéria(s)</span>
+            <Link to="/admin/materias/nova" className="chs inline-flex min-h-10 items-center bg-acc px-4 font-mono text-xs font-bold uppercase text-ink hover:bg-paper">
+              + Nova matéria
+            </Link>
+          </div>
+        }
+      >
+        Matérias
+      </PageTitle>
 
       <Form method="get" className="flex flex-wrap gap-2">
         <input name="q" defaultValue={params.get("q") ?? ""} placeholder="Buscar no título" className={`${inputCls} max-w-xs`} />

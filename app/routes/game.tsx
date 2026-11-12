@@ -103,7 +103,7 @@ export default function GamePage({ loaderData }: Route.ComponentProps) {
             {game.trailer ? "Trailer" : "Imagens"}
           </SectionTitle>
           {/* Desktop: trailer à esquerda e imagens 2×2 à direita, ocupando a largura toda. */}
-          <div className={game.trailer && shots.length ? "grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}>
+          <div className={game.trailer && shots.length ? "grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}>
             {game.trailer && (
               <div className="ch aspect-video w-full overflow-hidden bg-ink-2">
                 <iframe
@@ -116,7 +116,14 @@ export default function GamePage({ loaderData }: Route.ComponentProps) {
                 />
               </div>
             )}
-            {shots.length > 0 && <Gallery images={shots} className={game.trailer ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4"} />}
+            {/* Ao lado do trailer: 2 colunas e fileiras que esticam até a altura dele. */}
+            {shots.length > 0 && (
+              <Gallery
+                images={shots}
+                fill={Boolean(game.trailer)}
+                className={game.trailer ? `grid-cols-2 lg:h-full ${shots.length > 4 ? "lg:grid-rows-3" : "lg:grid-rows-2"}` : "grid-cols-2 lg:grid-cols-4"}
+              />
+            )}
           </div>
         </section>
       )}

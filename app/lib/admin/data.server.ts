@@ -1,6 +1,8 @@
 // Consultas e alterações do painel /admin (direto no MySQL).
 import type { ResultSetHeader } from "mysql2";
 import { db, iso, json, query } from "../db.server.ts";
+import { slugify } from "../robot/text.ts";
+import { SECTIONS } from "../site.ts";
 import type { Block } from "../types.ts";
 
 const TZ_OFFSET_H = 3; // Brasília = UTC-3
@@ -154,6 +156,40 @@ export async function updatePost(id: number, e: PostEdit) {
       id,
     ],
   );
+}
+
+/** Endereço livre na editoria ("titulo", "titulo-2"...). */
+async function freeSlug(section: string, title: string, exceptId?: number) {
+  const base = slugify(title) || "materia";
+  const rows = await query<{ slug: string }>("SELECT slug FROM posts WHERE section = ? AND (slug = ? OR slug LIKE ?) AND id <> ?", [section, base, `${base}-%`, exceptId ?? 0]);
+  const taken = new Set(rows.map((r) => r.slug));
+  if (!taken.has(base)) return base;
+  for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
+}
+
+export const isSection = (s: string) => SECTIONS.some((x) => x.slug === s);
+
+/** Matéria nova escrita no painel: nasce como rascunho e abre no editor. */
+export async function createPost(section: string, title: string) {
+  const slug = await freeSlug(section, title);
+  const [res] = await db().query<ResultSetHeader>(
+    `INSERT INTO posts (section, slug, status, origin, title, excerpt, tags, platforms, author, read_minutes, art, body)
+     VALUES (?, ?, 'draft', 'manual', ?, '', '[]', '[]', 'Redação Respawnou', 3, 'a', '[]')`,
+    [section, slug, title],
+  );
+  return res.insertId;
+}
+
+/**
+ * Antes da primeira publicação, editoria e endereço acompanham o título (ninguém linkou ainda).
+ * Depois, o endereço fica fixo.
+ */
+export async function updateDraftAddress(id: number, section: string, title: string) {
+  const [p] = await query<{ published_at: string | null; section: string; slug: string }>("SELECT published_at, section, slug FROM posts WHERE id = ?", [id]);
+  if (!p || p.published_at) return;
+  const target = isSection(section) ? section : p.section;
+  const slug = await freeSlug(target, title, id);
+  if (target !== p.section || slug !== p.slug) await db().query("UPDATE posts SET section = ?, slug = ? WHERE id = ?", [target, slug, id]);
 }
 
 export async function setPostStatus(id: number, status: "draft" | "published" | "archived") {

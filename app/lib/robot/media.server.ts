@@ -184,6 +184,23 @@ export interface StoredImage {
   height: number;
 }
 
+/** Imagem enviada pelo painel (arquivo do computador): mesmo tratamento das baixadas pelo robô. */
+export async function storeUpload(buf: Buffer, type: string, name: string): Promise<StoredImage | null> {
+  const sharp = await loadSharp();
+  let size = sniffSize(buf);
+  if (sharp) {
+    try {
+      const meta = await sharp(buf).metadata();
+      if (meta.width && meta.height) size = { width: meta.width, height: meta.height };
+    } catch {
+      return null;
+    }
+  }
+  if (!size) return null;
+  const probed: ProbedImage = { url: "", ...size, hash: createHash("sha1").update(buf).digest("hex"), buf, type, sharpness: null };
+  return storeImage(probed, name);
+}
+
 /** Converte para WebP (até 1600 px) e grava em MEDIA_DIR/AAAA/MM/<nome>.webp. */
 export async function storeImage(img: ProbedImage, name: string): Promise<StoredImage> {
   const now = new Date();

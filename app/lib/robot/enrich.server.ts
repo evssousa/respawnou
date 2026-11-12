@@ -46,6 +46,7 @@ export interface SteamGame {
   /** Ex.: "interface e legendas em português do Brasil; áudio em inglês" (null se a loja não informa). */
   languages: string | null;
   minRequirements: string | null;
+  recRequirements: string | null;
   /** Preço na Steam Brasil agora (null se gratuito ou indisponível). */
   price: { normal: string; now: string; discount: number } | null;
 }
@@ -57,7 +58,7 @@ interface SteamAppData {
   short_description?: string;
   about_the_game?: string;
   supported_languages?: string;
-  pc_requirements?: { minimum?: string } | [];
+  pc_requirements?: { minimum?: string; recommended?: string } | [];
   developers?: string[];
   publishers?: string[];
   genres?: { description: string }[];
@@ -93,7 +94,10 @@ export async function steamApp(appId: number): Promise<SteamGame | null> {
   );
   const data = details?.[appId]?.data;
   if (!data || data.type !== "game") return null;
-  const req = Array.isArray(data.pc_requirements) ? undefined : data.pc_requirements?.minimum;
+  const reqs = Array.isArray(data.pc_requirements) ? undefined : data.pc_requirements;
+  // "<strong>Mínimos:</strong><br><ul><li>SO: ...</li>..." → "SO: ...; Processador: ...".
+  const reqText = (html?: string) =>
+    html ? stripTags(html.replace(/<li>/g, "; ")).replace(/^(Mínimos|Recomendados)\s*:\s*;?\s*/i, "").replace(/^;\s*/, "").slice(0, 900) : null;
   return {
     appId,
     name: data.name,
@@ -113,7 +117,8 @@ export async function steamApp(appId: number): Promise<SteamGame | null> {
           discount: data.price_overview.discount_percent ?? 0,
         }
       : null,
-    minRequirements: req ? stripTags(req.replace(/<li>/g, "; ")).replace(/^Mínimos:\s*;?\s*/i, "").slice(0, 800) : null,
+    minRequirements: reqText(reqs?.minimum),
+    recRequirements: reqText(reqs?.recommended),
   };
 }
 

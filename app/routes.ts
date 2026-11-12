@@ -38,7 +38,9 @@ export default [
   route("admin", "routes/admin/layout.tsx", [
     index("routes/admin/home.tsx"),
     route("materias", "routes/admin/posts.tsx"),
+    route("materias/nova", "routes/admin/post-new.tsx"),
     route("materias/:id", "routes/admin/post-edit.tsx"),
+    route("upload", "routes/admin/upload.ts"),
     route("fila", "routes/admin/queue.tsx"),
     route("fontes", "routes/admin/feeds.tsx"),
     route("robo", "routes/admin/robot.tsx"),
