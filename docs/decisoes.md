@@ -3,6 +3,13 @@
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
+
+## 2026-11-12 — Loaders ignoram o sufixo ".data" do endereço
+
+Clicar em "Notícias" ou "Promoções" no menu dava 404 (abrir o endereço direto funcionava): na navegação
+interna o React Router busca os dados em `/noticias.data`, e a página de editoria lia a editoria do
+endereço ("noticias.data"). Agora os loaders usam `app/lib/route-path.ts` (`routePath`/`firstSegment`).
+Teste de regressão: clicar em todos os links do menu e do rodapé, não só abrir cada endereço.
 ## 2026-11-12 — Capa escolhida também pela nitidez
 
 A capa de "Marvel 1943" saiu com 1280×720 px mas borrada (quadro de vídeo ampliado): a regra só olhava

@@ -6,12 +6,13 @@ import { ShareButtons } from "~/components/ShareButtons";
 import { Art, Hud, Kicker, PlatformTags, SectionTitle } from "~/components/ui";
 import { getGame, getMostRead, getPost, listPosts } from "~/lib/content.server";
 import { formatDate, formatDateTime, formatScore } from "~/lib/format";
+import { firstSegment } from "~/lib/route-path";
 import { seo } from "~/lib/seo";
 import { absoluteUrl, PLATFORMS, SITE, sectionBySlug } from "~/lib/site";
 import type { Block } from "~/lib/types";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const sectionSlug = new URL(request.url).pathname.split("/")[1] ?? "";
+  const sectionSlug = firstSegment(request);
   const post = await getPost(sectionSlug, params.slug);
   if (!post) throw data("Post não encontrado", { status: 404 });
 

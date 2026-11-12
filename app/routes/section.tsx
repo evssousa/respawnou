@@ -4,12 +4,13 @@ import { MostRead, Pagination, PostRow } from "~/components/cards";
 import { FilterLink, SectionTitle } from "~/components/ui";
 import { FreeGamesBoard } from "~/components/free-games";
 import { getFreeGames, getMostRead, getUpcomingFreeGames, listPosts } from "~/lib/content.server";
+import { firstSegment } from "~/lib/route-path";
 import { seo } from "~/lib/seo";
 import { PLATFORMS, platformBySlug, sectionBySlug } from "~/lib/site";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
-  const section = sectionBySlug(url.pathname.split("/")[1] ?? "");
+  const section = sectionBySlug(firstSegment(request));
   if (!section) throw data("Seção não encontrada", { status: 404 });
 
   const platform = platformBySlug(url.searchParams.get("plataforma") ?? "")?.slug;
