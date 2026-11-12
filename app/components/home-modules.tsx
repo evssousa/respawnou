@@ -1,5 +1,6 @@
 // Módulos da homepage. Cada editoria tem um formato visual próprio.
 import { Link } from "react-router";
+import { gameThumb } from "~/lib/game-images";
 import type { SectionStat } from "~/lib/content.server";
 import { formatScore } from "~/lib/format";
 import { PLATFORMS, type Platform } from "~/lib/site";
@@ -201,25 +202,37 @@ export function Countdown({ releases }: { releases: Release[] }) {
   if (!releases.length) return <p className="text-body">Nenhum lançamento previsto para os próximos dias.</p>;
   return (
     <Rail label="Próximos lançamentos">
-      {releases.map((r, i) => (
-        <Link key={r.game.slug} to={`/jogos/${r.game.slug}`} className="group relative flex w-[230px] shrink-0 flex-col">
-          {/* Linha do tempo */}
-          <span aria-hidden className="relative mb-4 block h-px bg-line-soft">
-            <span className={cx("absolute -top-1.5 left-0 h-3 w-3", i === 0 ? "bg-acc" : "border border-acc bg-ink")} />
-          </span>
-          <span className="ch flex flex-1 flex-col gap-3 bg-ink-2 p-5 transition-colors group-hover:bg-acc group-hover:text-ink">
-            <span className="font-mono text-[11px] font-bold text-acc group-hover:text-ink">
-              {r.weekday.toUpperCase()} · {r.day} {r.monthShort}
+      {releases.map((r, i) => {
+        const thumb = gameThumb(r.game);
+        return (
+          <Link key={r.game.slug} to={`/jogos/${r.game.slug}`} className="group relative flex w-[230px] shrink-0 flex-col">
+            {/* Linha do tempo */}
+            <span aria-hidden className="relative mb-4 block h-px bg-line-soft">
+              <span className={cx("absolute -top-1.5 left-0 h-3 w-3", i === 0 ? "bg-acc" : "border border-acc bg-ink")} />
             </span>
-            <span className="font-display text-[56px] leading-[0.85]">
-              {r.daysLeft <= 0 ? "HOJE" : `T-${pad(r.daysLeft)}`}
+            <span className="ch flex flex-1 flex-col bg-ink-2 transition-colors group-hover:bg-acc group-hover:text-ink">
+              {/* Capa do jogo com a contagem por cima */}
+              <span className="relative block aspect-[3/4] w-full overflow-hidden bg-ink-3">
+                {thumb && (
+                  <img src={thumb.src} alt={thumb.alt} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                )}
+                <span aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-ink via-ink/70 to-transparent" />
+                <span className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-4 text-paper">
+                  <span className="font-mono text-[11px] font-bold text-acc">
+                    {r.weekday.toUpperCase()} · {r.day} {r.monthShort}
+                  </span>
+                  <span className="font-display text-[52px] leading-[0.85]">{r.daysLeft <= 0 ? "HOJE" : `T-${pad(r.daysLeft)}`}</span>
+                  <span className="font-mono text-[10px] font-semibold text-body">{r.daysLeft <= 0 ? "LANÇA HOJE" : r.daysLeft === 1 ? "DIA PARA O LANÇAMENTO" : "DIAS PARA O LANÇAMENTO"}</span>
+                </span>
+              </span>
+              <span className="flex flex-col gap-2 p-4">
+                <span className="font-display text-[24px] uppercase leading-none">{r.game.name}</span>
+                <span className="font-mono text-[11px] font-semibold text-muted group-hover:text-ink">{platformsText(r.game.platforms)}</span>
+              </span>
             </span>
-            <span className="font-mono text-[11px] font-semibold text-muted group-hover:text-ink">{r.daysLeft === 1 ? "DIA PARA O LANÇAMENTO" : "DIAS PARA O LANÇAMENTO"}</span>
-            <span className="mt-2 font-display text-[26px] uppercase leading-none">{r.game.name}</span>
-            <span className="font-mono text-[11px] font-semibold text-muted group-hover:text-ink">{platformsText(r.game.platforms)}</span>
-          </span>
-        </Link>
-      ))}
+          </Link>
+        );
+      })}
     </Rail>
   );
 }

@@ -5,6 +5,7 @@ import { getReleases } from "~/lib/content.server";
 import { formatMonthYear } from "~/lib/format";
 import { seo } from "~/lib/seo";
 import { PLATFORMS, platformBySlug } from "~/lib/site";
+import { GameCover } from "~/components/ui";
 import type { Release } from "~/lib/types";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -66,12 +67,13 @@ export default function ReleasesPage({ loaderData }: Route.ComponentProps) {
               <li key={r.game.slug}>
                 <Link
                   to={`/jogos/${r.game.slug}`}
-                  className="group ch grid grid-cols-[64px_1fr] items-center gap-x-4 gap-y-3 bg-ink-2 p-4 transition-colors hover:bg-ink-3 sm:grid-cols-[96px_1fr_auto] sm:gap-x-6 sm:p-5"
+                  className="group ch grid grid-cols-[52px_60px_1fr] items-center gap-x-3 gap-y-3 bg-ink-2 p-4 transition-colors hover:bg-ink-3 sm:grid-cols-[80px_72px_1fr_auto] sm:gap-x-5 sm:p-5"
                 >
                   <span className="flex flex-col items-center">
                     <span className="font-display text-5xl leading-[0.9] text-acc sm:text-6xl">{r.day}</span>
                     <span className="font-mono text-[11px] font-bold text-muted">{r.monthShort}</span>
                   </span>
+                  <GameCover game={r.game} />
                   <span className="flex min-w-0 flex-col gap-1.5">
                     <span className="font-mono text-[11px] font-semibold text-muted">
                       {r.weekday.toUpperCase()} · {r.game.platforms.map((p) => platformLabels[p]).join(" · ").toUpperCase()}
@@ -79,7 +81,7 @@ export default function ReleasesPage({ loaderData }: Route.ComponentProps) {
                     <h3 className="font-display text-[28px] uppercase leading-none transition-colors group-hover:text-acc sm:text-4xl">{r.game.name}</h3>
                     <span className="text-sm text-body">{r.game.genres.join(" · ")}</span>
                   </span>
-                  <span className="chs col-span-2 justify-self-start bg-ink-3 px-3 py-2 font-mono text-xs font-bold text-acc sm:col-span-1 sm:justify-self-end">
+                  <span className="chs col-span-3 justify-self-start bg-ink-3 px-3 py-2 font-mono text-xs font-bold text-acc sm:col-span-1 sm:justify-self-end">
                     {r.daysLeft <= 0 ? "LANÇA HOJE" : r.daysLeft === 1 ? "T-01 · AMANHÃ" : `T-${String(r.daysLeft).padStart(2, "0")} DIAS`}
                   </span>
                 </Link>

@@ -1,5 +1,7 @@
 // Peças visuais pequenas e reutilizáveis do tema "Central de Comando".
 import type { ReactNode } from "react";
+import { gameThumb } from "~/lib/game-images";
+import type { Game } from "~/lib/types";
 import { Link } from "react-router";
 import type { ArtVariant } from "~/lib/types";
 
@@ -122,5 +124,15 @@ export function FilterLink({ to, active, children }: { to: string; active: boole
     >
       {children}
     </Link>
+  );
+}
+
+/** Miniatura da capa de um jogo (calendário e plataformas). Sem imagem: bloco vazio do mesmo tamanho. */
+export function GameCover({ game, className }: { game: Pick<Game, "cover" | "image" | "name">; className?: string }) {
+  const thumb = gameThumb(game);
+  return (
+    <span className={cx("chs block aspect-[3/4] w-[60px] shrink-0 overflow-hidden bg-ink-3 sm:w-[72px]", className)}>
+      {thumb && <img src={thumb.src} alt={thumb.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />}
+    </span>
   );
 }

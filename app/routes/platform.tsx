@@ -1,7 +1,7 @@
 import { data, Link, useLocation } from "react-router";
 import type { Route } from "./+types/platform";
 import { Pagination, PostGrid } from "~/components/cards";
-import { SectionTitle } from "~/components/ui";
+import { GameCover, SectionTitle } from "~/components/ui";
 import { getReleases, listPosts } from "~/lib/content.server";
 import { seo } from "~/lib/seo";
 import { platformBySlug } from "~/lib/site";
@@ -44,11 +44,14 @@ export default function PlatformPage({ loaderData }: Route.ComponentProps) {
           <h2 className="font-mono text-xs font-semibold text-acc">PRÓXIMOS LANÇAMENTOS</h2>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-px bg-line">
             {releases.map((r) => (
-              <Link key={r.game.slug} to={`/jogos/${r.game.slug}`} className="group bg-ink p-4">
-                <span className="font-display text-4xl leading-none text-acc">
-                  {r.day} {r.monthShort}
+              <Link key={r.game.slug} to={`/jogos/${r.game.slug}`} className="group flex items-center gap-4 bg-ink p-4">
+                <GameCover game={r.game} />
+                <span className="min-w-0">
+                  <span className="font-display text-4xl leading-none text-acc">
+                    {r.day} {r.monthShort}
+                  </span>
+                  <span className="mt-1 block font-display text-2xl uppercase leading-none group-hover:text-acc">{r.game.name}</span>
                 </span>
-                <span className="mt-1 block font-display text-2xl uppercase leading-none group-hover:text-acc">{r.game.name}</span>
               </Link>
             ))}
           </div>
