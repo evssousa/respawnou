@@ -135,6 +135,14 @@ export async function requireAdmin(request: Request) {
   return cfg.email!;
 }
 
+/** Há sessão de admin válida? (sem redirecionar; usado na pré-visualização de rascunhos) */
+export async function isAdmin(request: Request) {
+  const cfg = adminConfig();
+  if (!cfg.ready) return false;
+  const session = await sessions().getSession(request.headers.get("Cookie"));
+  return session.get("admin") === cfg.email;
+}
+
 /** Formulário enviado do próprio site (o cookie SameSite=Lax já barra a maioria; isto fecha o resto). */
 export function sameOrigin(request: Request) {
   const origin = request.headers.get("Origin");

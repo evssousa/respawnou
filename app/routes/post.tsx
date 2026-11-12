@@ -4,6 +4,7 @@ import type { Route } from "./+types/post";
 import { MostRead, PostCard, ScoreBadge } from "~/components/cards";
 import { ShareButtons } from "~/components/ShareButtons";
 import { Art, Hud, Kicker, PlatformTags, SectionTitle } from "~/components/ui";
+import { isAdmin } from "~/lib/admin/auth.server";
 import { getGame, getMostRead, getPost, listPosts } from "~/lib/content.server";
 import { formatDate, formatDateTime, formatScore } from "~/lib/format";
 import { firstSegment } from "~/lib/route-path";
@@ -11,9 +12,12 @@ import { seo } from "~/lib/seo";
 import { absoluteUrl, PLATFORMS, SITE, sectionBySlug } from "~/lib/site";
 import type { Block } from "~/lib/types";
 
+// Pré-visualização: ?previa=1 com o admin logado mostra rascunho/arquivada com o visual do site.
+// Sem sessão, o parâmetro é ignorado (rascunho continua 404). Nunca indexa nem entra em cache.
 export async function loader({ params, request }: Route.LoaderArgs) {
   const sectionSlug = firstSegment(request);
-  const post = await getPost(sectionSlug, params.slug);
+  const preview = new URL(request.url).searchParams.get("previa") === "1" && (await isAdmin(request));
+  const post = await getPost(sectionSlug, params.slug, preview);
   if (!post) throw data("Post não encontrado", { status: 404 });
 
   const [game, related, mostRead] = await Promise.all([
@@ -21,12 +25,18 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     listPosts({ section: post.section, exclude: [post.slug], perPage: 3 }),
     getMostRead(5, [post.slug]),
   ]);
-  return { post, game, related: related.items, mostRead, section: sectionBySlug(post.section)! };
+  const result = { post, game, related: related.items, mostRead, section: sectionBySlug(post.section)!, preview };
+  return preview ? data(result, { headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } }) : result;
+}
+
+export function headers({ loaderHeaders }: Route.HeadersArgs) {
+  return loaderHeaders;
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return [];
   const { post } = loaderData;
+  if (loaderData.preview) return [{ title: `Prévia: ${post.title}` }, { name: "robots", content: "noindex, nofollow" }];
   const url = absoluteUrl(post.url);
   return [
     ...seo({
@@ -63,16 +73,25 @@ export function meta({ loaderData }: Route.MetaArgs) {
 const platformLabels = Object.fromEntries(PLATFORMS.map((p) => [p.slug, p.label]));
 
 export default function PostPage({ loaderData }: Route.ComponentProps) {
-  const { post, game, related, mostRead, section } = loaderData;
+  const { post, game, related, mostRead, section, preview } = loaderData;
   // Conta a visita depois de abrir no navegador (bots e pré-carregamentos não contam).
   useEffect(() => {
+    if (preview) return;
     const body = JSON.stringify({ path: post.url });
     if (!navigator.sendBeacon?.("/api/view", new Blob([body], { type: "application/json" })))
       fetch("/api/view", { method: "POST", body, headers: { "Content-Type": "application/json" }, keepalive: true }).catch(() => {});
-  }, [post.url]);
+  }, [post.url, preview]);
 
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-14 px-4 pt-8 sm:px-6">
+      {preview && (
+        <div role="status" className="ch flex flex-wrap items-center justify-between gap-3 border border-acc bg-ink-2 px-4 py-3 font-mono text-xs">
+          <span className="font-bold text-acc">
+            &gt; PRÉ-VISUALIZAÇÃO · {post.status === "published" ? "NO AR" : post.status === "archived" ? "ARQUIVADA" : "RASCUNHO"} · SÓ VOCÊ VÊ ESTA PÁGINA
+          </span>
+          <span className="text-muted">Data e "mais lidas" são provisórias até publicar.</span>
+        </div>
+      )}
       <article className="flex flex-col gap-8">
         <nav aria-label="Você está em" className="font-mono text-xs font-semibold text-muted">
           &gt;{" "}

@@ -66,8 +66,8 @@ export async function getMostRead(limit = 5, exclude: string[] = []): Promise<Po
   return (await repo().findMostRead(limit, exclude)).map((p) => toView(p, now));
 }
 
-export async function getPost(section: string, slug: string) {
-  const post = await repo().findPost(section, slug);
+export async function getPost(section: string, slug: string, unpublished = false) {
+  const post = await repo().findPost(section, slug, unpublished);
   if (!post) return null;
   return { ...toView(post), body: post.body };
 }

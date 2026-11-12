@@ -18,7 +18,8 @@ export interface Repo {
   findPosts(filter: PostFilter, offset: number, limit: number): Promise<{ items: Post[]; total: number }>;
   findFeatured(): Promise<Post | null>;
   findMostRead(limit: number, exclude: string[]): Promise<Post[]>;
-  findPost(section: string, slug: string): Promise<Post | null>;
+  /** unpublished: inclui rascunhos e arquivadas (só para a pré-visualização do admin). */
+  findPost(section: string, slug: string, unpublished?: boolean): Promise<Post | null>;
   /** Todos os posts publicados (sitemap, RSS). */
   allPosts(limit?: number): Promise<Post[]>;
   /** Busca: todos os termos precisam aparecer (sem diferenciar acentos). */

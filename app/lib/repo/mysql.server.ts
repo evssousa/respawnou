@@ -186,9 +186,15 @@ export const mysqlRepo: Repo = {
     return rows.map(toPost);
   },
 
-  async findPost(section, slug) {
-    const rows = await query<PostRow>(`SELECT ${POST_COLS}, p.body, p.meta_description, p.focus_keyword, p.tags ${FROM_POSTS} WHERE ${PUBLISHED} AND p.section = ? AND p.slug = ? LIMIT 1`, [section, slug]);
-    return rows[0] ? toPost(rows[0]) : null;
+  async findPost(section, slug, unpublished = false) {
+    const rows = await query<PostRow & { status: string }>(
+      `SELECT ${POST_COLS}, p.body, p.meta_description, p.focus_keyword, p.tags, p.status ${FROM_POSTS} WHERE ${unpublished ? "1 = 1" : PUBLISHED} AND p.section = ? AND p.slug = ? LIMIT 1`,
+      [section, slug],
+    );
+    if (!rows[0]) return null;
+    const post = toPost(rows[0]);
+    // Rascunho nunca publicado não tem data: mostra a de agora na prévia.
+    return unpublished ? { ...post, publishedAt: post.publishedAt ?? new Date().toISOString(), status: rows[0].status } : post;
   },
 
   async allPosts(limit = 50000) {

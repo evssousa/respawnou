@@ -5,6 +5,12 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+## 2026-11-12 — Prévia de rascunho na própria página pública
+
+- **O quê:** `?previa=1` na página da matéria, aceito só com o admin logado.
+- **Por quê:** reaproveita a página real (mesmo visual, sem duplicar componente); sem sessão nada muda,
+  e a resposta nunca vai para cache nem para o Google.
+
 ## 2026-11-12 — Falha do Gemini tenta de novo em até 30 min
 
 - **O quê:** quando a publicação falha por 503/travamento do Gemini, a coleta seguinte (a cada 30 min)

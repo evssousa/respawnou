@@ -111,9 +111,13 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
           <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
             <Pill status={post.status} />
             {post.featured ? <span className="text-acc">★ destaque</span> : null}
-            {post.status === "published" && (
+            {post.status === "published" ? (
               <a href={url} target="_blank" rel="noopener" className="text-acc underline">
                 ver no site ↗
+              </a>
+            ) : (
+              <a href={`${url}?previa=1`} target="_blank" rel="noopener" className="text-acc underline" title="Mostra a última versão salva, com o visual do site. Só você vê.">
+                pré-visualizar ↗
               </a>
             )}
           </div>

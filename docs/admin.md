@@ -75,6 +75,11 @@ outro site recusado; bloqueio após 5 senhas erradas.
 - Testado localmente: criar, barrar publicação sem corpo/capa, enviar capa e imagem do corpo, salvar,
   publicar, endereço pelo título, página pública com a imagem; envio sem login redireciona ao login.
 
-## Próximos passos
+## Pré-visualização (2026-11-12)
 
-- Pré-visualizar rascunho antes de publicar.
+- No editor de rascunho/arquivada, "pré-visualizar ↗" abre `/<editoria>/<slug>?previa=1`: a página
+  pública com o visual do site e uma faixa "PRÉ-VISUALIZAÇÃO · RASCUNHO · SÓ VOCÊ VÊ ESTA PÁGINA".
+  Mostra a última versão **salva**.
+- Só com sessão de admin (`isAdmin`); sem ela o parâmetro é ignorado e o rascunho segue 404.
+- `Cache-Control: private, no-store`, `X-Robots-Tag` e meta `noindex`; não conta visita.
+- Rascunho sem data usa a hora atual. Testado localmente (anônimo 404, admin 200, cabeçalhos, celular).

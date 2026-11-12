@@ -63,6 +63,8 @@ export interface Post {
   review?: Review;
   featured?: boolean;
   views: number;
+  /** Só na pré-visualização do admin (rascunho/arquivada). */
+  status?: string;
   source?: { name: string; url: string };
 }
 
