@@ -331,7 +331,7 @@ function summary(a: BuiltArticle, slug: string) {
     excerpt: a.excerpt,
     tags: a.tags,
     platforms: a.platforms,
-    cover: { url: a.cover.url, size: `${a.cover.width}x${a.cover.height}` },
+    cover: { url: a.cover.url, size: `${a.cover.width}x${a.cover.height}`, sharpness: a.cover.sharpness },
     images: a.bodyImages.length,
     video: a.video?.youtubeId ?? null,
     words: a.words,

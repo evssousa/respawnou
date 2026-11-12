@@ -2,6 +2,13 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+
+## 2026-11-12 — Capa escolhida também pela nitidez
+
+A capa de "Marvel 1943" saiu com 1280×720 px mas borrada (quadro de vídeo ampliado): a regra só olhava
+o tamanho. Agora `probeImage` mede a nitidez (desvio-padrão do laplaciano) e `chooseMedia` prefere a
+imagem grande **e** nítida; borrada (< 6) não vira capa nem entra no corpo. A matéria foi refeita com a
+imagem nítida que a própria pauta tinha (IGN, 9,7).
 ## 2026-11-11 — Repositório como portfólio, sem licença de uso
 
 O repositório continua público para servir de portfólio, mas **todos os direitos são reservados**:

@@ -12,6 +12,12 @@ const MAX_BYTES = 15 * 1024 * 1024;
 export const COVER_MIN_W = 1200; // prévia grande do Google Discover
 export const COVER_FALLBACK_MIN_W = 800;
 export const BODY_MIN_W = 600;
+/**
+ * Nitidez (desvio-padrão do laplaciano numa cópia de 800 px). Calibrado em 2026-11-12: quadro de
+ * vídeo ampliado e borrado ≈ 4,7; mesma cena nítida ≈ 9,7; capas boas do site entre 11 e 55.
+ */
+export const SHARP_GOOD = 8;
+export const SHARP_MIN = 6;
 const OUT_W = 1600;
 
 export interface ProbedImage {
@@ -23,12 +29,39 @@ export interface ProbedImage {
   hash: string;
   buf: Buffer;
   type: string;
+  /** Ver SHARP_GOOD. null quando o sharp não está disponível. */
+  sharpness: number | null;
+}
+
+/** Bordas definidas = imagem nítida. Imagem ampliada ou de vídeo comprimido tem laplaciano "achatado". */
+async function measureSharpness(sharp: SharpFn, buf: Buffer) {
+  try {
+    const lap = await sharp(buf)
+      .greyscale()
+      .resize({ width: 800, withoutEnlargement: false })
+      .convolve({ width: 3, height: 3, kernel: [0, 1, 0, 1, -4, 1, 0, 1, 0], offset: 128 })
+      .raw()
+      .toBuffer();
+    let sum = 0;
+    let sq = 0;
+    for (const v of lap) {
+      sum += v;
+      sq += v * v;
+    }
+    const mean = sum / lap.length;
+    return Math.round(Math.sqrt(sq / lap.length - mean * mean) * 100) / 100;
+  } catch {
+    return null;
+  }
 }
 
 type SharpFn = (input: Buffer) => {
   metadata: () => Promise<{ width?: number; height?: number; pages?: number }>;
   rotate: () => ReturnType<SharpFn>;
   resize: (o: { width: number; withoutEnlargement: boolean }) => ReturnType<SharpFn>;
+  greyscale: () => ReturnType<SharpFn>;
+  convolve: (o: { width: number; height: number; kernel: number[]; offset?: number }) => ReturnType<SharpFn>;
+  raw: () => ReturnType<SharpFn> & { toBuffer: () => Promise<Buffer> };
   webp: (o: { quality: number }) => ReturnType<SharpFn>;
   toBuffer: (o: { resolveWithObject: true }) => Promise<{ data: Buffer; info: { width: number; height: number } }>;
 };
@@ -105,7 +138,8 @@ export async function probeImage(img: MediaImage): Promise<ProbedImage | null> {
       }
     }
     if (!size) continue;
-    return { url, alt: img.alt, source: img.source, ...size, hash: createHash("sha1").update(src.buf).digest("hex"), buf: src.buf, type: src.type };
+    const sharpness = sharp ? await measureSharpness(sharp, src.buf) : null;
+    return { url, alt: img.alt, source: img.source, ...size, hash: createHash("sha1").update(src.buf).digest("hex"), buf: src.buf, type: src.type, sharpness };
   }
   return null;
 }
@@ -130,11 +164,17 @@ export async function chooseMedia(images: MediaImage[], bodyLimit = 3, maxProbes
     probed.push(p);
   }
   const landscape = (p: ProbedImage) => p.width / p.height >= 1.25 && p.width / p.height <= 2.5;
+  // Sem medida (sem sharp) conta como nítida: não bloqueia nada.
+  const sharpOf = (p: ProbedImage) => p.sharpness ?? SHARP_GOOD;
+  const candidates = probed.filter((p) => p.width >= COVER_FALLBACK_MIN_W && landscape(p));
+  // 1º: grande e nítida, na ordem das fontes (a primeira costuma ser a mais relevante).
+  // 2º: nítida, a maior. 3º: a mais nítida, se ao menos aceitável. Senão, sem capa.
   const cover =
-    probed.find((p) => p.width >= COVER_MIN_W && landscape(p)) ??
-    probed.filter((p) => p.width >= COVER_FALLBACK_MIN_W && landscape(p)).sort((a, b) => b.width - a.width)[0];
+    candidates.find((p) => p.width >= COVER_MIN_W && sharpOf(p) >= SHARP_GOOD) ??
+    candidates.filter((p) => sharpOf(p) >= SHARP_GOOD).sort((a, b) => b.width - a.width)[0] ??
+    candidates.filter((p) => sharpOf(p) >= SHARP_MIN).sort((a, b) => sharpOf(b) - sharpOf(a))[0];
   if (!cover) return null;
-  const body = probed.filter((p) => p !== cover && p.width >= BODY_MIN_W && p.height >= 300).slice(0, bodyLimit);
+  const body = probed.filter((p) => p !== cover && p.width >= BODY_MIN_W && p.height >= 300 && sharpOf(p) >= SHARP_MIN).slice(0, bodyLimit);
   return { cover, body };
 }
 

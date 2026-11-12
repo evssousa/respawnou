@@ -78,7 +78,10 @@ Código: `writer.server.ts` (redator), `quality.ts` (checagem), `assemble.ts` (c
    coleta) + da página (`og:image`, imagens do `<article>`, vídeos do YouTube, links oficiais de lojas).
 3. **Imagens antes do Gemini** (`chooseMedia`): baixa até 10 candidatas na maior resolução que o CDN
    oferece (`imageCandidates`: gnwcdn/IGN `width=1600`, WordPress sem `-300x169`, Future `-1920-`),
-   descarta repetidas (mesmo arquivo). **Capa**: horizontal, ≥ 1200 px (aceita ≥ 800 se não houver);
+   descarta repetidas (mesmo arquivo). **Nitidez** (desde 2026-11-12): desvio-padrão do laplaciano
+   numa cópia de 800 px; ≥ 8 é boa, < 6 é borrada (quadro de vídeo ampliado deu 4,7). **Capa**: horizontal,
+   ≥ 1200 px e nítida, na ordem das fontes; senão a nítida maior; senão a mais nítida se ≥ 6 (aceita ≥ 800 px);
+   imagem borrada também não entra no corpo;
    **sem capa a pauta é descartada** sem gastar cota. **Corpo**: até 3, ≥ 600 px, diferentes da capa.
 4. **Vídeo**: 1º vídeo do YouTube das fontes que o oEmbed confirma (existe e pode ser incorporado).
 5. **Escrever** (Gemini, JSON): `focusKeyword`, título 30–70 caracteres com a palavra-chave,

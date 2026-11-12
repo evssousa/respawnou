@@ -53,8 +53,9 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 4 | Google Search Console + sitemap (só depois das primeiras matérias) | 💤 |
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |
 | 4 | Cadastrar `ADSENSE_CLIENT` no hPanel ao se inscrever no AdSense | 💤 dono |
+| 4 | Ao aprovar o AdSense: e-mail para partner@igdb.com (parceria comercial do IGDB; Claude redige, dono envia) — ver adsense.md | 💤 dono |
 | 5 | Editorias novas, etapa 1: Promoções — jogos grátis da Epic e GamerPower, matéria do grátis da Epic, página /promocoes (migration 006) | ✅ |
-| 5 | Etapa 2: IGDB — lançamentos e fichas de jogos (dono cria conta de desenvolvedor na Twitch; adiado: falta a verificação em duas etapas) | 💤 dono |
+| 5 | Etapa 2: IGDB — lançamentos e fichas de jogos (`IGDB_CLIENT_ID`/`IGDB_CLIENT_SECRET` cadastrados em 2026-11-12) | 🔄 |
 | 5 | Etapa 3: consenso da crítica — notas do JSON-LD das análises, mínimo de 4 veículos, quadro calculado pelo código (migration 007) | ✅ |
 | 5 | Etapa 4: compilações — ofertas da Steam (sexta), resumo da semana (domingo), grátis do mês (dia 1º); "lançamentos do mês" espera o IGDB | ✅ |
 | 5 | Etapa 5: guias de requisitos de PC + botão "Nova matéria" no painel | 💤 |

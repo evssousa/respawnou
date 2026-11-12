@@ -7,7 +7,7 @@ import { assembleBody, stripLinks } from "./assemble.ts";
 import { generateJson } from "./gemini.server.ts";
 import { emptyMedia, mergeMedia, type SourceMedia } from "./media.ts";
 import { steamGame, youtubeTrailer } from "./enrich.server.ts";
-import { chooseMedia, probeImage, storeImage, type ProbedImage } from "./media.server.ts";
+import { chooseMedia, probeImage, SHARP_MIN, storeImage, type ProbedImage } from "./media.server.ts";
 import { autoFix, checkDraft, sanitizeLinks, type DraftArticle, type DraftBlock } from "./quality.ts";
 import { fetchArticle } from "./rss.server.ts";
 import { countWords } from "./text.ts";
@@ -233,7 +233,7 @@ export async function writeFromSources({ sources, media, brief, extraSchema, ext
 
   // Mídia antes do Gemini: sem capa utilizável a pauta sai, sem gastar cota.
   const chosen = await chooseMedia(media.images, 3);
-  if (!chosen) return { ok: false, status: "skipped", reason: `sem imagem de capa utilizável (${media.images.length} candidata(s))` };
+  if (!chosen) return { ok: false, status: "skipped", reason: `sem imagem de capa utilizável: grande, horizontal e nítida (${media.images.length} candidata(s))` };
   let video: BuiltArticle["video"];
   for (const id of media.videos.slice(0, 3)) {
     const info = await videoInfo(id);
@@ -303,7 +303,7 @@ ${sourcesBlock(sources)}`;
         for (const url of steam.screenshots.slice(0, 6)) {
           if (bodyImages.length >= wanted) break;
           const shot = await probeImage({ url, source: "Steam" });
-          if (shot && !seen.has(shot.hash) && shot.width >= 600) {
+          if (shot && !seen.has(shot.hash) && shot.width >= 600 && (shot.sharpness ?? SHARP_MIN) >= SHARP_MIN) {
             seen.add(shot.hash);
             bodyImages.push(shot);
           }

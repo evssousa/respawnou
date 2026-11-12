@@ -84,6 +84,9 @@ anúncios, celular sem rolagem lateral.
   Google, certificada e grátis). O Google exige CMP certificada para visitantes da Europa, Reino Unido e
   Suíça; ela só aparece para eles. O banner próprio cobre o Brasil (LGPD).
 - Anúncios automáticos ("Auto ads") ou blocos manuais: decidir depois de ver o layout com anúncios.
+- **Lembrar o dono:** mandar e-mail para **partner@igdb.com** pedindo a parceria comercial do IGDB
+  (a API é grátis também para uso comercial, mas projetos com anúncios entram no programa de parceria,
+  que pede crédito visível ao IGDB.com — o site já mostra). O Claude redige o e-mail; o dono envia.
 
 ## Monitorar depois da aprovação
 
