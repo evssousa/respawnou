@@ -88,6 +88,15 @@ export default function ReleasesPage({ loaderData }: Route.ComponentProps) {
           </ol>
         </section>
       ))}
+      {groups.length > 0 && (
+        <p className="font-mono text-[11px] text-muted">
+          DATAS E DADOS DOS JOGOS:{" "}
+          <a href="https://www.igdb.com" target="_blank" rel="noopener" className="underline hover:text-acc">
+            IGDB.COM
+          </a>
+          . AS DATAS PODEM MUDAR; O CALENDÁRIO SE ATUALIZA SOZINHO.
+        </p>
+      )}
     </main>
   );
 }

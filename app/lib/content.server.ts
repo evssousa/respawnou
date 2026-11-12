@@ -4,7 +4,7 @@
 // senão os dados de exemplo em mock-data.ts. Aqui ficam só as regras de exibição
 // (paginação, rótulos de data calculados no servidor), iguais para as duas fontes.
 import { hasDatabase } from "./db.server";
-import { daysUntil, formatDate, formatDay, formatMonthShort, formatTime, formatWeekday, normalize, timeAgo } from "./format";
+import { brDay, daysUntil, formatDate, formatDay, formatMonthShort, formatTime, formatWeekday, normalize, timeAgo } from "./format";
 import { mockRepo } from "./repo/mock.server";
 import { mysqlRepo } from "./repo/mysql.server";
 import type { Repo } from "./repo/types";
@@ -111,17 +111,26 @@ export async function getReleases(opts: { days?: number; platform?: PlatformSlug
   return games.map(toRelease);
 }
 
+/** Prazo de uma oferta em dias (calendário de Brasília), horas e horário. */
+function deadline(until: string, now = Date.now()) {
+  return {
+    untilLabel: formatDate(until),
+    daysLeft: daysUntil(brDay(until), now),
+    hoursLeft: Math.max(1, Math.ceil((Date.parse(until) - now) / 3600_000)),
+    untilTime: formatTime(until),
+  };
+}
+
 export async function getFreeGames(): Promise<FreeGame[]> {
   const free = await repo().freeGames(new Date().toISOString());
-  return free.map((f) => ({ ...f, untilLabel: formatDate(f.until), daysLeft: daysUntil(f.until) }));
+  return free.map((f) => ({ ...f, ...deadline(f.until) }));
 }
 
 export async function getUpcomingFreeGames(): Promise<FreeGame[]> {
   const free = await repo().upcomingFreeGames(new Date().toISOString());
   return free.map((f) => ({
     ...f,
-    untilLabel: formatDate(f.until),
-    daysLeft: daysUntil(f.until),
+    ...deadline(f.until),
     startsLabel: f.startsAt ? formatDate(f.startsAt) : null,
   }));
 }

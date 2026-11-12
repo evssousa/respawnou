@@ -68,6 +68,12 @@ interface GameRow {
   name: string;
   platforms: unknown;
   release_date: string | null;
+  release_label: string | null;
+  image_url: string | null;
+  cover_url: string | null;
+  screenshots: unknown;
+  trailer: string | null;
+  igdb_url: string | null;
   developer: string;
   publisher: string;
   genres: unknown;
@@ -114,6 +120,12 @@ function toGame(r: GameRow): Game {
     genres: json<string[]>(r.genres, []),
     description: r.description,
     art: art(r.art),
+    releaseLabel: r.release_label,
+    image: r.image_url,
+    cover: r.cover_url,
+    screenshots: json<string[]>(r.screenshots, []),
+    trailer: r.trailer,
+    igdbUrl: r.igdb_url,
   };
 }
 
@@ -147,7 +159,7 @@ function where(f: PostFilter) {
 
 const like = (t: string) => `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
-const GAME_COLS = `slug, name, platforms, release_date, developer, publisher, genres, description, art`;
+const GAME_COLS = `slug, name, platforms, release_date, release_label, developer, publisher, genres, description, art, image_url, cover_url, screenshots, trailer, igdb_url`;
 
 export const mysqlRepo: Repo = {
   async findPosts(filter, offset, limit) {
@@ -218,7 +230,12 @@ export const mysqlRepo: Repo = {
   },
 
   async allGames() {
-    return (await query<GameRow>(`SELECT ${GAME_COLS} FROM games ORDER BY name`)).map(toGame);
+    // Só jogos com matéria publicada: ficha só com dados fica fora do sitemap (e com noindex).
+    return (
+      await query<GameRow>(
+        `SELECT ${GAME_COLS} FROM games g WHERE EXISTS (SELECT 1 FROM posts p WHERE p.game_id = g.id AND p.status = 'published' AND p.published_at <= UTC_TIMESTAMP()) ORDER BY name`,
+      )
+    ).map(toGame);
   },
 
   async searchGames(q, limit) {

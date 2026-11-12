@@ -13,11 +13,13 @@ import {
   consensusCandidate,
   consensusNumbers,
   consensusSources,
+  gameKey,
   looksLikeReview,
   markConsensus,
   recordReview,
   refreshPublishedConsensus,
 } from "./critics.server.ts";
+import { gameIdFor, igdbCheck, igdbConfigured, syncGames, translateDescriptions } from "./igdb.server.ts";
 import { fetchEpic, fetchGamerPower, markPromo, promoCandidate, promoSources, saveOffers, type Offer } from "./offers.server.ts";
 import { localizeImages, writeArticle, writeFromSources, type BuiltArticle, type SourceItem } from "./writer.server.ts";
 
@@ -111,10 +113,11 @@ export async function recentRuns(limit = 10) {
 /** Teste dos modelos do Gemini; o resultado fica em cron_runs.stats (job "diag"). */
 export function diag(): Promise<JobResult> {
   return runJob("diag", async () => {
-    const stats = { ...(await diagnose()), youtube: await youtubeCheck() };
+    const stats = { ...(await diagnose()), youtube: await youtubeCheck(), igdb: await igdbCheck() };
     const ok = stats.tests.filter((t) => t.ok).map((t) => t.model);
     const yt = !stats.youtube.configured ? "YouTube: sem chave" : stats.youtube.ok ? "YouTube: ok" : `YouTube: erro ${stats.youtube.error ?? ""}`;
-    return { status: "ok", message: `${ok.length ? `Gemini respondendo: ${ok.join(", ")}` : "Nenhum modelo do Gemini respondeu"} · ${yt}`, stats };
+    const ig = !stats.igdb.configured ? "IGDB: sem chave" : stats.igdb.ok ? "IGDB: ok" : `IGDB: erro ${stats.igdb.error ?? ""}`;
+    return { status: "ok", message: `${ok.length ? `Gemini respondendo: ${ok.join(", ")}` : "Nenhum modelo do Gemini respondeu"} · ${yt} · ${ig}`, stats };
   });
 }
 
@@ -211,13 +214,15 @@ export function collect(): Promise<JobResult> {
 
     // Jogos grátis (Epic + GamerPower): no máximo a cada 3 h, registrado como job "ofertas".
     const offers = await maybeCollectOffers();
+    // Jogos e lançamentos (IGDB): no máximo a cada 6 h, registrado como job "jogos".
+    const games = await maybeCollectGames();
 
     // Itens velhos que nunca foram usados saem da fila.
     await db().query("UPDATE feed_items SET status = 'skipped', reason = 'expirou (mais de 48 h)' WHERE status = 'new' AND published_at < UTC_TIMESTAMP() - INTERVAL 48 HOUR");
 
     return {
       status: errors.length === feeds.length && feeds.length ? "error" : "ok",
-      message: `${added} novos na fila, ${skipped} descartados${reviews ? `, ${reviews} nota(s) de análise para o consenso` : ""}${refreshed ? `, ${refreshed} consenso(s) atualizado(s)` : ""}${errors.length ? `; falhas: ${errors.join(" | ")}` : ""}${offers ? ` · ofertas: ${offers.message}` : ""}`,
+      message: `${added} novos na fila, ${skipped} descartados${reviews ? `, ${reviews} nota(s) de análise para o consenso` : ""}${refreshed ? `, ${refreshed} consenso(s) atualizado(s)` : ""}${errors.length ? `; falhas: ${errors.join(" | ")}` : ""}${offers ? ` · ofertas: ${offers.message}` : ""}${games ? ` · jogos: ${games.message}` : ""}`,
       stats: { feeds: feeds.length, added, skipped, reviews, refreshed, errors: errors.length },
     };
   });
@@ -250,6 +255,35 @@ export function collectOffers(): Promise<JobResult> {
       stats: { total: offers.length, added, epic: epic.map((o) => ({ name: o.name, from: o.startsAt, to: o.endsAt })), failed },
     };
   });
+}
+
+/** Lançamentos do IGDB → tabela games; depois traduz as descrições que faltam (1 pedido ao Gemini). */
+export function collectGames(): Promise<JobResult> {
+  return runJob("jogos", async () => {
+    if (!igdbConfigured()) return { status: "skipped", message: "IGDB sem chave (IGDB_CLIENT_ID / IGDB_CLIENT_SECRET)." };
+    const sync = await syncGames();
+    let translated = 0;
+    let translateError = "";
+    try {
+      translated = await translateDescriptions();
+    } catch (err) {
+      // Gemini fora do ar não perde a sincronização; as descrições ficam para a próxima vez.
+      translateError = err instanceof Error ? err.message.slice(0, 200) : String(err);
+    }
+    return {
+      status: "ok",
+      message: `${sync.fetched} do IGDB: ${sync.created} novos, ${sync.updated} atualizados, ${sync.skipped} ignorados; ${translated} descrição(ões) em português${translateError ? ` (tradução falhou: ${translateError})` : ""}`,
+      stats: { ...sync, translated },
+    };
+  });
+}
+
+async function maybeCollectGames() {
+  if (!igdbConfigured()) return null;
+  const recent = await query<{ id: number }>(
+    "SELECT id FROM cron_runs WHERE job = 'jogos' AND status IN ('ok','running') AND started_at > UTC_TIMESTAMP() - INTERVAL 6 HOUR LIMIT 1",
+  );
+  return recent.length ? null : collectGames();
 }
 
 async function maybeCollectOffers() {
@@ -524,10 +558,12 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
 async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, extra: { review?: Review; tag?: string } = {}) {
   const { review, tag } = extra;
   const local = await localizeImages(a, slug);
+  // Ficha do jogo (/jogos/:slug): liga quando a palavra-chave é o nome de um jogo do IGDB.
+  const gameId = await gameIdFor(a.focusKeyword, gameKey).catch(() => null);
   const [res] = await db().query<ResultSetHeader>(
     `INSERT INTO posts (section, slug, status, origin, title, excerpt, meta_description, focus_keyword, tags, platforms, author, read_minutes, art,
-       image_url, image_alt, image_credit, body, source_name, source_url, review, tag, published_at)
-     VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+       image_url, image_alt, image_credit, body, source_name, source_url, review, tag, game_id, published_at)
+     VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
     [
       a.section,
       slug,
@@ -547,6 +583,7 @@ async function insertPost(a: BuiltArticle, slug: string, source: { name: string;
       source.url,
       review ? JSON.stringify(review) : null,
       tag ?? null,
+      gameId,
     ],
   );
   return res.insertId;

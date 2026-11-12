@@ -86,6 +86,15 @@ export interface Game {
   genres: string[];
   description: string;
   art: ArtVariant;
+  /** Data imprecisa quando não há dia definido ("4º tri. de 2027", "2027", "sem data"). */
+  releaseLabel?: string | null;
+  /** Arte horizontal (IGDB), capa vertical, capturas e trailer do YouTube. */
+  image?: string | null;
+  cover?: string | null;
+  screenshots?: string[];
+  trailer?: string | null;
+  /** Página do jogo no IGDB (crédito dos dados). */
+  igdbUrl?: string | null;
 }
 
 export interface Release {
@@ -104,8 +113,12 @@ export interface FreeGame {
   platform: string;
   until: string; // ISO
   untilLabel: string;
-  /** Dias até a oferta acabar (0 = acaba hoje). */
+  /** Dias até a oferta acabar, no calendário de Brasília (0 = acaba hoje). */
   daysLeft: number;
+  /** Horas que faltam (arredondado para cima; útil quando acaba hoje). */
+  hoursLeft: number;
+  /** Horário de Brasília em que acaba ("13:00"). */
+  untilTime: string;
   /** Página da oferta na loja (ou o redirecionamento da GamerPower). */
   url: string;
   /** Arte do jogo servida pelo site (/media/...). */

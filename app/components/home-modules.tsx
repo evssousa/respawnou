@@ -300,9 +300,18 @@ export function LootDrop({ free, promos }: { free: FreeGame[]; promos: PostView[
             </span>
             <span aria-hidden className="ticket-cut w-0.5" />
             <span className="flex w-28 shrink-0 flex-col items-center justify-center p-4 text-center">
-              <span className="font-mono text-[11px] font-bold opacity-70">EXPIRA EM</span>
-              <span className="font-display text-5xl leading-none">{pad(Math.max(0, g.daysLeft))}</span>
-              <span className="font-mono text-[11px] font-bold">{g.daysLeft === 1 ? "DIA" : "DIAS"}</span>
+              <span className="font-mono text-[11px] font-bold opacity-70">{g.daysLeft <= 0 ? `HOJE ÀS ${g.untilTime}` : "EXPIRA EM"}</span>
+              {g.daysLeft <= 0 ? (
+                <>
+                  <span className="font-display text-5xl leading-none">{pad(g.hoursLeft)}</span>
+                  <span className="font-mono text-[11px] font-bold">{g.hoursLeft === 1 ? "HORA" : "HORAS"}</span>
+                </>
+              ) : (
+                <>
+                  <span className="font-display text-5xl leading-none">{pad(g.daysLeft)}</span>
+                  <span className="font-mono text-[11px] font-bold">{g.daysLeft === 1 ? "DIA" : "DIAS"}</span>
+                </>
+              )}
             </span>
           </a>
         ))}

@@ -2,6 +2,7 @@
 //   ofertas      Promoções · sexta    jogos bem avaliados com desconto forte na Steam (preço em reais)
 //   resumo       Artigos   · domingo  as matérias da semana do próprio site, com link para cada uma
 //   gratis-mes   Artigos   · dia 1º   jogos grátis do mês anterior (só com o mês inteiro registrado)
+//   lancamentos  Artigos   · dia 1º   os lançamentos mais aguardados do mês que começa (IGDB)
 // Agenda no fuso de Brasília; cada uma sai no máximo uma vez por período (settings.compilations).
 // Passam pelo mesmo writeFromSources das outras matérias (checagem e até 3 tentativas).
 import { db, iso, json, query } from "../db.server.ts";
@@ -13,7 +14,7 @@ import type { PreparedSources, Source } from "./writer.server.ts";
 
 const TZ = "America/Sao_Paulo";
 
-export type CompilationKind = "ofertas" | "resumo" | "gratis-mes";
+export type CompilationKind = "ofertas" | "resumo" | "gratis-mes" | "lancamentos";
 
 export interface Compilation {
   kind: CompilationKind;
@@ -73,6 +74,8 @@ export async function dueCompilation(force?: CompilationKind): Promise<Compilati
   if (want("ofertas", week, now.weekday === 5)) return steamDeals(week);
   if (want("resumo", week, now.weekday === 0)) return weekRecap(week);
   if (want("gratis-mes", prevMonth, now.day <= 3)) return monthFree(prevMonth, prev);
+  const thisMonth = `${now.year}-${String(now.month).padStart(2, "0")}`;
+  if (want("lancamentos", thisMonth, now.day <= 3)) return monthReleases(thisMonth, new Date(Date.UTC(now.year, now.month - 1, 1)));
   return null;
 }
 
@@ -265,6 +268,76 @@ PAUTA: jogos que ficaram grátis em ${monthName}. Editoria: artigos.
 - Organize por loja ou por semana em h2; para cada jogo, 1 a 2 frases (o que é, quando ficou grátis, preço normal).
 - Link para a matéria do Respawnou do jogo quando o endereço da fonte for interno; senão, para a loja.
 - Mencione que os grátis atuais estão na página de promoções do site (link /promocoes).`,
+    },
+  };
+}
+
+// ───────────── Lançamentos do mês (IGDB) ─────────────
+
+async function monthReleases(period: string, start: Date): Promise<Compilation | null> {
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+  const games = await query<{
+    name: string;
+    slug: string;
+    release_date: string;
+    platforms: unknown;
+    genres: unknown;
+    developer: string;
+    publisher: string;
+    description: string;
+    summary_en: string | null;
+    image_url: string | null;
+    trailer: string | null;
+  }>(
+    `SELECT name, slug, release_date, platforms, genres, developer, publisher, description, summary_en, image_url, trailer FROM games
+     WHERE igdb_id IS NOT NULL AND release_date >= ? AND release_date < ? ORDER BY hypes DESC LIMIT 12`,
+    [day(start), day(end)],
+  );
+  if (games.length < 5) return null;
+  const monthName = `${MONTHS[start.getUTCMonth()]} de ${start.getUTCFullYear()}`;
+  const labels: Record<string, string> = { pc: "PC", playstation: "PlayStation", xbox: "Xbox", switch: "Nintendo Switch", mobile: "celular" };
+  const fmt = (d: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", day: "numeric", month: "long" }).format(new Date(`${String(d).slice(0, 10)}T12:00:00Z`));
+  const sorted = [...games].sort((a, b) => String(a.release_date).localeCompare(String(b.release_date)));
+  const sources: Source[] = sorted.map((g) => ({
+    name: "IGDB",
+    title: `${g.name}: lançamento em ${fmt(g.release_date)}`,
+    url: `/jogos/${g.slug}`,
+    date: new Date().toISOString(),
+    text: [
+      `${g.name} tem lançamento previsto para ${fmt(g.release_date)} de ${start.getUTCFullYear()}.`,
+      `Plataformas: ${json<string[]>(g.platforms, []).map((p) => labels[p] ?? p).join(", ")}.`,
+      json<string[]>(g.genres, []).length ? `Gêneros: ${json<string[]>(g.genres, []).join(", ")}.` : "",
+      g.developer ? `Desenvolvimento: ${g.developer}.` : "",
+      g.publisher ? `Distribuição: ${g.publisher}.` : "",
+      g.description ? `Sobre o jogo: ${g.description}` : g.summary_en ? `Resumo (em inglês, traduza): ${g.summary_en.slice(0, 600)}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  }));
+  const media = emptyMedia();
+  for (const g of sorted) if (g.image_url) media.images.push({ url: g.image_url, source: "IGDB" });
+  sources.unshift({
+    name: "Respawnou",
+    title: `Lançamentos de ${monthName}`,
+    url: absoluteUrl("/lancamentos"),
+    date: new Date().toISOString(),
+    text: `Seleção do Respawnou com os ${games.length} lançamentos mais aguardados de ${monthName} (pelo interesse dos jogadores no IGDB), nas plataformas PC, PlayStation, Xbox, Nintendo Switch e celular. As datas são as divulgadas até o início do mês e podem mudar. O calendário completo, atualizado sozinho, está na página de lançamentos do Respawnou.`,
+  });
+  return {
+    kind: "lancamentos",
+    period,
+    section: "artigos",
+    tag: "Lista",
+    source: { name: "IGDB.com", url: "https://www.igdb.com" },
+    prepared: {
+      sources,
+      media,
+      brief: `${COMMON_BRIEF}
+PAUTA: os lançamentos mais aguardados de ${monthName}, em ordem de data. Editoria: artigos.
+- focusKeyword: "lançamentos de ${monthName}"; title com ela.
+- Um h2 por jogo com o nome e a data (ex.: "Nome do jogo — 14 de ${MONTHS[start.getUTCMonth()]}"), 1 parágrafo: o que é, quem faz e em que plataformas sai. Link interno para a ficha do jogo (endereço da fonte).
+- Diga no lide que as datas podem mudar e cite o calendário de lançamentos do site (link /lancamentos).`,
     },
   };
 }

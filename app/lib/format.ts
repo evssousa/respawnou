@@ -51,6 +51,9 @@ export const normalize = (s: string) =>
 export const formatScore = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: n % 1 ? 1 : 0, maximumFractionDigits: 1 });
 
 /** Dias inteiros entre hoje (BR) e uma data "AAAA-MM-DD". */
+/** Dia (AAAA-MM-DD) de um instante no fuso de Brasília: "2026-11-13T02:00Z" ainda é dia 12 aqui. */
+export const brDay = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(toDate(iso));
+
 export function daysUntil(isoDay: string, now = Date.now()) {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(now));
   return Math.round((Date.parse(`${isoDay.slice(0, 10)}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);

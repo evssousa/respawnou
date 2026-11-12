@@ -5,7 +5,10 @@ import type { FreeGame } from "~/lib/types";
 const pad = (n: number) => String(Math.max(0, n)).padStart(2, "0");
 
 function FreeCard({ g }: { g: FreeGame }) {
-  const ends = g.daysLeft <= 0 ? "ACABA HOJE" : `ACABA EM ${pad(g.daysLeft)} ${g.daysLeft === 1 ? "DIA" : "DIAS"}`;
+  const ends =
+    g.daysLeft <= 0
+      ? `ACABA HOJE ÀS ${g.untilTime}${g.hoursLeft <= 6 ? ` (${g.hoursLeft} H)` : ""}`
+      : `ACABA EM ${pad(g.daysLeft)} ${g.daysLeft === 1 ? "DIA" : "DIAS"}`;
   return (
     <li className="ch flex min-w-0 flex-col bg-ink-2">
       {g.image ? (
@@ -20,7 +23,7 @@ function FreeCard({ g }: { g: FreeGame }) {
         </p>
         <h3 className="font-display text-[28px] uppercase leading-none">{g.name}</h3>
         <p className="text-sm text-body">
-          {g.platform} · grátis até {g.untilLabel}
+          {g.platform} · grátis até {g.untilLabel}, às {g.untilTime}
           {g.worth && (
             <>
               {" "}

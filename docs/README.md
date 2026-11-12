@@ -38,7 +38,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 2 | E-mail contato@respawnou.com.br | ✅ |
 | 3 | Robô de postagem: código, fontes RSS e rotas /api/cron (migration 002) | ✅ |
 | 3 | CRON_TOKEN no painel + teste em produção + Cron Jobs da Hostinger (1ª matéria no ar) | ✅ |
-| 3 | Dados de jogos (RAWG fora do ar; alternativa IGDB) | 💤 |
+| 3 | Dados de jogos: IGDB (ver etapa 2 da fase 5) | ✅ |
 | 3 | Matérias com SEO completo: capa e imagens próprias (WebP), vídeo, links internos/externos, checagem com refação (regras do Anime Profile, migration 003) | ✅ |
 | 3 | Imagens extras da Steam + trailer pelo YouTube (`YOUTUBE_API_KEY` cadastrada) | ✅ |
 | 3 | Polygon bloqueia o servidor → desativado; 5 fontes novas (migration 004) | ✅ |
@@ -55,7 +55,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 4 | Cadastrar `ADSENSE_CLIENT` no hPanel ao se inscrever no AdSense | 💤 dono |
 | 4 | Ao aprovar o AdSense: e-mail para partner@igdb.com (parceria comercial do IGDB; Claude redige, dono envia) — ver adsense.md | 💤 dono |
 | 5 | Editorias novas, etapa 1: Promoções — jogos grátis da Epic e GamerPower, matéria do grátis da Epic, página /promocoes (migration 006) | ✅ |
-| 5 | Etapa 2: IGDB — lançamentos e fichas de jogos (`IGDB_CLIENT_ID`/`IGDB_CLIENT_SECRET` cadastrados em 2026-11-12) | 🔄 |
+| 5 | Etapa 2: IGDB — calendário, fichas (noindex sem matéria), descrições em pt-BR, "Lançamentos do mês" (migration 008) | ✅ |
 | 5 | Etapa 3: consenso da crítica — notas do JSON-LD das análises, mínimo de 4 veículos, quadro calculado pelo código (migration 007) | ✅ |
 | 5 | Etapa 4: compilações — ofertas da Steam (sexta), resumo da semana (domingo), grátis do mês (dia 1º); "lançamentos do mês" espera o IGDB | ✅ |
 | 5 | Etapa 5: guias de requisitos de PC + botão "Nova matéria" no painel | 💤 |

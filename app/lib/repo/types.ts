@@ -12,7 +12,7 @@ export interface PostFilter {
   exclude?: string[];
 }
 
-export type RawFreeGame = Omit<FreeGame, "untilLabel" | "daysLeft" | "startsLabel">;
+export type RawFreeGame = Omit<FreeGame, "untilLabel" | "daysLeft" | "hoursLeft" | "untilTime" | "startsLabel">;
 
 export interface Repo {
   findPosts(filter: PostFilter, offset: number, limit: number): Promise<{ items: Post[]; total: number }>;
@@ -27,6 +27,7 @@ export interface Repo {
   sectionStats(): Promise<{ section: SectionSlug; total: number; latest: string | null }[]>;
 
   findGame(slug: string): Promise<Game | null>;
+  /** Jogos com página indexável (têm matéria publicada): sitemap. */
   allGames(): Promise<Game[]>;
   searchGames(query: string, limit: number): Promise<Game[]>;
   /** Jogos com lançamento entre as datas (AAAA-MM-DD, inclusive), em ordem de data. */

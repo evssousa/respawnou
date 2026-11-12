@@ -150,6 +150,25 @@ Código: `app/lib/robot/offers.server.ts`. Roda dentro da coleta, no máximo a c
   matéria. A home mostra até 3.
 - Ofertas de desconto (Steam etc.) ficam para os artigos de compilação (etapa 4).
 
+## Jogos e lançamentos (IGDB, job `jogos`)
+
+Código: `app/lib/robot/igdb.server.ts`. Chaves `IGDB_CLIENT_ID`/`IGDB_CLIENT_SECRET` (app em dev.twitch.tv,
+cadastradas em 2026-11-12). Roda dentro da coleta, no máximo a cada 6 h (ou "Atualizar lançamentos" no
+painel / `GET /api/cron/jogos`). O diagnóstico testa o acesso.
+
+- Busca jogos com 1º lançamento entre 30 dias atrás e 1 ano à frente, nas plataformas do site
+  (PC, PS4/PS5, Xbox One/Series, Switch/Switch 2, Android/iOS), `hypes >= 2`, até 400, por interesse.
+- Só jogo principal, expansão, expansão independente, remake, remaster e edição expandida; precisa de
+  arte ou capa. Data exata (dia) nas nossas plataformas vai para `release_date`; data imprecisa vira
+  `release_label` ("4º tri. de 2027") e não entra no calendário.
+- Gêneros traduzidos por tabela; arte 1080p, capa, 4 capturas e trailer (YouTube) do próprio IGDB.
+- Descrição em português: 1 pedido ao Gemini por execução, até 12 jogos (os mais aguardados), só com o
+  que o resumo em inglês diz. Até traduzir, a ficha mostra uma frase montada com os dados.
+- Matéria nova é ligada à ficha quando a palavra-chave é o nome do jogo (`posts.game_id`).
+- **Fichas sem matéria têm `noindex` e ficam fora do sitemap** (só dados não é conteúdo próprio).
+- Crédito "Dados: IGDB.com" na ficha e no calendário. Termos: grátis também para uso comercial; com
+  anúncios, pedir a parceria em partner@igdb.com (lembrete em adsense.md).
+
 ## Artigos de compilação
 
 Código: `app/lib/robot/compilations.server.ts`. Matérias feitas a partir de dados (não reescrevem
@@ -160,10 +179,11 @@ na publicação: grátis da Epic → consenso → compilação do dia → notíc
 |---|---|---|---|
 | `ofertas` | Promoções (tag Ofertas) | sexta | CheapShark (seleção: Steam, ≥ 85% de avaliações positivas, ≥ 2 mil análises, ≥ 50% de desconto) + Steam Brasil (preço em reais, que também precisa ter ≥ 50%; descrição, gêneros, idiomas). 5 a 8 jogos. |
 | `resumo` | Artigos (tag Resumo) | domingo | As matérias do próprio site nos últimos 7 dias (mínimo 5), com link interno para cada uma. |
+| `lancamentos` | Artigos (tag Lista) | dias 1 a 3 | Os até 12 lançamentos mais aguardados do mês que começa (IGDB), em ordem de data, com link para a ficha de cada jogo. Mínimo 5. |
 | `gratis-mes` | Artigos (tag Lista) | dias 1 a 3 | `free_games` do mês anterior, só se o registro cobre o mês inteiro (o primeiro sai em 1º/1/2027, sobre dezembro). Link para a nossa matéria do jogo quando existe. |
 
 Se a geração falhar, o período fica marcado (não insiste a cada hora). Teste sem gravar:
-`/api/cron/publicar?dry=1&compilacao=ofertas|resumo|gratis-mes`.
+`/api/cron/publicar?dry=1&compilacao=ofertas|resumo|gratis-mes|lancamentos`.
 
 ## Consenso da crítica (Reviews)
 
