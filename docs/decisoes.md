@@ -5,6 +5,14 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+## 2026-11-12 — Falha do Gemini tenta de novo em até 30 min
+
+- **O quê:** quando a publicação falha por 503/travamento do Gemini, a coleta seguinte (a cada 30 min)
+  tenta publicar de novo (`retryAfterGeminiOutage` em robot.server.ts).
+- **Por quê:** o Gemini gratuito vive sobrecarregado e a publicação roda de hora em hora; cada falha
+  custava 1 h sem matéria. Reaproveitar a coleta evita mais um Cron Job no hPanel.
+- Só para instabilidade ("Gemini indisponível"); limite de cota não repete.
+
 ## 2026-11-12 — Escolha da pauta premia o assunto, não a fonte
 
 Diagnóstico (`/api/cron/fontes`): só IGN e GameSpot viravam matéria. A pontuação da coleta era

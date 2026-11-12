@@ -172,7 +172,29 @@ function scoreItem(title: string, weight: number) {
 
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 
-export function collect(): Promise<JobResult> {
+export async function collect(): Promise<JobResult> {
+  const result = await collectFeeds();
+  await retryAfterGeminiOutage();
+  return result;
+}
+
+/**
+ * O Gemini devolve 503 ("high demand") com frequência, e a publicação só roda de hora em hora:
+ * cada falha custava 1 h sem matéria. Se a última publicação falhou por instabilidade do Gemini
+ * há menos de 45 min, a coleta seguinte (a cada 30 min) já tenta de novo. publish() continua
+ * respeitando horário, limite diário e intervalo; a trava do job evita duas ao mesmo tempo.
+ */
+async function retryAfterGeminiOutage() {
+  const [last] = await query<{ status: string; message: string | null }>(
+    "SELECT status, message FROM cron_runs WHERE job = 'publicar' AND started_at > UTC_TIMESTAMP() - INTERVAL 45 MINUTE ORDER BY id DESC LIMIT 1",
+  );
+  if (last?.status !== "error" || !last.message?.startsWith(GEMINI_DOWN)) return null;
+  return publish();
+}
+
+const GEMINI_DOWN = "Gemini indisponível";
+
+function collectFeeds(): Promise<JobResult> {
   return runJob("coletar", async () => {
     const feeds = await query<{ id: number; name: string; url: string; weight: number }>("SELECT id, name, url, weight FROM feeds WHERE active = 1");
     const cutoff = Date.now() - 48 * 3600_000;
@@ -401,7 +423,7 @@ const ITEM_COLS = `fi.id, fi.feed_id, f.name AS feed_name, fi.title, fi.url, fi.
 function geminiFailure(err: unknown): JobResult | null {
   // Limite do plano gratuito ou instabilidade: não queima a pauta; tenta de novo na próxima execução.
   if (err instanceof GeminiError && err.isRateLimit) return { status: "error", message: `Limite do Gemini atingido; nova tentativa na próxima execução. (${err.message})` };
-  if (err instanceof GeminiError && err.isTransient) return { status: "error", message: `Gemini indisponível; nova tentativa na próxima execução. (${err.message})` };
+  if (err instanceof GeminiError && err.isTransient) return { status: "error", message: `${GEMINI_DOWN}; nova tentativa na próxima coleta (até 30 min). (${err.message})` };
   return null;
 }
 

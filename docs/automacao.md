@@ -35,6 +35,9 @@ MySQL local (127.0.0.1:3306)
 - O Gemini às vezes responde 503 (sobrecarga) ou trava: o cliente tenta de novo após 5 s, tem
   limite de 150 s por chamada e cai para o próximo modelo da lista; se tudo falhar, a pauta volta
   para a fila. A mensagem de erro em `cron_runs` lista o que cada modelo respondeu.
+- Nova tentativa rápida: se a última publicação falhou por instabilidade do Gemini ("Gemini
+  indisponível") há menos de 45 min, a coleta seguinte (a cada 30 min) já chama `publish()` de novo,
+  com as mesmas regras de horário, limite e intervalo. Sem Cron Job extra.
 - `/api/cron/diag?token=...` testa os modelos com um prompt curto (resultado em `/status`, job `diag`).
 
 ## Parâmetros de /api/cron/publicar
