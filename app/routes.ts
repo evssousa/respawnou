@@ -12,6 +12,9 @@ export default [
   ]),
   route("lancamentos", "routes/releases.tsx"),
   route("jogos/:slug", "routes/game.tsx"),
+  // Arcade: jogos de passatempo próprios (catálogo em app/lib/arcade.ts).
+  route("arcade", "routes/arcade.tsx"),
+  route("arcade/:slug", "routes/arcade-game.tsx"),
   route("plataforma/:slug", "routes/platform.tsx"),
   route("busca", "routes/search.tsx"),
   route("sobre", "routes/about.tsx"),

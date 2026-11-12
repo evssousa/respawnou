@@ -76,6 +76,7 @@ export const platformBySlug = (slug: string) => PLATFORMS.find((p) => p.slug ===
 export const NAV = [
   ...SECTIONS.map((s) => ({ to: `/${s.slug}`, label: s.label })),
   { to: "/lancamentos", label: "Lançamentos" },
+  { to: "/arcade", label: "Arcade" },
 ];
 
 export const absoluteUrl = (path: string) => `${SITE.url}${path.startsWith("/") ? path : `/${path}`}`;

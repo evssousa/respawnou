@@ -26,6 +26,8 @@ export function useAvailability(): Availability {
 export const navFor = (a: Availability) => [
   ...SECTIONS.filter((s) => a.sections.includes(s.slug)).map((s) => ({ to: `/${s.slug}`, label: s.label })),
   ...(a.releases ? [{ to: "/lancamentos", label: "Lançamentos" }] : []),
+  // O Arcade não depende do banco: sempre tem conteúdo.
+  { to: "/arcade", label: "Arcade" },
 ];
 
 export const platformsFor = (a: Availability) => PLATFORMS.filter((p) => a.platforms.includes(p.slug));

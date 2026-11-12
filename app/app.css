@@ -44,6 +44,11 @@ body {
   outline-offset: 3px;
 }
 
+/* Canvas dos jogos do Arcade recebe foco só para capturar o teclado: sem contorno. */
+canvas:focus-visible {
+  outline: none;
+}
+
 /* Cantos chanfrados (marca registrada do tema).
    O clip-path corta o outline externo, então o foco desses elementos fica por dentro. */
 .ch:focus-visible,

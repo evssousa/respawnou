@@ -95,8 +95,8 @@ export function Header() {
           ))}
         </nav>
 
-        <SearchForm id="busca-topo" className="hidden lg:flex" />
-        <Link to="/busca" aria-label="Buscar" className={cx(iconBtn, "hover:bg-acc hover:text-ink lg:hidden")}>
+        <SearchForm id="busca-topo" className="hidden xl:flex" />
+        <Link to="/busca" aria-label="Buscar" className={cx(iconBtn, "hover:bg-acc hover:text-ink xl:hidden")}>
           <SearchIcon />
         </Link>
 
@@ -181,7 +181,7 @@ function SearchForm({ id, className }: { id: string; className?: string }) {
         name="q"
         type="search"
         placeholder="buscar"
-        className="h-11 min-w-0 flex-1 bg-transparent px-2 font-mono text-[13px] text-acc placeholder:text-muted focus:outline-none lg:w-28 xl:w-44"
+        className="h-11 min-w-0 flex-1 bg-transparent px-2 font-mono text-[13px] text-acc placeholder:text-muted focus:outline-none xl:w-44"
       />
       <button type="submit" aria-label="Buscar" className="flex h-11 w-11 shrink-0 items-center justify-center text-acc hover:bg-acc hover:text-ink">
         <SearchIcon />

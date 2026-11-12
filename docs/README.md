@@ -16,6 +16,7 @@ e o que vem a seguir.
 | [automacao.md](automacao.md) | Robô de postagem: cron da Hostinger, RSS, Gemini |
 | [adsense.md](adsense.md) | Estratégia para o site automatizado ser aprovado no AdSense |
 | [admin.md](admin.md) | Painel administrativo em /admin |
+| [arcade.md](arcade.md) | Arcade: jogos de passatempo próprios em /arcade |
 | [deploy-hostinger.md](deploy-hostinger.md) | Domínio, site Node.js, SSL, e-mail, variáveis |
 
 ## Status
@@ -59,6 +60,8 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 5 | Etapa 3: consenso da crítica — notas do JSON-LD das análises, mínimo de 4 veículos, quadro calculado pelo código (migration 007) | ✅ |
 | 5 | Etapa 4: compilações — ofertas da Steam (sexta), resumo da semana (domingo), grátis do mês (dia 1º); "lançamentos do mês" espera o IGDB | ✅ |
 | 5 | Etapa 5: guias de requisitos de PC (1/dia, Steam) + "Nova matéria" e envio de imagens no painel | ✅ |
+| 6 | Arcade (/arcade): 1ª leva com Respawn, Torre e Quebra-Pixel (arcade.md) | ✅ |
+| 6 | Arcade: próximos jogos, 1 ou 2 por vez (lista em arcade.md) | ⏳ |
 
 ## Histórico de commits relevantes
 

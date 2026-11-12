@@ -40,6 +40,9 @@ automação, SEO e deploy — e está em produção.
   e páginas vazias fora do índice do Google.
 - **Painel `/admin`** — editar e republicar matérias, controlar a fila de pautas e as fontes, rodar o
   robô sob demanda e ver o histórico de execuções.
+- **Arcade próprio** — jogos de passatempo infinitos feitos do zero em canvas, sem biblioteca
+  (corredor, torre de blocos, quebra-blocos), que rodam no celular e no teclado, com recorde salvo
+  no navegador.
 - **Design próprio** — o tema "Central de Comando" (HUD de jogo: cantos chanfrados, tipografia
   condensada, verde-limão sobre preto), responsivo de 375 px a telas largas.
 - **Pronto para monetizar** — AdSense com Modo de Consentimento v2, banner de cookies (LGPD),

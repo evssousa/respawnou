@@ -1,6 +1,7 @@
 import { getAllGames, getAllPosts, getAvailability, postUrl } from "~/lib/content.server";
 import { absoluteUrl, DOC_PAGES } from "~/lib/site";
 import { navFor, platformsFor } from "~/lib/availability";
+import { ARCADE_GAMES } from "~/lib/arcade";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -9,10 +10,11 @@ export async function loader() {
   const [posts, games, available] = await Promise.all([getAllPosts(), getAllGames(), getAvailability()]);
   const entries: { loc: string; lastmod?: string; changefreq?: string }[] = [
     { loc: "/", changefreq: "hourly" },
-    ...navFor(available).map((n) => ({ loc: n.to, changefreq: n.to === "/lancamentos" ? "daily" : "hourly" })),
+    ...navFor(available).map((n) => ({ loc: n.to, changefreq: n.to === "/lancamentos" ? "daily" : n.to === "/arcade" ? "weekly" : "hourly" })),
     ...platformsFor(available).map((p) => ({ loc: `/plataforma/${p.slug}`, changefreq: "daily" })),
     ...posts.map((p) => ({ loc: postUrl(p), lastmod: p.updatedAt ?? p.publishedAt })),
     ...games.map((g) => ({ loc: `/jogos/${g.slug}`, changefreq: "weekly" })),
+    ...ARCADE_GAMES.map((g) => ({ loc: `/arcade/${g.slug}`, changefreq: "monthly" })),
     ...DOC_PAGES.map((d) => ({ loc: d.to, lastmod: d.updated, changefreq: "yearly" })),
   ];
 

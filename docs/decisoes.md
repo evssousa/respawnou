@@ -5,6 +5,15 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+## 2026-11-12 — Arcade: jogos de passatempo próprios
+
+- **O quê:** seção `/arcade` com jogos infinitos em canvas (Respawn, Torre, Quebra-Pixel), no menu.
+- **Por quê:** faz o leitor voltar e ficar mais tempo no site, sem depender do robô nem do Gemini.
+- **Como:** sem biblioteca de jogo (canvas puro, ~10 KB por jogo, carregado só na página dele);
+  recorde no navegador, sem conta nem banco. `/jogos/...` já é das fichas, por isso `/arcade`.
+- Jogos próprios: estilos clássicos, nunca cópia de nome, personagem ou visual de jogo existente.
+- Menu: com o Arcade, a busca do cabeçalho vira só a lupa entre 1024 e 1279 px para tudo caber.
+
 ## 2026-11-12 — Selo "Mais aguardado" e compilação sob demanda
 
 - **Selo:** os 10 jogos com mais `hypes` (IGDB, mínimo 5) entre todos os próximos lançamentos ganham

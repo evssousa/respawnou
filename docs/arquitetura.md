@@ -14,9 +14,11 @@ app/
   root.tsx               layout, cabeçalho fixo, rodapé, página de erro
   routes.ts              mapa de rotas (editorias registradas uma vez por slug)
   routes/                páginas e resource routes (sitemap, rss, robots)
-  components/            Header, Footer, cards, módulos da home, StaticPage...
+  components/            Header, Footer, cards, módulos da home, StaticPage, ArcadeShell...
+  arcade/                jogos do Arcade em canvas (engine.ts + um arquivo por jogo)
   lib/
     site.ts              configuração: editorias, plataformas, menu, páginas institucionais
+    arcade.ts            catálogo do Arcade e recorde no localStorage
     types.ts             Post, Game, Review (consenso da crítica), FreeGame...
     format.ts            datas no fuso America/Sao_Paulo, notas, normalização de busca
     seo.ts               title, description, canonical, Open Graph
