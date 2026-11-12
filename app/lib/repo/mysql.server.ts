@@ -65,6 +65,7 @@ interface PostRow {
 
 interface GameRow {
   slug: string;
+  hypes: number | null;
   name: string;
   platforms: unknown;
   release_date: string | null;
@@ -113,6 +114,7 @@ function toGame(r: GameRow): Game {
   return {
     slug: r.slug,
     name: r.name,
+    hypes: r.hypes ?? undefined,
     platforms: json<PlatformSlug[]>(r.platforms, []),
     releaseDate: r.release_date ?? undefined,
     developer: r.developer,
@@ -159,7 +161,7 @@ function where(f: PostFilter) {
 
 const like = (t: string) => `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
-const GAME_COLS = `slug, name, platforms, release_date, release_label, developer, publisher, genres, description, art, image_url, cover_url, screenshots, trailer, igdb_url`;
+const GAME_COLS = `slug, name, hypes, platforms, release_date, release_label, developer, publisher, genres, description, art, image_url, cover_url, screenshots, trailer, igdb_url`;
 
 export const mysqlRepo: Repo = {
   async findPosts(filter, offset, limit) {

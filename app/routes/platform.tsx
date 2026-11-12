@@ -1,7 +1,7 @@
 import { data, Link, useLocation } from "react-router";
 import type { Route } from "./+types/platform";
 import { Pagination, PostGrid } from "~/components/cards";
-import { GameCover, SectionTitle } from "~/components/ui";
+import { AnticipatedTag, GameCover, SectionTitle } from "~/components/ui";
 import { getReleases, listPosts } from "~/lib/content.server";
 import { seo } from "~/lib/seo";
 import { platformBySlug } from "~/lib/site";
@@ -47,6 +47,7 @@ export default function PlatformPage({ loaderData }: Route.ComponentProps) {
               <Link key={r.game.slug} to={`/jogos/${r.game.slug}`} className="group flex items-center gap-4 bg-ink p-4">
                 <GameCover game={r.game} />
                 <span className="min-w-0">
+                  {r.anticipated && <AnticipatedTag className="mb-1.5" />}
                   <span className="font-display text-4xl leading-none text-acc">
                     {r.day} {r.monthShort}
                   </span>

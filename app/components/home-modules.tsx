@@ -6,7 +6,7 @@ import { formatScore } from "~/lib/format";
 import { PLATFORMS, type Platform } from "~/lib/site";
 import type { FreeGame, PostView, Release } from "~/lib/types";
 import { Rail } from "./Rail";
-import { Art, Badge, Hud, Kicker, cx } from "./ui";
+import { AnticipatedTag, Art, Badge, Hud, Kicker, cx } from "./ui";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const platformLabel = Object.fromEntries(PLATFORMS.map((p) => [p.slug, p.label]));
@@ -217,6 +217,7 @@ export function Countdown({ releases }: { releases: Release[] }) {
                   <img src={thumb.src} alt={thumb.alt} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                 )}
                 <span aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-ink via-ink/70 to-transparent" />
+                {r.anticipated && <AnticipatedTag className="absolute left-3 top-3" />}
                 <span className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-4 text-paper">
                   <span className="font-mono text-[11px] font-bold text-acc">
                     {r.weekday.toUpperCase()} · {r.day} {r.monthShort}

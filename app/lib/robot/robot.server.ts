@@ -412,7 +412,7 @@ export interface PublishOptions {
   redoPostId?: number;
   /** Só com dry: testa o consenso da crítica de um jogo (nome), mesmo abaixo do mínimo de análises. */
   consensusGame?: string;
-  /** Só com dry: gera uma compilação (ofertas | resumo | gratis-mes) fora do dia dela. */
+  /** Gera essa compilação fora do dia dela (e só ela). Sem dry, publica (botão do painel, com force). */
   compilation?: CompilationKind;
   /** Só com dry: testa o guia de requisitos de PC (ignora o limite diário). */
   guide?: boolean;
@@ -473,7 +473,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     const tried: string[] = [];
 
     // 1º: jogo grátis da Epic que ainda não virou matéria (é pauta com hora para acabar).
-    const testing = Boolean(opts.dry && (opts.consensusGame || opts.compilation || opts.guide));
+    const testing = Boolean(opts.compilation || (opts.dry && (opts.consensusGame || opts.guide)));
     const promo = testing ? null : await promoCandidate();
     if (promo) {
       let result;
@@ -507,7 +507,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     }
 
     // 2º: consenso da crítica de um jogo que juntou análises suficientes.
-    const cons = opts.dry && (opts.compilation || opts.guide) ? null : await consensusCandidate(opts.dry ? opts.consensusGame : undefined);
+    const cons = opts.compilation || (opts.dry && opts.guide) ? null : await consensusCandidate(opts.dry ? opts.consensusGame : undefined);
     if (cons) {
       const prepared = await consensusSources(cons);
       let result;
@@ -545,7 +545,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     }
 
     // 3º: artigo de compilação no dia dele (ofertas na sexta, resumo no domingo, grátis do mês no dia 1º).
-    const comp = opts.consensusGame || (opts.dry && opts.guide) ? null : await dueCompilation(opts.dry ? opts.compilation : undefined);
+    const comp = opts.consensusGame || (opts.dry && opts.guide) ? null : await dueCompilation(opts.compilation);
     if (comp) {
       let result;
       try {
@@ -574,8 +574,15 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
       }
       tried.push(`compilação ${comp.kind}: ${result.reason}`);
       // Não insiste a cada hora: o período fica marcado e a próxima sai no período seguinte.
-      if (!opts.dry) await markCompilation(comp.kind, comp.period);
+      // (Pedido manual que falhou não marca: o automático do dia ainda pode sair.)
+      if (!opts.dry && !opts.compilation) await markCompilation(comp.kind, comp.period);
     }
+    if (opts.compilation)
+      return {
+        status: "skipped",
+        message: comp ? `Compilação "${opts.compilation}" não saiu: ${tried.at(-1)}` : `Sem dados para a compilação "${opts.compilation}" agora.`,
+        stats: { tried },
+      };
 
     // 4º: guia de requisitos de PC de um jogo grande que está saindo (no máximo 1 por dia).
     const guide = (opts.dry && (opts.consensusGame || opts.compilation)) ? null : await guideCandidate(Boolean(opts.dry && opts.guide));

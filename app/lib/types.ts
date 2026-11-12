@@ -80,6 +80,8 @@ export interface PostView extends Omit<Post, "body"> {
 
 export interface Game {
   slug: string;
+  /** Interesse no IGDB (seguidores antes do lançamento). */
+  hypes?: number;
   name: string;
   platforms: PlatformSlug[];
   releaseDate?: string; // ISO (dia)
@@ -107,6 +109,8 @@ export interface Release {
   weekday: string;
   /** Dias até o lançamento (0 = hoje). */
   daysLeft: number;
+  /** Entre os 10 mais aguardados do calendário (hype no IGDB). */
+  anticipated: boolean;
 }
 
 export interface FreeGame {

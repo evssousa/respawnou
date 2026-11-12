@@ -42,7 +42,9 @@ Código: `app/routes/admin/*`, `app/lib/admin/*` (auth, dados, conversor do corp
    último erro; adicionar fonte (o feed é lido antes de cadastrar).
 5. **Robô** (`/admin/robo`): coletar, publicar uma agora (ignora horário/limite), testar sem gravar
    (o rascunho aparece nos detalhes), diagnóstico (Gemini + YouTube); histórico das 40 últimas
-   execuções com detalhes; atualiza sozinho a cada 5 s enquanto algo roda.
+   execuções com detalhes; atualiza sozinho a cada 5 s enquanto algo roda. Card **Compilação agora**:
+   ofertas da Steam, resumo da semana, grátis do mês ou lançamentos do mês, com teste sem gravar ou
+   publicação imediata (ignora dia, horário e limite).
 6. **Configurações** (`/admin/config`): robô ligado, matérias por dia, janela de horário, mínimo de
    palavras e editorias permitidas (reviews fica de fora: consenso da crítica ainda não automatizado).
 

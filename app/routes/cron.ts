@@ -9,7 +9,8 @@
 // Parâmetros extras de publicar: dry=1 (gera sem gravar), force=1 (ignora horário/limite),
 // refazer=<id do post> (reescreve um post do robô com as regras atuais, mesmo endereço),
 // consenso=<nome do jogo> (só com dry=1: testa o consenso da crítica daquele jogo),
-// compilacao=ofertas|resumo|gratis-mes|lancamentos (só com dry=1: gera a compilação fora do dia dela),
+// compilacao=ofertas|resumo|gratis-mes|lancamentos (gera só essa compilação fora do dia dela; sem dry=1
+// publica, respeitando horário/limite salvo com force=1 — o botão do painel usa force),
 // guia=1 (só com dry=1: testa o guia de requisitos de PC, ignorando o limite diário).
 //
 // A CDN da Hostinger corta requisições com mais de ~1 min (devolve 307), e o Gemini pode levar

@@ -5,6 +5,15 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+## 2026-11-12 — Selo "Mais aguardado" e compilação sob demanda
+
+- **Selo:** os 10 jogos com mais `hypes` (IGDB, mínimo 5) entre todos os próximos lançamentos ganham
+  "★ MAIS AGUARDADO" no calendário, na home e nas plataformas. O ranking é sempre o do calendário
+  inteiro (filtrar por plataforma não muda quem é destaque); `getReleases` busca tudo (~150 jogos) e
+  filtra em memória.
+- **Compilação agora:** botão no painel para gerar/publicar uma compilação fora do dia dela. Falha
+  manual não marca o período, para não cancelar a automática.
+
 ## 2026-11-12 — Prévia de rascunho na própria página pública
 
 - **O quê:** `?previa=1` na página da matéria, aceito só com o admin logado.

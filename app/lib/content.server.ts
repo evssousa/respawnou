@@ -97,9 +97,23 @@ export async function searchGames(query: string): Promise<Game[]> {
   return repo().searchGames(q, 20);
 }
 
-function toRelease(game: Game): Release {
+function toRelease(game: Game, anticipated = false): Release {
   const date = game.releaseDate!;
-  return { game, date, day: formatDay(date), monthShort: formatMonthShort(date), weekday: formatWeekday(date), daysLeft: daysUntil(date) };
+  return { game, date, day: formatDay(date), monthShort: formatMonthShort(date), weekday: formatWeekday(date), daysLeft: daysUntil(date), anticipated };
+}
+
+/** "Mais aguardado": os 10 com mais hype no IGDB entre todos os próximos lançamentos
+ *  (o mesmo selo em qualquer filtro ou janela). Mínimo de 5 de hype para não premiar desconhecidos. */
+const ANTICIPATED_TOP = 10;
+const ANTICIPATED_MIN_HYPES = 5;
+function anticipatedSlugs(games: Game[]) {
+  return new Set(
+    games
+      .filter((g) => (g.hypes ?? 0) >= ANTICIPATED_MIN_HYPES)
+      .sort((a, b) => (b.hypes ?? 0) - (a.hypes ?? 0))
+      .slice(0, ANTICIPATED_TOP)
+      .map((g) => g.slug),
+  );
 }
 
 /** Dia de hoje (AAAA-MM-DD) no fuso de Brasília. */
@@ -107,8 +121,13 @@ const todayBR = (offsetDays = 0) => new Intl.DateTimeFormat("en-CA", { timeZone:
 
 /** Próximos lançamentos a partir de hoje. `days` limita a janela (ex.: 7 = esta semana). */
 export async function getReleases(opts: { days?: number; platform?: PlatformSlug } = {}): Promise<Release[]> {
-  const games = await repo().findReleases(todayBR(), opts.days ? todayBR(opts.days) : "9999-12-31", opts.platform);
-  return games.map(toRelease);
+  // Busca o calendário inteiro (são ~150 jogos) para o ranking não depender do filtro.
+  const all = await repo().findReleases(todayBR(), "9999-12-31");
+  const top = anticipatedSlugs(all);
+  const until = opts.days ? todayBR(opts.days) : "9999-12-31";
+  return all
+    .filter((g) => g.releaseDate! <= until && (!opts.platform || g.platforms.includes(opts.platform)))
+    .map((g) => toRelease(g, top.has(g.slug)));
 }
 
 /** Prazo de uma oferta em dias (calendário de Brasília), horas e horário. */

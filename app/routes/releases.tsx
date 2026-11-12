@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { Route } from "./+types/releases";
-import { FilterLink, SectionTitle } from "~/components/ui";
+import { AnticipatedTag, FilterLink, SectionTitle } from "~/components/ui";
 import { getReleases } from "~/lib/content.server";
 import { formatMonthYear } from "~/lib/format";
 import { seo } from "~/lib/seo";
@@ -75,6 +75,7 @@ export default function ReleasesPage({ loaderData }: Route.ComponentProps) {
                   </span>
                   <GameCover game={r.game} />
                   <span className="flex min-w-0 flex-col gap-1.5">
+                    {r.anticipated && <AnticipatedTag />}
                     <span className="font-mono text-[11px] font-semibold text-muted">
                       {r.weekday.toUpperCase()} · {r.game.platforms.map((p) => platformLabels[p]).join(" · ").toUpperCase()}
                     </span>

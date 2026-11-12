@@ -196,6 +196,11 @@ Código: `app/lib/robot/compilations.server.ts`. Matérias feitas a partir de da
 outra matéria), no fuso de Brasília, no máximo uma por período (`settings.compilations`). Prioridade
 na publicação: grátis da Epic → consenso → compilação do dia → notícias.
 
+**Fora do dia (2026-11-12):** card "Compilação agora" em `/admin/robo` — escolhe o tipo e testa (sem
+gravar) ou publica na hora (`publish({ force, compilation })`, só essa compilação). Publicada à mão,
+marca o período (o automático não repete); se falhar, não marca. Sem dados → "Sem dados para a
+compilação". Pela rota: `/api/cron/publicar?compilacao=<tipo>&force=1`.
+
 | Tipo | Editoria | Quando | Fontes |
 |---|---|---|---|
 | `ofertas` | Promoções (tag Ofertas) | sexta | CheapShark (seleção: Steam, ≥ 85% de avaliações positivas, ≥ 2 mil análises, ≥ 50% de desconto) + Steam Brasil (preço em reais, que também precisa ter ≥ 50%; descrição, gêneros, idiomas). 5 a 8 jogos. |

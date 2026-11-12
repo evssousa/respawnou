@@ -127,6 +127,15 @@ export function FilterLink({ to, active, children }: { to: string; active: boole
   );
 }
 
+/** Selo dos 10 jogos mais aguardados do calendário (hype no IGDB). */
+export function AnticipatedTag({ className }: { className?: string }) {
+  return (
+    <span title="Entre os 10 jogos mais aguardados do calendário (interesse no IGDB)" className={cx("inline-flex w-fit items-center gap-1 bg-acc px-2 py-1 font-mono text-[10px] font-bold leading-none text-ink", className)}>
+      ★ MAIS AGUARDADO
+    </span>
+  );
+}
+
 /** Miniatura da capa de um jogo (calendário e plataformas). Sem imagem: bloco vazio do mesmo tamanho. */
 export function GameCover({ game, className }: { game: Pick<Game, "cover" | "image" | "name">; className?: string }) {
   const thumb = gameThumb(game);
