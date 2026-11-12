@@ -272,7 +272,7 @@ export function collectGames(): Promise<JobResult> {
     }
     return {
       status: "ok",
-      message: `${sync.fetched} do IGDB: ${sync.created} novos, ${sync.updated} atualizados, ${sync.skipped} ignorados; ${translated} descrição(ões) em português${translateError ? ` (tradução falhou: ${translateError})` : ""}`,
+      message: `${sync.fetched} do IGDB: ${sync.created} novos, ${sync.updated} atualizados, ${sync.skipped} ignorados, ${sync.removed} removidos; ${translated} descrição(ões) em português${translateError ? ` (tradução falhou: ${translateError})` : ""}`,
       stats: { ...sync, translated },
     };
   });

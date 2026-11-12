@@ -144,20 +144,20 @@ function trailerOf(g: IgdbGame) {
 const FIELDS = `fields *, genres.name, cover.image_id, artworks.image_id, screenshots.image_id, videos.video_id, videos.name,
   involved_companies.developer, involved_companies.publisher, involved_companies.company.name, release_dates.*;`;
 
+/** Quantos jogos o calendário acompanha: os mais aguardados (hypes) da janela. */
+const TOP_GAMES = 150;
+
 /**
- * Jogos com lançamento entre 30 dias atrás e 1 ano à frente, nas plataformas do site, ordenados pelo
- * interesse (hypes). Atualiza os que já existem (pela id do IGDB) e cria os novos.
+ * Os TOP_GAMES jogos mais aguardados com lançamento entre 30 dias atrás e 1 ano à frente, nas
+ * plataformas do site. Atualiza os que já existem (pela id do IGDB), cria os novos e tira do banco os
+ * que saíram da lista e não têm matéria ligada (o calendário fica só com jogos relevantes).
  */
 export async function syncGames() {
   const now = Math.floor(Date.now() / 1000);
   const where = `where first_release_date >= ${now - 30 * 86400} & first_release_date < ${now + 365 * 86400} & hypes >= 2 & platforms = (${Object.keys(PLATFORM_MAP).join(",")});`;
-  const list: IgdbGame[] = [];
-  for (let offset = 0; offset < 400; offset += 200) {
-    const page = await igdb<IgdbGame[]>("games", `${FIELDS} ${where} sort hypes desc; limit 200; offset ${offset};`);
-    list.push(...page);
-    if (page.length < 200) break;
-    await new Promise((r) => setTimeout(r, 300)); // limite de 4/s
-  }
+  // Pede um pouco mais que TOP_GAMES: alguns saem no filtro de tipo/plataforma/imagem.
+  const list = await igdb<IgdbGame[]>("games", `${FIELDS} ${where} sort hypes desc; limit ${TOP_GAMES + 30};`);
+  const kept: number[] = [];
 
   let created = 0;
   let updated = 0;
@@ -166,10 +166,11 @@ export async function syncGames() {
     const type = g.game_type ?? g.category ?? 0;
     const platforms = [...new Set([...(g.platforms ?? []), ...(g.release_dates ?? []).map((r) => r.platform ?? -1)].map((p) => PLATFORM_MAP[p]).filter(Boolean))];
     const hero = g.artworks?.[0]?.image_id ?? g.screenshots?.[0]?.image_id;
-    if (!GAME_TYPES.has(type) || !platforms.length || (!hero && !g.cover)) {
+    if (!GAME_TYPES.has(type) || !platforms.length || (!hero && !g.cover) || kept.length >= TOP_GAMES) {
       skipped++;
       continue;
     }
+    kept.push(g.id);
     const rel = releaseOf(g);
     const devs = (g.involved_companies ?? []).filter((c) => c.developer && c.company).map((c) => c.company!.name);
     const pubs = (g.involved_companies ?? []).filter((c) => c.publisher && c.company).map((c) => c.company!.name);
@@ -190,13 +191,28 @@ export async function syncGames() {
       igdb_url: g.url ?? null,
       hypes: g.hypes ?? 0,
     };
-    const [existing] = await query<{ id: number }>("SELECT id FROM games WHERE igdb_id = ?", [g.id]);
+    // Endereço pelo nome ("grand-theft-auto-vi"); o slug do IGDB às vezes perde o número.
+    const wanted = slugify(g.name, 150) || slugify(g.slug, 150) || `jogo-${g.id}`;
+    const [existing] = await query<{ id: number; slug: string; posts: number }>(
+      "SELECT g.id, g.slug, (SELECT COUNT(*) FROM posts p WHERE p.game_id = g.id) AS posts FROM games g WHERE g.igdb_id = ?",
+      [g.id],
+    );
     if (existing) {
       const cols = Object.keys(values);
-      await db().query(`UPDATE games SET ${cols.map((c) => `${c} = ?`).join(", ")}, synced_at = UTC_TIMESTAMP() WHERE id = ?`, [...Object.values(values), existing.id]);
+      const sets = cols.map((c) => `${c} = ?`);
+      const params: unknown[] = [...Object.values(values)];
+      // Corrige o endereço enquanto a ficha não tem matéria (ninguém linkou ainda).
+      if (existing.slug !== wanted && !Number(existing.posts)) {
+        const [taken] = await query<{ id: number }>("SELECT id FROM games WHERE slug = ? AND id <> ?", [wanted, existing.id]);
+        if (!taken) {
+          sets.push("slug = ?");
+          params.push(wanted);
+        }
+      }
+      await db().query(`UPDATE games SET ${sets.join(", ")}, synced_at = UTC_TIMESTAMP() WHERE id = ?`, [...params, existing.id]);
       updated++;
     } else {
-      let slug = slugify(g.slug || g.name, 150) || `jogo-${g.id}`;
+      let slug = wanted;
       const [taken] = await query<{ id: number }>("SELECT id FROM games WHERE slug = ?", [slug]);
       if (taken) slug = `${slug}-${g.id}`;
       const cols = ["slug", "igdb_id", "description", "art", ...Object.keys(values)];
@@ -210,7 +226,17 @@ export async function syncGames() {
       created++;
     }
   }
-  return { fetched: list.length, created, updated, skipped };
+  // Saiu da lista dos mais aguardados e não tem matéria: sai do calendário.
+  let removed = 0;
+  if (kept.length >= 50) {
+    const [res] = await db().query<import("mysql2").ResultSetHeader>(
+      `DELETE FROM games WHERE igdb_id IS NOT NULL AND igdb_id NOT IN (${kept.map(() => "?").join(",")})
+       AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.game_id = games.id)`,
+      kept,
+    );
+    removed = res.affectedRows;
+  }
+  return { fetched: list.length, created, updated, skipped, removed };
 }
 
 // ───────────── Descrição em português ─────────────

@@ -156,8 +156,9 @@ Código: `app/lib/robot/igdb.server.ts`. Chaves `IGDB_CLIENT_ID`/`IGDB_CLIENT_SE
 cadastradas em 2026-11-12). Roda dentro da coleta, no máximo a cada 6 h (ou "Atualizar lançamentos" no
 painel / `GET /api/cron/jogos`). O diagnóstico testa o acesso.
 
-- Busca jogos com 1º lançamento entre 30 dias atrás e 1 ano à frente, nas plataformas do site
-  (PC, PS4/PS5, Xbox One/Series, Switch/Switch 2, Android/iOS), `hypes >= 2`, até 400, por interesse.
+- Os **150 mais aguardados** (hypes) com 1º lançamento entre 30 dias atrás e 1 ano à frente, nas plataformas do site
+  (PC, PS4/PS5, Xbox One/Series, Switch/Switch 2, Android/iOS). Quem sai da lista e não tem matéria é
+  removido. Endereço pelo nome do jogo (corrigido enquanto a ficha não tem matéria).
 - Só jogo principal, expansão, expansão independente, remake, remaster e edição expandida; precisa de
   arte ou capa. Data exata (dia) nas nossas plataformas vai para `release_date`; data imprecisa vira
   `release_label` ("4º tri. de 2027") e não entra no calendário.
