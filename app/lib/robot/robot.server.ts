@@ -111,6 +111,22 @@ export async function recentRuns(limit = 10) {
   return rows.map((r) => ({ ...r, stats: json<Record<string, unknown>>(r.stats, {}) }));
 }
 
+/** Diagnóstico das fontes: pautas por situação, pontuação e motivos de descarte (7 dias). */
+export async function feedStats() {
+  const byStatus = await query<{ feed: string; weight: number; status: string; n: number; avg_score: number }>(
+    `SELECT f.name AS feed, f.weight, fi.status, COUNT(*) AS n, ROUND(AVG(fi.score)) AS avg_score FROM feed_items fi JOIN feeds f ON f.id = fi.feed_id
+     WHERE fi.created_at > UTC_TIMESTAMP() - INTERVAL 7 DAY GROUP BY f.name, f.weight, fi.status ORDER BY f.weight DESC, f.name`,
+  );
+  const reasons = await query<{ feed: string; reason: string; n: number }>(
+    `SELECT f.name AS feed, LEFT(COALESCE(fi.reason, ''), 60) AS reason, COUNT(*) AS n FROM feed_items fi JOIN feeds f ON f.id = fi.feed_id
+     WHERE fi.created_at > UTC_TIMESTAMP() - INTERVAL 7 DAY AND fi.status IN ('skipped','failed') GROUP BY f.name, LEFT(COALESCE(fi.reason, ''), 60) ORDER BY n DESC LIMIT 60`,
+  );
+  const posts = await query<{ source_name: string; n: number }>(
+    "SELECT source_name, COUNT(*) AS n FROM posts WHERE origin = 'auto' AND published_at > UTC_TIMESTAMP() - INTERVAL 7 DAY GROUP BY source_name ORDER BY n DESC",
+  );
+  return { byStatus, reasons, posts };
+}
+
 /** Teste dos modelos do Gemini; o resultado fica em cron_runs.stats (job "diag"). */
 export function diag(): Promise<JobResult> {
   return runJob("diag", async () => {
