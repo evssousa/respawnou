@@ -38,6 +38,11 @@ MySQL local (127.0.0.1:3306)
 - Nova tentativa rápida: se a última publicação falhou por instabilidade do Gemini ("Gemini
   indisponível") há menos de 45 min, a coleta seguinte (a cada 30 min) já chama `publish()` de novo,
   com as mesmas regras de horário, limite e intervalo. Sem Cron Job extra.
+  Validado em 2026-11-12: falha às 18:05 UTC, nova tentativa às 18:30 publicou o 1º guia de requisitos
+  (`/guias/requisitos-de-pc-de-rayman-legends-retold-minimo-e-recomendado`).
+- Cota grátis: em 2026-11-12 o `gemini-3.5-flash` respondeu 429 com `generate_content_free_tier_requests,
+  limit: 20` (20 pedidos/dia por modelo). Os outros modelos da lista têm cota própria e assumem quando
+  um esgota. Testes `dry=1` gastam a mesma cota: evitar muitos no mesmo dia.
 - `/api/cron/diag?token=...` testa os modelos com um prompt curto (resultado em `/status`, job `diag`).
 
 ## Parâmetros de /api/cron/publicar
