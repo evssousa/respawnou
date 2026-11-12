@@ -61,15 +61,17 @@ export function extractArticleText(html: string, maxChars = 12000) {
 }
 
 export function slugify(s: string, max = 90) {
-  return s
+  const full = s
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, max)
-    .replace(/-+[^-]*$/, (m) => (m.length < 4 ? "" : m)) // evita cortar no meio de uma palavra curta
-    .replace(/-+$/g, "");
+    .replace(/^-+|-+$/g, "");
+  if (full.length <= max) return full;
+  // Cortado no limite: termina na última palavra inteira (nada de "...-gr").
+  const cut = full.slice(0, max);
+  const whole = full[max] === "-" ? cut : cut.replace(/-[^-]*$/, "");
+  return (whole || cut).replace(/-+$/g, "");
 }
 
 export const countWords = (s: string) => (s.match(/[\p{L}\p{N}]+/gu) ?? []).length;
