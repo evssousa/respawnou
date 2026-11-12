@@ -225,9 +225,14 @@ export function Countdown({ releases }: { releases: Release[] }) {
                   <span className="font-mono text-[10px] font-semibold text-body">{r.daysLeft <= 0 ? "LANÇA HOJE" : r.daysLeft === 1 ? "DIA PARA O LANÇAMENTO" : "DIAS PARA O LANÇAMENTO"}</span>
                 </span>
               </span>
-              <span className="flex flex-col gap-2 p-4">
-                <span className="font-display text-[24px] uppercase leading-none">{r.game.name}</span>
-                <span className="font-mono text-[11px] font-semibold text-muted group-hover:text-ink">{platformsText(r.game.platforms)}</span>
+              {/* Nome em até 2 linhas e plataformas no pé: cards da mesma altura sem sobra embaixo */}
+              <span className="flex flex-1 flex-col gap-2 p-4">
+                <span className="line-clamp-2 font-display text-[24px] uppercase leading-none" title={r.game.name}>
+                  {r.game.name}
+                </span>
+                <span className="mt-auto truncate font-mono text-[11px] font-semibold text-muted group-hover:text-ink" title={platformsText(r.game.platforms)}>
+                  {r.game.platforms.map((p) => PLATFORMS.find((x) => x.slug === p)?.short ?? p).join(" · ").toUpperCase()}
+                </span>
               </span>
             </span>
           </Link>
