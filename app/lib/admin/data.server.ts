@@ -201,6 +201,12 @@ export async function setPostStatus(id: number, status: "draft" | "published" | 
   ]);
 }
 
+/** Apaga de vez (só rascunho ou arquivada: matéria no ar precisa sair antes). */
+export async function deletePost(id: number) {
+  const [res] = await db().query<ResultSetHeader>("DELETE FROM posts WHERE id = ? AND status <> 'published'", [id]);
+  return res.affectedRows > 0;
+}
+
 export async function toggleFeatured(id: number) {
   await db().query("UPDATE posts SET featured = 1 - featured WHERE id = ?", [id]);
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { data, Link } from "react-router";
 import type { Route } from "./+types/post";
 import { MostRead, PostCard, ScoreBadge } from "~/components/cards";
@@ -64,6 +64,12 @@ const platformLabels = Object.fromEntries(PLATFORMS.map((p) => [p.slug, p.label]
 
 export default function PostPage({ loaderData }: Route.ComponentProps) {
   const { post, game, related, mostRead, section } = loaderData;
+  // Conta a visita depois de abrir no navegador (bots e pré-carregamentos não contam).
+  useEffect(() => {
+    const body = JSON.stringify({ path: post.url });
+    if (!navigator.sendBeacon?.("/api/view", new Blob([body], { type: "application/json" })))
+      fetch("/api/view", { method: "POST", body, headers: { "Content-Type": "application/json" }, keepalive: true }).catch(() => {});
+  }, [post.url]);
 
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-14 px-4 pt-8 sm:px-6">

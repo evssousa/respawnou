@@ -344,6 +344,37 @@ async function relatedPosts(titles: string[], excludeId?: number) {
     .map(({ r }) => ({ title: r.title, url: `/${r.section}/${r.slug}` }));
 }
 
+/**
+ * Fila de pautas em ordem de escolha. A pontuação da coleta (peso da fonte × 10 + tipo de notícia)
+ * favorecia sempre IGN e GameSpot: o resto expirava na fila. Agora (2026-11-12) conta mais o assunto:
+ *   + tipo de notícia (anúncio, data, adiamento...), como na coleta
+ *   + peso da fonte, mas só ×3 (diferença máxima de ~12 pontos, antes 40)
+ *   + 10 por outro veículo cobrindo o mesmo assunto (sinal de notícia importante)
+ *   + 8 se saiu nas últimas 6 h
+ *   − 12 por matéria que a mesma fonte já rendeu nas últimas 24 h (rodízio)
+ */
+async function rankedQueue() {
+  const rows = await query<SourceItem & { score: number; weight: number }>(
+    `SELECT ${ITEM_COLS}, fi.score, f.weight FROM feed_items fi JOIN feeds f ON f.id = fi.feed_id
+     WHERE fi.status = 'new' AND fi.published_at > UTC_TIMESTAMP() - INTERVAL 48 HOUR
+     ORDER BY fi.published_at DESC LIMIT 200`,
+  );
+  const used = await query<{ source_name: string; n: number }>(
+    "SELECT source_name, COUNT(*) AS n FROM posts WHERE origin = 'auto' AND published_at > UTC_TIMESTAMP() - INTERVAL 24 HOUR GROUP BY source_name",
+  );
+  const usedBy = new Map(used.map((u) => [u.source_name, Number(u.n)]));
+  const kws = rows.map((r) => keywords(r.title));
+  const now = Date.now();
+  const ranked = rows.map((r, i) => {
+    const topicBoost = Number(r.score) - Number(r.weight) * 10; // o que a coleta somou pelo tipo de notícia
+    const others = new Set(rows.filter((o, j) => j !== i && o.feed_id !== r.feed_id && similarity(kws[i], kws[j]) >= 0.5).map((o) => o.feed_id)).size;
+    const fresh = now - new Date(String(r.published_at).replace(" ", "T") + (String(r.published_at).includes("Z") ? "" : "Z")).getTime() < 6 * 3600_000;
+    const rank = topicBoost + Number(r.weight) * 3 + others * 10 + (fresh ? 8 : 0) - (usedBy.get(r.feed_name) ?? 0) * 12;
+    return { item: r as SourceItem, rank };
+  });
+  return ranked.sort((a, b) => b.rank - a.rank).map((x) => x.item);
+}
+
 /** Fontes do mesmo assunto (outros veículos) entram juntas: mais contexto, texto mais original. */
 function groupFor(item: SourceItem, queue: SourceItem[]) {
   const kw = keywords(item.title);
@@ -552,11 +583,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     }
     if (opts.dry && opts.guide) return { status: "skipped", message: `Teste: nenhum guia gerado. ${tried.join(" · ") || "Nenhum jogo de PC saindo agora com requisitos mínimo e recomendado na Steam."}`, stats: { tried } };
 
-    const queue = await query<SourceItem>(
-      `SELECT ${ITEM_COLS} FROM feed_items fi JOIN feeds f ON f.id = fi.feed_id
-       WHERE fi.status = 'new' AND fi.published_at > UTC_TIMESTAMP() - INTERVAL 48 HOUR
-       ORDER BY fi.score DESC, fi.published_at DESC LIMIT 60`,
-    );
+    const queue = await rankedQueue();
     if (!queue.length) return { status: "skipped", message: `Fila vazia: nenhuma pauta nova.${tried.length ? ` ${tried.join(" · ")}` : ""}`, stats: { tried } };
     // Até 3 pautas por execução: se uma for descartada, tenta a próxima.
     for (const item of queue.slice(0, 3)) {

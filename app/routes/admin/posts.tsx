@@ -1,8 +1,8 @@
-import { Form, Link, useSearchParams } from "react-router";
+import { Form, Link, redirect, useSearchParams } from "react-router";
 import type { Route } from "./+types/posts";
-import { adminMeta, Button, inputCls, PageTitle, Pill, when } from "~/components/admin-ui";
+import { adminMeta, Button, inputCls, Notice, PageTitle, Pill, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
-import { listPosts } from "~/lib/admin/data.server";
+import { deletePost, listPosts } from "~/lib/admin/data.server";
 import { SECTIONS } from "~/lib/site";
 
 export const meta = () => adminMeta("Matérias");
@@ -16,7 +16,18 @@ export async function loader({ request }: Route.LoaderArgs) {
     status: url.searchParams.get("status") || undefined,
     page: Math.max(1, Number(url.searchParams.get("pagina")) || 1),
   };
-  return { ...(await listPosts(f)), page: f.page };
+  return { ...(await listPosts(f)), page: f.page, msg: url.searchParams.get("ok") };
+}
+
+export async function action({ request }: Route.ActionArgs) {
+  await requireAdmin(request);
+  const form = await request.formData();
+  if (form.get("intent") === "excluir") await deletePost(Number(form.get("id")));
+  // Volta para a mesma busca/filtro (request.url aqui pode ser o endereço interno ".data").
+  const url = new URL(request.url);
+  url.searchParams.delete("_routes");
+  url.searchParams.set("ok", "excluida");
+  return redirect(`/admin/materias?${url.searchParams}`);
 }
 
 export default function AdminPosts({ loaderData }: Route.ComponentProps) {
@@ -41,6 +52,7 @@ export default function AdminPosts({ loaderData }: Route.ComponentProps) {
         Matérias
       </PageTitle>
 
+      {loaderData.msg === "excluida" && <Notice>Matéria excluída.</Notice>}
       <Form method="get" className="flex flex-wrap gap-2">
         <input name="q" defaultValue={params.get("q") ?? ""} placeholder="Buscar no título" className={`${inputCls} max-w-xs`} />
         <select name="editoria" defaultValue={params.get("editoria") ?? ""} className={`${inputCls} w-auto`}>
@@ -88,6 +100,21 @@ export default function AdminPosts({ loaderData }: Route.ComponentProps) {
                       <span className="font-mono text-[11px] text-muted">
                         #{p.id} · {p.origin === "auto" ? "robô" : "manual"}
                         {p.featured ? " · ★ destaque" : ""}
+                        {p.status !== "published" && (
+                          <Form method="post" className="inline">
+                            <input type="hidden" name="id" value={p.id} />
+                            <button
+                              name="intent"
+                              value="excluir"
+                              className="ml-2 text-warn underline hover:text-paper"
+                              onClick={(e) => {
+                                if (!confirm(`Excluir de vez "${p.title}"? Não dá para desfazer.`)) e.preventDefault();
+                              }}
+                            >
+                              excluir
+                            </button>
+                          </Form>
+                        )}
                       </span>
                     </span>
                   </div>

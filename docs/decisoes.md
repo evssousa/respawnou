@@ -4,6 +4,20 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+
+## 2026-11-12 — Escolha da pauta premia o assunto, não a fonte
+
+Diagnóstico (`/api/cron/fontes`): só IGN e GameSpot viravam matéria. A pontuação da coleta era
+peso × 10 + tipo de notícia, então IGN/GameSpot (peso 8) começavam 10 a 40 pontos à frente e a fila
+só olhava as 60 primeiras (a IGN sozinha tinha 64). As outras expiravam em 48 h. Agora a publicação
+reordena até 200 pautas: tipo de notícia + peso × 3 + 10 por outro veículo no mesmo assunto + 8 se
+tem menos de 6 h − 12 por matéria que a fonte já rendeu em 24 h (`rankedQueue`).
+
+## 2026-11-12 — Contador de visitas e exclusão de rascunhos
+
+O campo `views` existia mas nada somava. Agora a página da matéria avisa `POST /api/view` depois de
+abrir no navegador; não contam bots (isbot), repetição da mesma pessoa em 30 min nem o admin logado.
+No painel, rascunhos e arquivadas podem ser excluídos de vez (lista e editor); matéria no ar, não.
 ## 2026-11-12 — Loaders ignoram o sufixo ".data" do endereço
 
 Clicar em "Notícias" ou "Promoções" no menu dava 404 (abrir o endereço direto funcionava): na navegação

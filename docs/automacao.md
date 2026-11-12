@@ -69,6 +69,9 @@ MySQL local (127.0.0.1:3306)
 
 ## Pipeline de publicação (1 post por chamada)
 
+> Ordem de escolha das pautas de notícia: `rankedQueue` (ver decisoes.md, 2026-11-12). Diagnóstico por
+> fonte: `GET /api/cron/fontes?token=...`.
+
 Código: `writer.server.ts` (redator), `quality.ts` (checagem), `assemble.ts` (corpo final),
 `media.ts`/`media.server.ts` (imagens e vídeos). Regras baseadas no robô do Anime Profile
 (`animeprofile/src/lib/ai-news/worker/`: prompt, quality, html, media, localize).

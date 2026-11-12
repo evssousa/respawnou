@@ -4,7 +4,7 @@ import type { Route } from "./+types/post-edit";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { blocksToText, textToBlocks } from "~/lib/admin/body-text";
-import { getPost, setPostStatus, toggleFeatured, updateDraftAddress, updatePost } from "~/lib/admin/data.server";
+import { deletePost, getPost, setPostStatus, toggleFeatured, updateDraftAddress, updatePost } from "~/lib/admin/data.server";
 import { publish } from "~/lib/robot/robot.server";
 import { PLATFORMS, SECTIONS } from "~/lib/site";
 
@@ -44,6 +44,10 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "rascunho") return (await setPostStatus(id, "draft"), back("rascunho"));
   if (intent === "arquivar") return (await setPostStatus(id, "archived"), back("arquivado"));
   if (intent === "destaque") return (await toggleFeatured(id), back("destaque"));
+  if (intent === "excluir") {
+    if (!(await deletePost(id))) return data({ errors: ["Matéria no ar não pode ser excluída: tire do ar primeiro."] }, { status: 400 });
+    return redirect("/admin/materias?ok=excluida");
+  }
   if (intent === "refazer") {
     publish({ redoPostId: id }).catch((err) => console.error("[admin] refazer:", err));
     return back("refazendo");
@@ -236,6 +240,19 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
                   }}
                 >
                   Refazer com o robô
+                </Button>
+              )}
+              {post.status !== "published" && (
+                <Button
+                  tone="danger"
+                  name="intent"
+                  value="excluir"
+                  disabled={busy}
+                  onClick={(e) => {
+                    if (!confirm("Excluir de vez? Não dá para desfazer.")) e.preventDefault();
+                  }}
+                >
+                  Excluir de vez
                 </Button>
               )}
               {post.status !== "archived" && (

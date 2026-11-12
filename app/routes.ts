@@ -49,6 +49,8 @@ export default [
 
   // Robô de postagem (Cron Job da Hostinger), protegido por CRON_TOKEN.
   route("api/cron/:job", "routes/cron.ts"),
+  // Contador de visitas (a página da matéria avisa depois de carregar no navegador).
+  route("api/view", "routes/view.ts"),
 
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;
