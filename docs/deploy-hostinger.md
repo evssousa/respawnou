@@ -53,6 +53,7 @@ Status: ✅ no ar desde 2026-11-10 em https://respawnou.com.br
 
 - Google Search Console: propriedade de **Domínio** verificada por registro TXT na raiz (2026-11-13),
   acrescentado ao lado do SPF (nunca usar `overwrite: true` em TXT de `@`, apagaria o SPF do e-mail).
-  Falta: enviar `https://respawnou.com.br/sitemap.xml` e rodar a Inspeção de URL com teste ao vivo.
+  Sitemap enviado e Inspeção de URL com teste ao vivo: "O URL está disponível para o Google".
 - O CDN da Hostinger (hcdn) responde 403 a quem se diz Googlebot/Bingbot fora dos IPs oficiais
-  (proteção contra robô falso). Confirmar pelo teste ao vivo do Search Console que o Google real passa.
+  (proteção contra robô falso). Confirmado pelo teste ao vivo do Search Console: o Google real passa.
+  Não "consertar" esse 403: testar o acesso de robôs só pelo Search Console / Bing Webmaster.

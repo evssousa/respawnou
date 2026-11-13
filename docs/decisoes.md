@@ -5,6 +5,13 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+## 2026-11-13 — Site enviado ao Google
+
+- **O quê:** Search Console como propriedade de Domínio (TXT no DNS, ao lado do SPF), sitemap enviado
+  e indexação da home solicitada.
+- **Por quê agora:** o combinado era esperar ~10 matérias; já são 12, mais os 10 jogos do Arcade.
+- O 403 do CDN para "Googlebot" falso não afeta o Google real (teste ao vivo OK).
+
 ## 2026-11-13 — Arcade: horizontal no PC, vertical no celular
 
 - **O quê:** todos os jogos ganharam dois formatos; a moldura escolhe pela tela (largura ≥ 768 px e
