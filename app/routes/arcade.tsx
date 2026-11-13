@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ArcadeThumb } from "~/components/ArcadeThumb";
-import { SectionTitle } from "~/components/ui";
-import { ARCADE_CATEGORIES, ARCADE_GAMES, readRecord } from "~/lib/arcade";
+import { FilterLink, SectionTitle } from "~/components/ui";
+import { ARCADE_CATEGORIES, ARCADE_GAMES, readRecord, type ArcadeCategory } from "~/lib/arcade";
 import { seo } from "~/lib/seo";
 import { SITE } from "~/lib/site";
 
 export const meta = () =>
   seo({
     title: "Arcade: jogos grátis para jogar no navegador",
-    description: `Jogos de passatempo do ${SITE.name} para jogar grátis no navegador, no PC ou no celular, sem baixar nada: corredor infinito, torre de blocos e mais.`,
+    description: `Jogos de passatempo do ${SITE.name} para jogar grátis no navegador, no PC ou no celular, sem baixar nada: corredor infinito, nave, cobrinha, campo minado, paciência, jogo da memória e mais.`,
     path: "/arcade",
   });
 
@@ -17,6 +17,10 @@ export default function ArcadePage() {
   // Recordes ficam no navegador: lidos depois de montar (não existem no servidor).
   const [best, setBest] = useState<Record<string, number>>({});
   useEffect(() => setBest(Object.fromEntries(ARCADE_GAMES.map((g) => [g.slug, readRecord(g.slug).best]))), []);
+  // Filtro por categoria (?categoria=); o canonical continua /arcade.
+  const cat = useSearchParams()[0].get("categoria") as ArcadeCategory | null;
+  const active = cat && cat in ARCADE_CATEGORIES ? cat : null;
+  const games = active ? ARCADE_GAMES.filter((g) => g.category === active) : ARCADE_GAMES;
 
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-10 px-4 pt-10 sm:px-6">
@@ -27,10 +31,20 @@ export default function ArcadePage() {
         <p className="max-w-2xl text-lg text-body">
           Jogos rápidos e sem fim para passar o tempo, direto no navegador. Sem baixar nada, sem cadastro, no PC ou no celular. Seu recorde fica salvo neste aparelho.
         </p>
+        <nav aria-label="Filtrar por categoria" className="flex flex-wrap gap-2">
+          <FilterLink to="/arcade" active={!active}>
+            TODOS
+          </FilterLink>
+          {(Object.keys(ARCADE_CATEGORIES) as ArcadeCategory[]).map((k) => (
+            <FilterLink key={k} to={`/arcade?categoria=${k}`} active={active === k}>
+              {ARCADE_CATEGORIES[k].toUpperCase()}
+            </FilterLink>
+          ))}
+        </nav>
       </div>
 
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {ARCADE_GAMES.map((g) => (
+        {games.map((g) => (
           <li key={g.slug}>
             <Link to={`/arcade/${g.slug}`} className="group ch flex h-full flex-col bg-ink-2 transition-colors hover:bg-ink-3">
               <ArcadeThumb slug={g.slug} className="block aspect-video w-full" />

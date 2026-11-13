@@ -12,6 +12,8 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 - **Como:** sem biblioteca de jogo (canvas puro, ~10 KB por jogo, carregado só na página dele);
   recorde no navegador, sem conta nem banco. `/jogos/...` já é das fichas, por isso `/arcade`.
 - Jogos próprios: estilos clássicos, nunca cópia de nome, personagem ou visual de jogo existente.
+- Jogos que por natureza terminam viraram infinitos: Campo Minado emenda campos com mais minas,
+  Memória emenda fases maiores, Paciência emenda mãos e só fecha a pontuação em ENCERRAR.
 - Menu: com o Arcade, a busca do cabeçalho vira só a lupa entre 1024 e 1279 px para tudo caber.
 
 ## 2026-11-12 — Selo "Mais aguardado" e compilação sob demanda

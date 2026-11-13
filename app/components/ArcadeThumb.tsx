@@ -108,6 +108,97 @@ export function ArcadeThumb({ slug, className }: { slug: string; className?: str
           )}
         </>
       )}
+      {slug === "mira" && (
+        <>
+          {(
+            [
+              [56, 46, 20, ACC],
+              [118, 30, 11, WARN],
+            ] as const
+          ).map(([x, y, r, c]) => (
+            <g key={x}>
+              <circle cx={x} cy={y} r={r} fill={c} />
+              <circle cx={x} cy={y} r={r * 0.72} fill={INK} />
+              <circle cx={x} cy={y} r={r * 0.5} fill={c} />
+              <circle cx={x} cy={y} r={r * 0.3} fill={PAPER} />
+            </g>
+          ))}
+          <circle cx="120" cy="70" r="9" fill={DANGER} />
+          <path d="M116 66l8 8M124 66l-8 8" stroke={INK} strokeWidth="2" />
+          <path d="M56 20v10M56 62v10M30 46h10M72 46h10" stroke={PAPER} strokeWidth="1.5" opacity="0.6" />
+        </>
+      )}
+      {slug === "memoria" && (
+        <>
+          {[0, 1, 2, 3, 4].map((c) =>
+            [0, 1].map((r) => {
+              const x = 18 + c * 26;
+              const y = 14 + r * 34;
+              const face = (c === 1 && r === 0) || (c === 3 && r === 1);
+              return face ? (
+                <g key={`${c}-${r}`}>
+                  <rect x={x} y={y} width="22" height="28" fill={INK3} stroke={ACC} strokeWidth="1.5" />
+                  <path d={`M${x + 5} ${y + 10}h4v2h4v-2h4v5h-2v2h-2v2h-4v-2h-2v-2h-2z`} fill={DANGER} />
+                </g>
+              ) : (
+                <g key={`${c}-${r}`}>
+                  <rect x={x} y={y} width="22" height="28" fill="#3d5200" />
+                  <rect x={x + 9} y={y + 12} width="4" height="4" fill={ACC} />
+                </g>
+              );
+            }),
+          )}
+        </>
+      )}
+      {slug === "campo-minado" && (
+        <>
+          {[0, 1, 2, 3, 4, 5, 6].map((c) =>
+            [0, 1, 2, 3].map((r) => {
+              const x = 24 + c * 16;
+              const y = 12 + r * 16;
+              const open = c + r < 5 && !(c === 3 && r === 1);
+              const n = open ? [0, 1, 2, 0, 1, 3, 0][(c * 3 + r) % 7] : 0;
+              return (
+                <g key={`${c}-${r}`}>
+                  <rect x={x} y={y} width="15" height="15" fill={open ? "#0c110c" : INK3} stroke={open ? "#1c241a" : "#243022"} />
+                  {n > 0 && (
+                    <text x={x + 7.5} y={y + 11.5} fontSize="10" fontWeight="700" textAnchor="middle" fill={["", "#4fd8ff", ACC, WARN][n]} fontFamily="monospace">
+                      {n}
+                    </text>
+                  )}
+                </g>
+              );
+            }),
+          )}
+          <rect x="105" y="48" width="1.5" height="11" fill={PAPER} />
+          <path d="M106.5 48l6 3-6 3z" fill={WARN} />
+          <circle cx="127" cy="71" r="4.5" fill={DANGER} />
+        </>
+      )}
+      {slug === "paciencia" && (
+        <>
+          <rect width="160" height="90" fill="#0a1a10" />
+          {[0, 1, 2, 3].map((i) => (
+            <rect key={i} x={70 + i * 22} y="8" width="18" height="25" fill="none" stroke="#243022" strokeWidth="1.5" />
+          ))}
+          <rect x="70" y="8" width="18" height="25" fill={PAPER} />
+          <text x="79" y="25" fontSize="11" textAnchor="middle" fill={INK}>
+            ♠
+          </text>
+          <rect x="8" y="8" width="18" height="25" fill="#3d5200" stroke={ACC} strokeWidth="1" />
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+            <g key={i}>
+              {Array.from({ length: Math.min(i, 3) }, (_, k) => (
+                <rect key={k} x={8 + i * 21} y={40 + k * 4} width="18" height="25" fill="#3d5200" stroke={INK} strokeWidth="0.5" />
+              ))}
+              <rect x={8 + i * 21} y={40 + Math.min(i, 3) * 4} width="18" height="25" fill={PAPER} stroke={INK} strokeWidth="0.5" />
+              <text x={17 + i * 21} y={57 + Math.min(i, 3) * 4} fontSize="11" textAnchor="middle" fill={i % 2 ? "#e0453a" : INK}>
+                {["♠", "♥", "♣", "♦", "♠", "♥", "♣"][i]}
+              </text>
+            </g>
+          ))}
+        </>
+      )}
     </svg>
   );
 }

@@ -62,7 +62,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 5 | Etapa 5: guias de requisitos de PC (1/dia, Steam) + "Nova matéria" e envio de imagens no painel | ✅ |
 | 6 | Arcade (/arcade): 1ª leva com Respawn, Torre e Quebra-Pixel (arcade.md) | ✅ |
 | 6 | Arcade, 2ª leva: Chuva de Meteoros, Cabo de Força e Trinca (nova categoria Quebra-cabeça) | ✅ |
-| 6 | Arcade: próximos jogos (lista em arcade.md) | ⏳ |
+| 6 | Arcade, 3ª leva: Mira, Memória, Campo Minado e Paciência + filtro por categoria (10 jogos) | ✅ |
 
 ## Histórico de commits relevantes
 
