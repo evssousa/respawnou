@@ -2,8 +2,6 @@
 // em dois menores. Itens: tiro triplo (8 s) e escudo (aguenta uma batida). 3 vidas.
 import { burst, C, clamp, createLoop, drawParticles, listen, MONO, rand, setupCanvas, stepParticles, toLocal, type GameFactory, type Particle } from "./engine";
 
-const W = 360;
-const H = 600;
 const SHIP_R = 12;
 const FIRE_EVERY = 0.16;
 
@@ -20,7 +18,9 @@ const SIZES = [
 
 const makeShape = () => Array.from({ length: 9 }, () => rand(0.75, 1.1));
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H }) => {
+  // Tela larga recebe mais meteoros (mesma densidade por área).
+  const DENS = 360 / W;
   const ctx = setupCanvas(canvas, W, H);
   let x = W / 2;
   let y = H - 70;
@@ -174,7 +174,7 @@ export const create: GameFactory = (canvas, hooks) => {
     // Meteoros: chegam mais rápido e com mais frequência com o tempo.
     spawnT -= dt;
     if (spawnT <= 0) {
-      spawnT = Math.max(0.28, 1.1 - time * 0.012) * rand(0.6, 1.3);
+      spawnT = Math.max(0.28, 1.1 - time * 0.012) * rand(0.6, 1.3) * DENS;
       const roll = Math.random();
       spawnRock(roll < 0.25 + Math.min(0.25, time * 0.003) ? 2 : roll < 0.6 ? 1 : 0);
     }

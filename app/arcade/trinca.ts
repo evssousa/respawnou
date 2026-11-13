@@ -3,13 +3,9 @@
 // Peças têm cor E formato diferentes (dá para jogar sem distinguir cores).
 import { burst, C, createLoop, drawParticles, listen, MONO, setupCanvas, stepParticles, toLocal, type GameFactory, type Particle } from "./engine";
 
-const COLS = 7;
-const ROWS = 8;
 const CELL = 48;
 const OX = 12;
 const TOP = 72;
-const W = 360;
-const H = TOP + ROWS * CELL + 12;
 const TYPES = 6;
 const COLORS = [C.acc, C.warn, C.danger, "#4fd8ff", "#b48cff", C.paper];
 const START_TIME = 45;
@@ -18,7 +14,10 @@ const MAX_TIME = 60;
 type Gem = { t: number; oy: number; fade: number };
 type Cell = { r: number; c: number };
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H }) => {
+  // 7×8 em pé, 10×7 deitado.
+  const COLS = Math.round((W - OX * 2) / CELL);
+  const ROWS = Math.round((H - TOP - 12) / CELL);
   const ctx = setupCanvas(canvas, W, H);
   let grid: (Gem | null)[][] = [];
   let sel: Cell | null = null;

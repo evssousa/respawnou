@@ -2,19 +2,18 @@
 // Segurar o pulo deixa o salto mais alto; a velocidade sobe com a distância.
 import { burst, C, clamp, createLoop, drawGrid, drawParticles, listen, MONO, rand, setupCanvas, stepParticles, type GameFactory, type Particle } from "./engine";
 
-const W = 640;
-const H = 360;
-const GROUND = 300;
 const GRAVITY = 2400;
 const JUMP_V = -780;
 const CUT_V = -320;
-const PX = 96;
 const PW = 24;
 const PH = 30;
 
 type Obstacle = { kind: "block" | "pit" | "drone"; x: number; w: number; h: number; y: number; t: number };
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H, landscape }) => {
+  // Chão perto da base; no celular (em pé) o boneco fica mais à esquerda para ver mais à frente.
+  const GROUND = H - 60;
+  const PX = landscape ? 96 : 48;
   const ctx = setupCanvas(canvas, W, H);
   let py = GROUND - PH;
   let vy = 0;

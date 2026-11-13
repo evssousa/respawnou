@@ -3,29 +3,29 @@
 // tocar em ENCERRAR (dois toques, para não encerrar sem querer).
 import { burst, C, createLoop, listen, MONO, setupCanvas, stepParticles, drawParticles, toLocal, type GameFactory, type Particle } from "./engine";
 
-const W = 360;
-const H = 600;
-const CW = 46;
-const CH = 64;
-const GAP = 5;
-const MX = 4;
 const BAR = 36;
-const ROW_Y = BAR + 8;
-const TAB_Y = ROW_Y + CH + 14;
-const DOWN = 9;
-const UP = 20;
 const RED = "#e0453a";
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-const END_BTN = { x: W - 112, y: 6, w: 104, h: 24 };
 
 type Card = { rank: number; suit: number; up: boolean };
 type Src = { kind: "waste" } | { kind: "found"; i: number } | { kind: "tab"; i: number; from: number };
 
-const colX = (i: number) => MX + i * (CW + GAP);
 const red = (c: Card) => c.suit === 1 || c.suit === 2;
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H, landscape }) => {
+  // Deitado (PC) as cartas ficam 1,7× maiores e a mesa é centralizada.
+  const s = landscape ? 1.7 : 1;
+  const CW = Math.round(46 * s);
+  const CH = Math.round(64 * s);
+  const GAP = 5 * s;
+  const MX = (W - 7 * CW - 6 * GAP) / 2;
+  const ROW_Y = BAR + 8;
+  const TAB_Y = ROW_Y + CH + 14;
+  const DOWN = landscape ? 14 : 9;
+  const UP = landscape ? 28 : 20;
+  const END_BTN = { x: W - 112, y: 6, w: 104, h: 24 };
+  const colX = (i: number) => MX + i * (CW + GAP);
   const ctx = setupCanvas(canvas, W, H);
   let stock: Card[] = [];
   let waste: Card[] = [];
@@ -225,15 +225,15 @@ export const create: GameFactory = (canvas, hooks) => {
     ctx.strokeRect(x + 0.5, y + 0.5, CW - 1, CH - 1);
     const col = red(c) ? RED : C.ink;
     ctx.fillStyle = col;
-    ctx.font = `700 13px ${MONO}`;
+    ctx.font = `700 ${Math.round(13 * s)}px ${MONO}`;
     ctx.textAlign = "left";
-    ctx.fillText(RANKS[c.rank], x + 3, y + 13);
-    ctx.font = `13px sans-serif`;
+    ctx.fillText(RANKS[c.rank], x + 3 * s, y + 13 * s);
+    ctx.font = `${Math.round(13 * s)}px sans-serif`;
     ctx.textAlign = "right";
-    ctx.fillText(SUITS[c.suit], x + CW - 3, y + 13);
-    ctx.font = `26px sans-serif`;
+    ctx.fillText(SUITS[c.suit], x + CW - 3 * s, y + 13 * s);
+    ctx.font = `${Math.round(26 * s)}px sans-serif`;
     ctx.textAlign = "center";
-    ctx.fillText(SUITS[c.suit], x + CW / 2, y + CH - 14);
+    ctx.fillText(SUITS[c.suit], x + CW / 2, y + CH - 14 * s);
     ctx.textAlign = "left";
   };
 
@@ -243,9 +243,9 @@ export const create: GameFactory = (canvas, hooks) => {
     ctx.strokeRect(x + 0.75, y + 0.75, CW - 1.5, CH - 1.5);
     if (label) {
       ctx.fillStyle = C.lineSoft;
-      ctx.font = `22px sans-serif`;
+      ctx.font = `${Math.round(22 * s)}px sans-serif`;
       ctx.textAlign = "center";
-      ctx.fillText(label, x + CW / 2, y + CH / 2 + 8);
+      ctx.fillText(label, x + CW / 2, y + CH / 2 + 8 * s);
       ctx.textAlign = "left";
     }
   };

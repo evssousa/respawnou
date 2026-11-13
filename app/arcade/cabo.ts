@@ -2,18 +2,17 @@
 // próprio cabo encerra. A velocidade sobe aos poucos; a pilha dourada vale mais e some rápido.
 import { burst, C, createLoop, drawParticles, listen, MONO, setupCanvas, stepParticles, toLocal, type GameFactory, type Particle } from "./engine";
 
-const COLS = 18;
 const ROWS = 18;
 const CELL = 20;
 const TOP = 40;
-const W = COLS * CELL;
-const H = ROWS * CELL + TOP;
 
 type P = { x: number; y: number };
 const DIRS: Record<string, P> = { U: { x: 0, y: -1 }, D: { x: 0, y: 1 }, L: { x: -1, y: 0 }, R: { x: 1, y: 0 } };
 const KEYS: Record<string, string> = { ArrowUp: "U", KeyW: "U", ArrowDown: "D", KeyS: "D", ArrowLeft: "L", KeyA: "L", ArrowRight: "R", KeyD: "R" };
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H }) => {
+  // 18 colunas em pé, 30 deitado (a altura é a mesma).
+  const COLS = Math.round(W / CELL);
   const ctx = setupCanvas(canvas, W, H);
   let body: P[] = [];
   let prev: P[] = [];

@@ -26,7 +26,12 @@ Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou 
 - `app/lib/arcade.ts`: catálogo (nome, categoria, textos de "como jogar", controles, proporção do
   canvas) e leitura/gravação do recorde.
 - `app/arcade/engine.ts`: motor mínimo (canvas nítido, laço com dt limitado, partículas, grade do tema).
-- `app/arcade/<slug>.ts`: cada jogo exporta `create(canvas, hooks)` com `start/pause/resume/destroy`
+- **Formato:** cada jogo tem dois tamanhos lógicos em `size` (catálogo): `landscape` (PC, tablet ou
+  celular deitado: largura ≥ 768 px e maior que a altura) e `portrait` (celular em pé). A moldura
+  escolhe pela tela e passa `{ W, H, landscape }` ao jogo, que monta o layout a partir disso
+  (ex.: Campo Minado 16×9 / 9×12, Trinca 10×7 / 7×8, Paciência com cartas 1,7× no PC). Girar ou
+  redimensionar fora da partida troca na hora; no meio, a troca vale no próximo "jogar de novo".
+- `app/arcade/<slug>.ts`: cada jogo exporta `create(canvas, hooks, size)` com `start/pause/resume/destroy`
   e avisa a pontuação (`onScore`) e o fim (`onOver`). Só desenha; não tem tela de menu.
 - `app/components/ArcadeShell.tsx`: moldura comum. Carrega o jogo só no navegador (import dinâmico,
   um arquivo por jogo), telas de início/pausa/fim, recorde, tela cheia, pausa ao trocar de aba
@@ -37,7 +42,7 @@ Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou 
 ## Novo jogo (checklist)
 
 1. `app/arcade/<slug>.ts` exportando `create` (ver os existentes; teclado só age com o jogo rodando).
-2. Entrada em `ARCADE_GAMES` (`app/lib/arcade.ts`) e em `LOADERS` (`ArcadeShell.tsx`). O nome do
+2. Os dois tamanhos (`size.landscape` e `size.portrait`) e entrada em `ARCADE_GAMES` (`app/lib/arcade.ts`) e em `LOADERS` (`ArcadeShell.tsx`). O nome do
    arquivo pode diferir do slug (ex.: `cabo.ts` → `cabo-de-forca`).
 3. Miniatura em `ArcadeThumb.tsx`.
 4. Testar no celular (toque, cabe na tela, sem rolagem lateral) e no teclado.

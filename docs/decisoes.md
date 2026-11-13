@@ -5,6 +5,13 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+## 2026-11-13 — Arcade: horizontal no PC, vertical no celular
+
+- **O quê:** todos os jogos ganharam dois formatos; a moldura escolhe pela tela (largura ≥ 768 px e
+  maior que a altura = horizontal) e o jogo recebe o tamanho e monta o layout.
+- **Por quê:** no PC os jogos em pé desperdiçavam a tela; no celular em pé, horizontal fica minúsculo.
+- Trocar de formato no meio da partida reiniciaria o jogo, então a troca espera a partida acabar.
+
 ## 2026-11-12 — Arcade: jogos de passatempo próprios
 
 - **O quê:** seção `/arcade` com jogos infinitos em canvas (Respawn, Torre, Quebra-Pixel), no menu.

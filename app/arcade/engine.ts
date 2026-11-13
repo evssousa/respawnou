@@ -17,7 +17,14 @@ export interface GameInstance {
   destroy(): void;
 }
 
-export type GameFactory = (canvas: HTMLCanvasElement, hooks: GameHooks) => GameInstance;
+/** Tamanho lógico escolhido pela moldura: horizontal no PC, vertical no celular. */
+export interface GameSize {
+  W: number;
+  H: number;
+  landscape: boolean;
+}
+
+export type GameFactory = (canvas: HTMLCanvasElement, hooks: GameHooks, size: GameSize) => GameInstance;
 
 export const C = {
   ink: "#060807",

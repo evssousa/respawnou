@@ -63,6 +63,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 6 | Arcade (/arcade): 1ª leva com Respawn, Torre e Quebra-Pixel (arcade.md) | ✅ |
 | 6 | Arcade, 2ª leva: Chuva de Meteoros, Cabo de Força e Trinca (nova categoria Quebra-cabeça) | ✅ |
 | 6 | Arcade, 3ª leva: Mira, Memória, Campo Minado e Paciência + filtro por categoria (10 jogos) | ✅ |
+| 6 | Arcade: formato horizontal no PC e vertical no celular (todos os jogos) | ✅ |
 
 ## Histórico de commits relevantes
 

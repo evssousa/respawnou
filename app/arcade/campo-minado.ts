@@ -2,18 +2,17 @@
 // campo nunca é mina. Bandeira: botão direito, toque longo ou o modo bandeira (canto superior).
 import { burst, C, createLoop, listen, MONO, setupCanvas, stepParticles, drawParticles, toLocal, type GameFactory, type Particle } from "./engine";
 
-const COLS = 9;
-const ROWS = 12;
 const CELL = 40;
 const TOP = 48;
-const W = COLS * CELL;
-const H = TOP + ROWS * CELL;
 const NUM = ["", "#4fd8ff", C.acc, C.warn, C.danger, "#b48cff", C.paper, C.body, C.muted];
-const FLAG_BTN = { x: W - 108, y: 8, w: 100, h: 32 };
 
 type Cell = { mine: boolean; open: boolean; flag: boolean; n: number };
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H }) => {
+  // 9×12 em pé, 16×9 deitado; o número de minas acompanha a área.
+  const COLS = Math.round(W / CELL);
+  const ROWS = Math.round((H - TOP) / CELL);
+  const FLAG_BTN = { x: W - 108, y: 8, w: 100, h: 32 };
   const ctx = setupCanvas(canvas, W, H);
   let grid: Cell[] = [];
   let armed = false;
@@ -30,7 +29,7 @@ export const create: GameFactory = (canvas, hooks) => {
   let cursor = { r: 5, c: 4 };
   let showCursor = false;
 
-  const mines = () => Math.min(32, 10 + (level - 1) * 3);
+  const mines = () => Math.round((Math.min(32, 10 + (level - 1) * 3) * COLS * ROWS) / 108);
   const idx = (r: number, c: number) => r * COLS + c;
   const around = (i: number) => {
     const r = Math.floor(i / COLS);

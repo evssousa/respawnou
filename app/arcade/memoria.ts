@@ -2,8 +2,6 @@
 // carta você já tinha visto custa uma vida; passar de fase devolve uma (máximo 6).
 import { burst, C, createLoop, drawGrid, drawParticles, listen, MONO, setupCanvas, stepParticles, toLocal, type GameFactory, type Particle } from "./engine";
 
-const W = 360;
-const H = 480;
 const TOP = 44;
 const PINK = "#ff7ad9";
 const CYAN = "#4fd8ff";
@@ -31,21 +29,21 @@ const ICONS: { px: string[]; c: string; o?: string }[] = [
   { c: C.warn, px: ["........", "#..##..#", "##.##.##", "########", "########", "#o#o#o##", "########", "........"], o: C.danger }, // coroa
 ];
 
-// Tamanho de cada fase (pares, colunas).
+// Tamanho de cada fase: pares, colunas em pé, colunas deitado.
 const LEVELS = [
-  [3, 3],
-  [4, 4],
-  [6, 4],
-  [8, 4],
-  [10, 5],
-  [12, 6],
-  [15, 6],
-  [18, 6],
+  [3, 3, 6],
+  [4, 4, 4],
+  [6, 4, 6],
+  [8, 4, 8],
+  [10, 5, 10],
+  [12, 6, 8],
+  [15, 6, 10],
+  [18, 6, 12],
 ];
 
 type Card = { icon: number; up: boolean; done: boolean; flip: number; seen: boolean; x: number; y: number };
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H, landscape }) => {
   const ctx = setupCanvas(canvas, W, H);
   let cards: Card[] = [];
   let size = 60;
@@ -66,13 +64,13 @@ export const create: GameFactory = (canvas, hooks) => {
   let cols = 3;
 
   const deal = () => {
-    const [pairs, c] = LEVELS[Math.min(level, LEVELS.length) - 1];
-    cols = c;
+    const [pairs, cp, cl] = LEVELS[Math.min(level, LEVELS.length) - 1];
+    cols = landscape ? cl : cp;
     const rows = Math.ceil((pairs * 2) / cols);
     const pool = [...ICONS.keys()].sort(() => Math.random() - 0.5).slice(0, pairs);
     const deck = [...pool, ...pool].sort(() => Math.random() - 0.5);
     const gap = 6;
-    size = Math.min(84, (W - 24 - gap * (cols - 1)) / cols, (H - TOP - 24 - gap * (rows - 1)) / rows);
+    size = Math.min(landscape ? 100 : 84, (W - 24 - gap * (cols - 1)) / cols, (H - TOP - 24 - gap * (rows - 1)) / rows);
     const ox = (W - (cols * size + (cols - 1) * gap)) / 2;
     const oy = TOP + (H - TOP - (rows * size + (rows - 1) * gap)) / 2;
     cards = deck.map((icon, i) => ({ icon, up: false, done: false, flip: 0, seen: false, x: ox + (i % cols) * (size + gap), y: oy + Math.floor(i / cols) * (size + gap) }));

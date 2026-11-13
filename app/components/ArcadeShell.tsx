@@ -20,6 +20,10 @@ const LOADERS: Record<string, () => Promise<{ create: GameFactory }>> = {
 };
 
 type Phase = "loading" | "ready" | "play" | "paused" | "over" | "error";
+type Orient = "landscape" | "portrait";
+
+// Tela larga (PC, tablet ou celular deitado) joga na horizontal; celular em pé, na vertical.
+const pickOrient = (): Orient => (window.innerWidth >= 768 && window.innerWidth > window.innerHeight ? "landscape" : "portrait");
 
 export function ArcadeShell({ game }: { game: ArcadeGame }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -33,6 +37,9 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
   const [newBest, setNewBest] = useState(false);
   const [fs, setFs] = useState(false);
   const [canFs, setCanFs] = useState(false);
+  // Formato só é conhecido no navegador; até lá a área do jogo fica reservada.
+  const [orient, setOrient] = useState<Orient | null>(null);
+  const startAfterLoad = useRef(false);
 
   const go = useCallback((p: Phase) => {
     phaseRef.current = p;
@@ -40,13 +47,30 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
   }, []);
 
   useEffect(() => {
-    let alive = true;
     setRec(readRecord(game.slug));
     setCanFs(Boolean(document.fullscreenEnabled));
+    setOrient(pickOrient());
+  }, [game.slug]);
+
+  // Girou o celular ou redimensionou a janela: troca o formato fora de uma partida
+  // (no meio do jogo, a troca fica para quando ele recomeçar).
+  useEffect(() => {
+    const onResize = () => {
+      const p = phaseRef.current;
+      if (p === "ready" || p === "error") setOrient(pickOrient());
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    if (!orient) return;
+    let alive = true;
     go("loading");
     LOADERS[game.slug]?.()
       .then(({ create }) => {
         if (!alive || !canvasRef.current) return;
+        const [W, H] = game.size[orient];
         inst.current = create(canvasRef.current, {
           onScore: setScore,
           onOver: (final) => {
@@ -58,8 +82,12 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
             setRec(next);
             go("over");
           },
-        });
+        }, { W, H, landscape: orient === "landscape" });
         go("ready");
+        if (startAfterLoad.current) {
+          startAfterLoad.current = false;
+          startRef.current();
+        }
       })
       .catch(() => alive && go("error"));
     return () => {
@@ -67,7 +95,7 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
       inst.current?.destroy();
       inst.current = null;
     };
-  }, [game.slug, go]);
+  }, [game.slug, orient, go]);
 
   // No celular o título empurra o jogo para baixo: ao começar, rola até a tela do jogo
   // ficar inteira à vista (descontando o cabeçalho fixo).
@@ -82,6 +110,13 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
 
   const start = useCallback(() => {
     if (!inst.current) return;
+    // O formato mudou desde a última partida: recria o jogo no formato novo e começa.
+    const now = pickOrient();
+    if (orient && now !== orient) {
+      startAfterLoad.current = true;
+      setOrient(now);
+      return;
+    }
     const prev = readRecord(game.slug);
     const next = { ...prev, plays: prev.plays + 1 };
     saveRecord(game.slug, next);
@@ -92,7 +127,9 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
     inst.current.start();
     canvasRef.current?.focus({ preventScroll: true });
     reveal();
-  }, [game.slug, go]);
+  }, [game.slug, go, orient]);
+  const startRef = useRef(start);
+  startRef.current = start;
 
   const pause = useCallback(() => {
     if (phaseRef.current !== "play") return;
@@ -153,7 +190,8 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
     else frameRef.current?.requestFullscreen().catch(() => {});
   };
 
-  const ratio = game.width / game.height;
+  const [gw, gh] = game.size[orient ?? "portrait"];
+  const ratio = gw / gh;
   // Cabe na tela: largura total, mas sem passar da altura visível (jogos em pé no celular).
   const canvasWidth = fs ? `min(100vw, calc(100vh * ${ratio}))` : `min(100%, calc((100dvh - 170px) * ${ratio}))`;
   const overTitle = game.slug === "respawn" ? "Você caiu" : "Fim de jogo";
@@ -182,7 +220,7 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
       </div>
 
       <div ref={frameRef} className={cx("relative flex items-center justify-center bg-ink", fs ? "h-full w-full" : "border border-line")}>
-        <div className="relative" style={{ width: canvasWidth, aspectRatio: `${game.width} / ${game.height}` }}>
+        <div className="relative" style={orient ? { width: canvasWidth, aspectRatio: `${gw} / ${gh}` } : { width: "100%", height: "min(60vh, 520px)" }}>
           <canvas
             ref={canvasRef}
             tabIndex={-1}

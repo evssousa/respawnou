@@ -20,9 +20,8 @@ export interface ArcadeGame {
   description: string;
   howTo: string[];
   controls: { device: string; text: string }[];
-  /** Tamanho lógico do canvas (proporção da tela do jogo). */
-  width: number;
-  height: number;
+  /** Tamanho lógico do canvas: horizontal (PC / celular deitado) e vertical (celular em pé). */
+  size: { landscape: [number, number]; portrait: [number, number] };
   /** Como chamar o contador de partidas. */
   playsLabel: string;
 }
@@ -44,8 +43,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Teclado", text: "Espaço, W ou seta para cima (segure para pular mais alto)" },
       { device: "Toque / mouse", text: "Toque na tela para pular (segure para pular mais alto)" },
     ],
-    width: 640,
-    height: 360,
+    size: { landscape: [640, 360], portrait: [480, 600] },
     playsLabel: "Respawns",
   },
   {
@@ -64,8 +62,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Teclado", text: "Espaço, Enter ou seta para baixo" },
       { device: "Toque / mouse", text: "Toque na tela para soltar o bloco" },
     ],
-    width: 360,
-    height: 640,
+    size: { landscape: [720, 480], portrait: [360, 640] },
     playsLabel: "Torres",
   },
   {
@@ -84,8 +81,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Teclado", text: "Setas ou A/D para mover, Espaço para lançar" },
       { device: "Toque / mouse", text: "Arraste para mover a raquete e toque para lançar" },
     ],
-    width: 360,
-    height: 600,
+    size: { landscape: [720, 480], portrait: [360, 600] },
     playsLabel: "Partidas",
   },
   {
@@ -105,8 +101,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Toque", text: "Arraste o dedo na tela (a nave fica um pouco acima do dedo)" },
       { device: "Mouse", text: "A nave segue o ponteiro" },
     ],
-    width: 360,
-    height: 600,
+    size: { landscape: [720, 480], portrait: [360, 600] },
     playsLabel: "Voos",
   },
   {
@@ -125,8 +120,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Teclado", text: "Setas ou WASD" },
       { device: "Toque", text: "Deslize o dedo na direção desejada, ou toque do lado para onde quer virar" },
     ],
-    width: 360,
-    height: 400,
+    size: { landscape: [600, 400], portrait: [360, 400] },
     playsLabel: "Partidas",
   },
   {
@@ -145,8 +139,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Toque / mouse", text: "Toque numa peça e depois na vizinha, ou arraste a peça para o lado" },
       { device: "Teclado", text: "Setas movem o cursor; Espaço seleciona; com uma peça selecionada, a seta troca" },
     ],
-    width: 360,
-    height: 468,
+    size: { landscape: [504, 420], portrait: [360, 468] },
     playsLabel: "Partidas",
   },
   {
@@ -165,8 +158,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Mouse", text: "Clique nos alvos" },
       { device: "Toque", text: "Toque nos alvos" },
     ],
-    width: 480,
-    height: 520,
+    size: { landscape: [760, 480], portrait: [400, 560] },
     playsLabel: "Partidas",
   },
   {
@@ -185,8 +177,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Toque / mouse", text: "Toque nas cartas para virar" },
       { device: "Teclado", text: "Setas movem o cursor, Espaço ou Enter vira a carta" },
     ],
-    width: 360,
-    height: 480,
+    size: { landscape: [720, 450], portrait: [360, 480] },
     playsLabel: "Partidas",
   },
   {
@@ -206,8 +197,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Toque", text: "Toque abre; toque longo marca bandeira (ou ligue o modo BANDEIRA no canto)" },
       { device: "Teclado", text: "Setas movem, Espaço abre, F marca bandeira" },
     ],
-    width: 360,
-    height: 528,
+    size: { landscape: [640, 408], portrait: [360, 528] },
     playsLabel: "Partidas",
   },
   {
@@ -226,8 +216,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       { device: "Toque / mouse", text: "Toque para mover sozinho, ou arraste e solte" },
       { device: "Encerrar", text: "Toque duas vezes em ENCERRAR para fechar a pontuação" },
     ],
-    width: 360,
-    height: 600,
+    size: { landscape: [720, 520], portrait: [360, 600] },
     playsLabel: "Partidas",
   },
 ];

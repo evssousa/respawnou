@@ -2,15 +2,10 @@
 // espelhado), com blocos mais resistentes e bola mais rápida conforme avança. 3 vidas.
 import { burst, C, clamp, createLoop, drawGrid, drawParticles, listen, MONO, rand, setupCanvas, stepParticles, toLocal, type GameFactory, type Particle } from "./engine";
 
-const W = 360;
-const H = 600;
-const COLS = 8;
 const GAP = 4;
 const SIDE = 12;
 const TOP = 76;
-const BW = (W - SIDE * 2 - GAP * (COLS - 1)) / COLS;
 const BHT = 16;
-const PAD_Y = H - 44;
 const PAD_H = 10;
 const R = 5;
 
@@ -18,10 +13,15 @@ type Brick = { x: number; y: number; hp: number; max: number };
 
 const HP_COLOR = ["", C.acc, C.warn, C.danger];
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H, landscape }) => {
+  // Tela larga: mais colunas de blocos e raquete maior.
+  const COLS = landscape ? 14 : 8;
+  const BW = (W - SIDE * 2 - GAP * (COLS - 1)) / COLS;
+  const PAD_Y = H - 44;
+  const PAD0 = landscape ? 92 : 68;
   const ctx = setupCanvas(canvas, W, H);
   let padX = W / 2;
-  let padW = 68;
+  let padW = PAD0;
   let target: number | null = null;
   let keys = 0; // -1 esquerda, 1 direita
   let ball = { x: W / 2, y: PAD_Y - R, vx: 0, vy: 0, stuck: true };
@@ -41,7 +41,7 @@ export const create: GameFactory = (canvas, hooks) => {
     const rows = Math.min(9, 4 + Math.floor(level / 2));
     const fill = Math.min(0.85, 0.55 + level * 0.03);
     bricks = [];
-    while (bricks.length < 12) {
+    while (bricks.length < COLS * 1.5) {
       bricks = [];
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < COLS / 2; c++) {
@@ -71,7 +71,7 @@ export const create: GameFactory = (canvas, hooks) => {
     lives = 3;
     score = 0;
     padX = W / 2;
-    padW = 68;
+    padW = PAD0;
     particles = [];
     build();
     stick();
@@ -177,7 +177,7 @@ export const create: GameFactory = (canvas, hooks) => {
       addScore(100 * level);
       level++;
       if (level % 3 === 1 && lives < 5) lives++;
-      padW = Math.max(52, 68 - (level - 1) * 1.5);
+      padW = Math.max(PAD0 - 16, PAD0 - (level - 1) * 1.5);
       banner = `FASE ${level}`;
       bannerT = 1.4;
       build();

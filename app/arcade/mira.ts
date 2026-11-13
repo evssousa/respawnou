@@ -3,15 +3,13 @@
 // Dourado vale muito; o vermelho com X não pode ser clicado.
 import { burst, C, createLoop, drawGrid, drawParticles, listen, MONO, rand, setupCanvas, stepParticles, toLocal, type GameFactory, type Particle } from "./engine";
 
-const W = 480;
-const H = 520;
 const TOP = 44;
 const R = 32;
 
 type Target = { x: number; y: number; t: number; max: number; kind: "normal" | "ouro" | "bomba" };
 type Popup = { x: number; y: number; text: string; t: number; color: string };
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H }) => {
   const ctx = setupCanvas(canvas, W, H);
   let targets: Target[] = [];
   let particles: Particle[] = [];

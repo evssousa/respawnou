@@ -2,10 +2,7 @@
 // Encaixe perfeito mantém a largura (3 seguidos devolvem um pedaço). Errar tudo encerra.
 import { burst, C, createLoop, drawGrid, drawParticles, listen, MONO, setupCanvas, stepParticles, type GameFactory, type Particle } from "./engine";
 
-const W = 360;
-const H = 640;
 const BH = 26;
-const BASE_W = 200;
 const PERFECT = 5;
 
 type Block = { x: number; w: number; level: number };
@@ -13,7 +10,12 @@ type Debris = { x: number; y: number; w: number; vy: number; vx: number; rot: nu
 
 const color = (level: number, light = 0) => `hsl(${(78 + level * 7) % 360} 95% ${56 + light}%)`;
 
-export const create: GameFactory = (canvas, hooks) => {
+export const create: GameFactory = (canvas, hooks, { W, H, landscape }) => {
+  const BASE_W = landscape ? 240 : 200;
+  // Tela larga: o bloco anda mais rápido para levar o mesmo tempo de um lado ao outro.
+  const SPEED_K = 0.5 + (0.5 * W) / 360;
+  // Quantos andares ficam visíveis abaixo do topo (a câmera sobe a partir daí).
+  const KEEP = Math.floor((H - 80 - H * 0.45) / BH);
   const ctx = setupCanvas(canvas, W, H);
   let stack: Block[] = [];
   let cur: Block & { dir: number } = { x: 0, w: BASE_W, level: 1, dir: 1 };
@@ -29,7 +31,7 @@ export const create: GameFactory = (canvas, hooks) => {
   let overT = 0;
 
   const yOf = (level: number) => H - 80 - level * BH; // posição no "mundo" (cresce para cima)
-  const speedOf = (level: number) => Math.min(420, 150 + level * 7);
+  const speedOf = (level: number) => Math.min(420, 150 + level * 7) * SPEED_K;
 
   const reset = () => {
     stack = [{ x: (W - BASE_W) / 2, w: BASE_W, level: 0 }];
@@ -47,7 +49,7 @@ export const create: GameFactory = (canvas, hooks) => {
     const top = stack.at(-1)!;
     const fromLeft = top.level % 2 === 0;
     cur = { x: fromLeft ? -top.w * 0.6 : W - top.w * 0.4, w: top.w, level: top.level + 1, dir: fromLeft ? 1 : -1 };
-    camTarget = Math.max(0, (top.level - 9) * BH);
+    camTarget = Math.max(0, (top.level - KEEP) * BH);
   };
 
   const drop = () => {
