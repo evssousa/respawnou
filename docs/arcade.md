@@ -11,6 +11,9 @@ banco nem do robô: o catálogo é código. Sem conta e sem servidor; recorde e 
 | `respawn` | Respawn | Ação | Corredor infinito: pula blocos e buracos, não pula quando vem drone baixo. Segurar = pulo mais alto |
 | `torre` | Torre | Reflexo | Empilhar blocos que vão e voltam; sobra é cortada; 3 perfeitos devolvem largura |
 | `quebra-pixel` | Quebra-Pixel | Clássicos | Raquete e bolinha; fases geradas na hora (desenho espelhado), blocos de 1 a 3 batidas, 3 vidas |
+| `meteoros` | Chuva de Meteoros | Ação | Nave com tiro automático; meteoros grandes se partem; itens tiro triplo e escudo; 3 vidas |
+| `cabo-de-forca` | Cabo de Força | Clássicos | Estilo cobrinha: cabo cresce com pilhas; pilha dourada a cada 5 (some em 6 s); deslizar ou tocar do lado |
+| `trinca` | Trinca | Quebra-cabeça | Juntar 3+ iguais contra o relógio (cada peça devolve 0,5 s; o relógio acelera até 2,5×); cascatas multiplicam; dica após 6 s parado; embaralha sem jogada. Peças com cor e formato diferentes (daltonismo) |
 
 Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou visual de jogo existente).
 
@@ -30,7 +33,8 @@ Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou 
 ## Novo jogo (checklist)
 
 1. `app/arcade/<slug>.ts` exportando `create` (ver os existentes; teclado só age com o jogo rodando).
-2. Entrada em `ARCADE_GAMES` (`app/lib/arcade.ts`) e em `LOADERS` (`ArcadeShell.tsx`).
+2. Entrada em `ARCADE_GAMES` (`app/lib/arcade.ts`) e em `LOADERS` (`ArcadeShell.tsx`). O nome do
+   arquivo pode diferir do slug (ex.: `cabo.ts` → `cabo-de-forca`).
 3. Miniatura em `ArcadeThumb.tsx`.
 4. Testar no celular (toque, cabe na tela, sem rolagem lateral) e no teclado.
 
@@ -41,5 +45,4 @@ seguros: abaixo de "Como jogar"/"Controles" e na lista `/arcade`.
 
 ## Próximos jogos (ideias)
 
-Chuva de Meteoros (nave, ação), Cabo de Força (estilo cobrinha), Mira (reflexo), Combina 3,
-Memória, Campo Minado e Paciência. Ranking com apelido (precisa de banco) fica para depois.
+Mira (reflexo), Memória, Campo Minado e Paciência. Ranking com apelido (precisa de banco) fica para depois.

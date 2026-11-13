@@ -1,12 +1,13 @@
 // Catálogo do Arcade (/arcade): jogos de passatempo próprios, infinitos, que rodam no navegador.
 // O código de cada jogo fica em app/arcade/<slug>.ts e só é baixado na página dele.
 
-export type ArcadeCategory = "acao" | "reflexo" | "classicos";
+export type ArcadeCategory = "acao" | "reflexo" | "classicos" | "quebra-cabeca";
 
 export const ARCADE_CATEGORIES: Record<ArcadeCategory, string> = {
   acao: "Ação",
   reflexo: "Reflexo",
   classicos: "Clássicos",
+  "quebra-cabeca": "Quebra-cabeça",
 };
 
 export interface ArcadeGame {
@@ -85,6 +86,67 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     width: 360,
     height: 600,
+    playsLabel: "Partidas",
+  },
+  {
+    slug: "meteoros",
+    name: "Chuva de Meteoros",
+    category: "acao",
+    tagline: "A nave atira sozinha. Você só precisa sobreviver.",
+    description: "Jogue Chuva de Meteoros grátis no navegador: pilote a nave, destrua meteoros que se partem, pegue tiro triplo e escudo e sobreviva o máximo que der.",
+    howTo: [
+      "A nave atira sem parar. Mova para mirar e desviar dos meteoros.",
+      "Meteoros grandes aguentam vários tiros e se partem em dois menores ao quebrar.",
+      "Pegue os itens que caem: 3 é tiro triplo por 8 segundos e E é um escudo que aguenta uma batida.",
+      "Você tem 3 vidas; depois de uma batida, a nave pisca e fica protegida por um instante. A chuva aperta com o tempo.",
+    ],
+    controls: [
+      { device: "Teclado", text: "Setas ou WASD para mover" },
+      { device: "Toque", text: "Arraste o dedo na tela (a nave fica um pouco acima do dedo)" },
+      { device: "Mouse", text: "A nave segue o ponteiro" },
+    ],
+    width: 360,
+    height: 600,
+    playsLabel: "Voos",
+  },
+  {
+    slug: "cabo-de-forca",
+    name: "Cabo de Força",
+    category: "classicos",
+    tagline: "Pegue as pilhas sem se enrolar no próprio cabo.",
+    description: "Jogue Cabo de Força grátis no navegador: guie o cabo, pegue pilhas para crescer e não bata na parede nem em você mesmo. Estilo cobrinha, funciona no celular.",
+    howTo: [
+      "O cabo anda sozinho. Você escolhe para onde ele vira.",
+      "Cada pilha verde faz o cabo crescer e vale 10 pontos. O ritmo acelera um pouco a cada pilha.",
+      "A cada 5 pilhas aparece uma pilha dourada que vale 50 pontos, mas some em 6 segundos.",
+      "Bateu na parede ou no próprio cabo, acabou.",
+    ],
+    controls: [
+      { device: "Teclado", text: "Setas ou WASD" },
+      { device: "Toque", text: "Deslize o dedo na direção desejada, ou toque do lado para onde quer virar" },
+    ],
+    width: 360,
+    height: 400,
+    playsLabel: "Partidas",
+  },
+  {
+    slug: "trinca",
+    name: "Trinca",
+    category: "quebra-cabeca",
+    tagline: "Alinhe três iguais antes que o relógio zere.",
+    description: "Jogue Trinca grátis no navegador: troque peças vizinhas, alinhe 3 ou mais iguais, faça cascatas e ganhe tempo contra um relógio cada vez mais rápido.",
+    howTo: [
+      "Troque duas peças vizinhas para formar uma linha de 3 ou mais iguais, na horizontal ou na vertical.",
+      "Cada peça quebrada devolve meio segundo ao relógio. Linhas de 4 ou 5 valem pontos extras.",
+      "Quando as peças que caem formam novas linhas, é cascata: os pontos são multiplicados.",
+      "O relógio corre cada vez mais rápido. Ficou parado? Depois de alguns segundos o jogo mostra uma dica.",
+    ],
+    controls: [
+      { device: "Toque / mouse", text: "Toque numa peça e depois na vizinha, ou arraste a peça para o lado" },
+      { device: "Teclado", text: "Setas movem o cursor; Espaço seleciona; com uma peça selecionada, a seta troca" },
+    ],
+    width: 360,
+    height: 468,
     playsLabel: "Partidas",
   },
 ];

@@ -10,6 +10,9 @@ const LOADERS: Record<string, () => Promise<{ create: GameFactory }>> = {
   respawn: () => import("~/arcade/respawn"),
   torre: () => import("~/arcade/torre"),
   "quebra-pixel": () => import("~/arcade/quebra-pixel"),
+  meteoros: () => import("~/arcade/meteoros"),
+  "cabo-de-forca": () => import("~/arcade/cabo"),
+  trinca: () => import("~/arcade/trinca"),
 };
 
 type Phase = "loading" | "ready" | "play" | "paused" | "over" | "error";

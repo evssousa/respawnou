@@ -38,7 +38,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export default function ArcadeGamePage({ loaderData }: Route.ComponentProps) {
   const { game } = loaderData;
-  const others = ARCADE_GAMES.filter((g) => g.slug !== game.slug);
+  // Até 4 sugestões, começando pelo jogo seguinte do catálogo (cada página sugere um conjunto diferente).
+  const i = ARCADE_GAMES.findIndex((g) => g.slug === game.slug);
+  const others = [...ARCADE_GAMES.slice(i + 1), ...ARCADE_GAMES.slice(0, i)].slice(0, 4);
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-8 px-4 pt-6 sm:px-6">
       <div className="flex flex-col gap-2">
