@@ -62,6 +62,12 @@ Essas páginas são geradas a partir de dados (RAWG/IGDB, lojas) e não reescrev
 
 ## Como ligar os anúncios (`ADSENSE_CLIENT`)
 
+> Ao ligar pela primeira vez, abrir o site no navegador com o console aberto: com o script do Google
+> ativo o React pode avisar "A tree hydrated but some attributes ... didn't match" (o script injeta
+> elementos no `<head>`). Sem o AdSense são 0 avisos (testado em 6 páginas em 2026-11-14). É aviso do
+> React, sem efeito visível; se o layout quebrar de verdade, tratar antes de pedir a revisão.
+
+
 Tudo fica desligado até existir a variável `ADSENSE_CLIENT` (ex.: `ca-pub-1234567890123456`, mostrada
 pelo Google na inscrição). Cadastrar no hPanel → Node.js → Variáveis de ambiente (sem mexer nas outras).
 O app reinicia e, sem novo build, passa a:

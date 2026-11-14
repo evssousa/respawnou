@@ -5,6 +5,15 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+## 2026-11-14 — Arcade: divulgação, textos legais e anúncios fora dos jogos
+
+- **Home:** módulo "Passe o tempo" com 3 jogos que trocam todo dia (mesmo card da lista).
+- **Compartilhar:** botão na tela de fim de jogo. Menu nativo só em tela de toque; no PC vai direto ao WhatsApp.
+- **Legal:** cookies e privacidade passam a dizer que recorde/partidas ficam só no `localStorage`;
+  Sobre e FAQ citam o Arcade (datas de revisão atualizadas em `site.ts`).
+- **Anúncios:** `/arcade/<jogo>` não carrega o script do AdSense (anúncio automático poderia cair em cima
+  do jogo). Excluir também `/arcade/*` no painel do AdSense ao ser aprovado (ver arcade.md).
+
 ## 2026-11-14 — Coleta cobre o cron de publicação
 
 - **O quê:** se "publicar" não roda há mais de 75 min, a coleta o chama.

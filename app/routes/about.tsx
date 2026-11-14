@@ -41,7 +41,13 @@ const sections: DocSection[] = [
             <strong>Calendário de lançamentos</strong> semana a semana;
           </li>
           <li>
-            <strong>Promoções e jogos grátis</strong> que realmente valem a pena.
+            <strong>Promoções e jogos grátis</strong> que realmente valem a pena;
+          </li>
+          <li>
+            <strong>
+              <TextLink to="/arcade">Arcade</TextLink>
+            </strong>
+            : jogos de passatempo próprios, sem fim, para jogar no navegador, no PC ou no celular, sem cadastro.
           </li>
         </ul>
         <p>Tudo isso para {PLATFORMS.map((p) => p.label).join(", ").replace(/, ([^,]*)$/, " e $1")}.</p>

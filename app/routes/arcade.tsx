@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router";
-import { ArcadeThumb } from "~/components/ArcadeThumb";
+import { useSearchParams } from "react-router";
+import { ArcadeCard, useArcadeRecords } from "~/components/ArcadeCard";
 import { FilterLink, SectionTitle } from "~/components/ui";
-import { ARCADE_CATEGORIES, ARCADE_GAMES, readRecord, type ArcadeCategory } from "~/lib/arcade";
+import { ARCADE_CATEGORIES, ARCADE_GAMES, type ArcadeCategory } from "~/lib/arcade";
 import { seo } from "~/lib/seo";
 import { SITE } from "~/lib/site";
 
@@ -14,9 +13,7 @@ export const meta = () =>
   });
 
 export default function ArcadePage() {
-  // Recordes ficam no navegador: lidos depois de montar (não existem no servidor).
-  const [best, setBest] = useState<Record<string, number>>({});
-  useEffect(() => setBest(Object.fromEntries(ARCADE_GAMES.map((g) => [g.slug, readRecord(g.slug).best]))), []);
+  const best = useArcadeRecords(ARCADE_GAMES);
   // Filtro por categoria (?categoria=); o canonical continua /arcade.
   const cat = useSearchParams()[0].get("categoria") as ArcadeCategory | null;
   const active = cat && cat in ARCADE_CATEGORIES ? cat : null;
@@ -46,18 +43,7 @@ export default function ArcadePage() {
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {games.map((g) => (
           <li key={g.slug}>
-            <Link to={`/arcade/${g.slug}`} className="group ch flex h-full flex-col bg-ink-2 transition-colors hover:bg-ink-3">
-              <ArcadeThumb slug={g.slug} className="block aspect-video w-full" />
-              <div className="flex flex-1 flex-col gap-2 p-5">
-                <span className="font-mono text-[11px] font-bold uppercase text-acc">{ARCADE_CATEGORIES[g.category]}</span>
-                <h2 className="font-display text-3xl uppercase leading-none group-hover:text-acc">{g.name}</h2>
-                <p className="text-body">{g.tagline}</p>
-                <div className="mt-auto flex items-center justify-between pt-3 font-mono text-xs font-bold">
-                  <span className="text-muted">{best[g.slug] ? <>SEU RECORDE <span className="text-paper">{best[g.slug]}</span></> : "NOVO"}</span>
-                  <span className="text-acc">JOGAR →</span>
-                </div>
-              </div>
-            </Link>
+            <ArcadeCard game={g} best={best[g.slug]} />
           </li>
         ))}
       </ul>

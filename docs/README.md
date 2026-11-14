@@ -66,6 +66,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 6 | Arcade, 2ª leva: Chuva de Meteoros, Cabo de Força e Trinca (nova categoria Quebra-cabeça) | ✅ |
 | 6 | Arcade, 3ª leva: Mira, Memória, Campo Minado e Paciência + filtro por categoria (10 jogos) | ✅ |
 | 6 | Arcade: formato horizontal no PC e vertical no celular (todos os jogos) | ✅ |
+| 6 | Arcade na home (módulo "Passe o tempo"), compartilhar resultado, textos legais/Sobre/FAQ citando o Arcade, sem script de anúncios nas páginas dos jogos (2026-11-14) | ✅ |
 
 ## Histórico de commits relevantes
 

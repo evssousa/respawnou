@@ -13,7 +13,9 @@ import {
   ReviewBoard,
 } from "~/components/home-modules";
 import { getFeatured, getFreeGames, getMostRead, getReleases, getSectionStats, listPosts } from "~/lib/content.server";
+import { ArcadeCard, useArcadeRecords } from "~/components/ArcadeCard";
 import { platformsFor, useAvailability } from "~/lib/availability";
+import { ARCADE_GAMES } from "~/lib/arcade";
 import { seo } from "~/lib/seo";
 import { absoluteUrl, SITE } from "~/lib/site";
 
@@ -32,7 +34,11 @@ export async function loader() {
     getFreeGames(),
     getMostRead(5),
   ]);
+  // 3 jogos do Arcade, trocando todo dia (mesmo conjunto para todo mundo naquele dia).
+  const day = Math.floor(Date.now() / 86_400_000);
+  const arcade = [0, 1, 2].map((i) => ARCADE_GAMES[(day * 3 + i) % ARCADE_GAMES.length].slug);
   return {
+    arcade,
     featured,
     log: log.items,
     stats,
@@ -79,6 +85,8 @@ interface HomeModule {
 
 export default function Home({ loaderData: d }: Route.ComponentProps) {
   const platforms = platformsFor(useAvailability());
+  const arcadeGames = d.arcade.map((slug) => ARCADE_GAMES.find((g) => g.slug === slug)!);
+  const best = useArcadeRecords(arcadeGames);
   // Módulo sem conteúdo some da home (nada de "em breve"); a numeração acompanha.
   const modules = (
     [
@@ -129,6 +137,22 @@ export default function Home({ loaderData: d }: Route.ComponentProps) {
         accent: "do dia",
         action: { to: "/promocoes", label: "TODAS AS PROMOÇÕES" },
         body: <LootDrop free={d.free} promos={d.promos} />,
+      },
+      {
+        show: true,
+        code: "SALA DE JOGOS // ARCADE",
+        title: "Passe o",
+        accent: "tempo",
+        action: { to: "/arcade", label: "TODOS OS JOGOS" },
+        body: (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {arcadeGames.map((g) => (
+              <li key={g.slug}>
+                <ArcadeCard game={g} best={best[g.slug]} as="h3" />
+              </li>
+            ))}
+          </ul>
+        ),
       },
     ] satisfies HomeModule[]
   ).filter((m) => m.show);

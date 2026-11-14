@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameFactory, GameInstance } from "~/arcade/engine";
 import { readRecord, saveRecord, type ArcadeGame, type ArcadeRecord } from "~/lib/arcade";
+import { absoluteUrl, SITE } from "~/lib/site";
 import { cx } from "./ui";
 
 const LOADERS: Record<string, () => Promise<{ create: GameFactory }>> = {
@@ -153,7 +154,7 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
       const p = phaseRef.current;
       const confirm = e.code === "Space" || e.code === "Enter";
       // Botões e links fora da tela do jogo (ex.: "tela cheia") seguem o comportamento normal.
-      if (confirm && (el?.tagName === "BUTTON" || el?.tagName === "A") && !el.closest("[data-arcade-overlay]")) return;
+      if (confirm && (el?.tagName === "BUTTON" || el?.tagName === "A") && (!el.closest("[data-arcade-overlay]") || el.hasAttribute("data-arcade-skip"))) return;
       if ((p === "ready" || p === "over") && confirm) {
         e.preventDefault();
         e.stopPropagation();
@@ -184,6 +185,19 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
     document.addEventListener("fullscreenchange", onFs);
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
+
+  // Compartilha o resultado: menu nativo no celular; no PC abre o WhatsApp Web.
+  const share = async () => {
+    const url = absoluteUrl(`/arcade/${game.slug}`);
+    const text = `Fiz ${score} ${score === 1 ? "ponto" : "pontos"} no ${game.name} do ${SITE.name}! Tenta bater:`;
+    try {
+      // Menu nativo só em tela de toque (celular/tablet); no PC o do sistema é estranho, vai direto ao WhatsApp.
+      if (navigator.share && window.matchMedia("(pointer: coarse)").matches) await navigator.share({ text, url });
+      else window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`, "_blank", "noopener,noreferrer");
+    } catch {
+      // Compartilhamento cancelado: nada a fazer.
+    }
+  };
 
   const toggleFs = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -260,6 +274,11 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
                   <ShellButton onClick={start} autoFocus>
                     {game.slug === "respawn" ? "RESPAWN" : "JOGAR DE NOVO"}
                   </ShellButton>
+                  {score > 0 && (
+                    <button type="button" data-arcade-skip onClick={share} className="chs min-h-10 bg-ink-3 px-5 font-mono text-xs font-bold text-acc hover:bg-acc hover:text-ink">
+                      COMPARTILHAR RESULTADO
+                    </button>
+                  )}
                   <p className="font-mono text-[11px] text-muted">
                     {game.playsLabel.toUpperCase()}: {rec.plays}
                   </p>

@@ -30,7 +30,11 @@ export async function loader() {
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
   // O painel /admin tem o próprio cabeçalho: sem barra de status, menu e rodapé do site.
-  const admin = useLocation().pathname.startsWith("/admin");
+  const { pathname } = useLocation();
+  const admin = pathname.startsWith("/admin");
+  // Páginas dos jogos (/arcade/<jogo>) nunca carregam o script de anúncios: com anúncios automáticos
+  // o Google poderia colar um anúncio em cima do jogo, e clique acidental em jogo é motivo de punição.
+  const gamePage = /^\/arcade\/[^/]+/.test(pathname);
   // Anúncios + banner de cookies só com ADSENSE_CLIENT configurado, e nunca no painel.
   const adsClient = admin ? null : (data?.adsClient ?? null);
   return (
@@ -44,7 +48,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {adsClient && (
           <>
             <script dangerouslySetInnerHTML={{ __html: consentBootstrap() }} />
-            <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsClient}`} crossOrigin="anonymous" />
+            {!gamePage && <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsClient}`} crossOrigin="anonymous" />}
           </>
         )}
       </head>

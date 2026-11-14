@@ -36,6 +36,8 @@ Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou 
 - `app/components/ArcadeShell.tsx`: moldura comum. Carrega o jogo só no navegador (import dinâmico,
   um arquivo por jogo), telas de início/pausa/fim, recorde, tela cheia, pausa ao trocar de aba
   (P/Esc também pausam) e rola a página até o jogo ao começar (no celular o título empurra o jogo).
+- Tela de fim de jogo: botão "Compartilhar resultado" (menu nativo no celular, WhatsApp Web no PC).
+- Home: módulo "Passe o tempo" com 3 jogos que trocam todo dia (`ArcadeCard`, o mesmo card da lista).
 - Páginas: `/arcade` (lista com o recorde de cada um e filtro `?categoria=`, canonical sempre `/arcade`) e `/arcade/:slug` (jogo + "como jogar" +
   controles + JSON-LD `VideoGame`). Entram no menu, rodapé e sitemap sempre.
 
@@ -49,8 +51,12 @@ Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou 
 
 ## Anúncios (quando o AdSense entrar)
 
-Nunca colados na área do jogo nem nos botões (clique acidental é motivo de punição). Lugares
-seguros: abaixo de "Como jogar"/"Controles" e na lista `/arcade`.
+- As páginas `/arcade/<jogo>` **não carregam o script do AdSense** (`gamePage` em `app/root.tsx`):
+  com anúncios automáticos o Google poderia colar um anúncio em cima do jogo, e clique acidental em
+  jogo é motivo de punição. A lista `/arcade` e o resto do site carregam normal.
+- Ao ser aprovado, no painel do AdSense (Anúncios → Por site → Editar → Exclusões de página) excluir
+  também `respawnou.com.br/arcade/*`: navegando de uma página para a página do jogo sem recarregar,
+  o script da página anterior continua carregado.
 
 ## Próximos jogos (ideias)
 

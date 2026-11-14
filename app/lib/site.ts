@@ -94,15 +94,15 @@ export interface DocPage {
 }
 
 export const DOC_PAGES: DocPage[] = [
-  { to: "/sobre", label: "Sobre", group: "site", updated: "2026-11-10" },
+  { to: "/sobre", label: "Sobre", group: "site", updated: "2026-11-14" },
   { to: "/contato", label: "Contato", group: "site", updated: "2026-11-10" },
-  { to: "/faq", label: "Perguntas frequentes", group: "site", updated: "2026-11-10" },
+  { to: "/faq", label: "Perguntas frequentes", group: "site", updated: "2026-11-14" },
   { to: "/politica-editorial", label: "Política editorial", group: "site", updated: "2026-11-10" },
   { to: "/como-avaliamos", label: "Como avaliamos", group: "site", updated: "2026-11-11" },
   { to: "/anuncie", label: "Anuncie", group: "site", updated: "2026-11-10" },
   { to: "/termos", label: "Termos de uso", group: "legal", updated: "2026-11-11" },
-  { to: "/privacidade", label: "Privacidade", group: "legal", updated: "2026-11-11" },
-  { to: "/cookies", label: "Cookies", group: "legal", updated: "2026-11-11" },
+  { to: "/privacidade", label: "Privacidade", group: "legal", updated: "2026-11-14" },
+  { to: "/cookies", label: "Cookies", group: "legal", updated: "2026-11-14" },
   { to: "/acessibilidade", label: "Acessibilidade", group: "legal", updated: "2026-11-10" },
   { to: "/mapa-do-site", label: "Mapa do site", group: "legal", updated: "2026-11-10" },
 ];

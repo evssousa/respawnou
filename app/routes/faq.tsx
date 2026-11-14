@@ -20,6 +20,20 @@ const FAQ: { group: string; items: Faq[] }[] = [
         a: `Um portal de games em português com notícias, reviews, guias, calendário de lançamentos, promoções e jogos grátis para PC, consoles e celular.`,
       },
       { q: "É de graça?", a: "Sim. Todo o conteúdo é gratuito e não exige cadastro." },
+      {
+        q: "O que é o Arcade?",
+        a: "Uma seção com jogos de passatempo criados pelo Respawnou, infinitos e gratuitos, que rodam no navegador do PC e do celular, sem baixar nada e sem cadastro.",
+        rich: (
+          <>
+            Uma seção com jogos de passatempo criados pelo {SITE.name}, infinitos e gratuitos, que rodam no navegador do PC e do celular, sem baixar nada e sem cadastro.
+            Veja a lista em <TextLink to="/arcade">Arcade</TextLink>.
+          </>
+        ),
+      },
+      {
+        q: "Onde fica salvo o meu recorde nos jogos?",
+        a: "Só no seu navegador, neste aparelho. Nada vai para o nosso servidor. Se você limpar os dados do site ou trocar de aparelho, o recorde zera.",
+      },
       { q: "Com que frequência vocês publicam?", a: "Várias vezes por dia, todos os dias, incluindo fins de semana." },
       {
         q: "Vocês usam inteligência artificial?",

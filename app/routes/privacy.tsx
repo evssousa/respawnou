@@ -51,6 +51,11 @@ const sections: DocSection[] = [
                 <td>Exibir anúncios do Google AdSense, limitar repetições e medir resultados.</td>
               </tr>
               <tr>
+                <td>Recordes dos jogos do Arcade</td>
+                <td>Quando você joga. Ficam só no seu navegador (localStorage), nunca vão para o nosso servidor.</td>
+                <td>Mostrar o seu recorde e o número de partidas no próprio aparelho. Não identificam você.</td>
+              </tr>
+              <tr>
                 <td>Nome e e-mail</td>
                 <td>Quando você nos escreve.</td>
                 <td>Responder a sua mensagem.</td>
