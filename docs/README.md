@@ -50,9 +50,10 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 4 | AdSense preparado: `ADSENSE_CLIENT` liga script + Modo de Consentimento v2 + `ads.txt` + banner (adsense.md) | ✅ |
 | 4 | Políticas de privacidade, cookies e termos citando o AdSense | ✅ |
 | — | README de apresentação (todos os direitos reservados, LICENSE própria, capturas em docs/screenshots). Sem "projeto pessoal", sem estrutura de código nem instruções de execução | ✅ |
-| — | Refazer as capturas do README (docs/screenshots/*.webp) quando o site tiver mais conteúdo (editorias além de Notícias, lançamentos) | 💤 |
+| — | Capturas do README refeitas da produção (home, matéria, celular) + Arcade e calendário (2026-11-14); as do painel seguem com dados de teste | ✅ |
 | 4 | Google Search Console: domínio verificado por TXT, sitemap enviado, teste ao vivo OK ("disponível para o Google") e indexação solicitada (2026-11-13) | ✅ |
-| 4 | Acompanhar a indexação no Search Console (Páginas / Sitemaps) e cadastrar no Bing Webmaster Tools (importa do Search Console) | ⏳ |
+| 4 | Bing Webmaster Tools importado do Search Console (2026-11-14) | ✅ |
+| 4 | Acompanhar a indexação no Search Console e no Bing (Páginas / Sitemaps) | ⏳ |
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |
 | 4 | Cadastrar `ADSENSE_CLIENT` no hPanel ao se inscrever no AdSense | 💤 dono |
 | 4 | Ao aprovar o AdSense: e-mail para partner@igdb.com (parceria comercial do IGDB; Claude redige, dono envia) — ver adsense.md | 💤 dono |

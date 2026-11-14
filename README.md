@@ -55,6 +55,10 @@ automação, SEO e deploy — e está em produção.
 |---|---|
 | ![Página de matéria](docs/screenshots/materia.webp) | ![Home no celular](docs/screenshots/celular.webp) |
 
+| Arcade | Calendário de lançamentos |
+|---|---|
+| ![Arcade com os jogos próprios](docs/screenshots/arcade.webp) | ![Calendário de lançamentos](docs/screenshots/lancamentos.webp) |
+
 | Painel administrativo | Editor de matéria |
 |---|---|
 | ![Painel do admin](docs/screenshots/admin-painel.webp) | ![Editor de matéria](docs/screenshots/admin-editar.webp) |
