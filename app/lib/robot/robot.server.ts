@@ -397,6 +397,42 @@ async function rankedQueue() {
   return ranked.sort((a, b) => b.rank - a.rank).map((x) => x.item);
 }
 
+/**
+ * Dois títulos falam do mesmo fato: metade das palavras significativas em comum (do menor)
+ * e um mínimo absoluto de palavras, para títulos curtos da mesma franquia não colidirem.
+ */
+export function sameStory(a: Set<string>, b: Set<string>, minShared = 2) {
+  let n = 0;
+  for (const w of a) if (b.has(w)) n++;
+  return n >= minShared && n / Math.min(a.size, b.size) >= 0.5;
+}
+
+/**
+ * Assunto que já virou matéria nos últimos 4 dias não vira outra. A trava da publicação só
+ * pegava o que estava na fila naquela hora; em 2026-11-14 a saída do Jensen Huang saiu duas
+ * vezes, com um dia de diferença. Compara com os títulos das fontes já usadas (mesmo idioma
+ * das pautas) e tira da fila; fora do teste, marca como descartada.
+ */
+async function dropCovered(queue: SourceItem[], dry: boolean) {
+  const used = await query<{ title: string; post_id: number | null; reason: string | null }>(
+    `SELECT fi.title, fi.post_id, fi.reason FROM feed_items fi
+     WHERE fi.published_at > UTC_TIMESTAMP() - INTERVAL 4 DAY
+       AND ((fi.status = 'used' AND fi.post_id IS NOT NULL) OR (fi.status = 'skipped' AND fi.reason LIKE 'mesmo assunto do post #%'))`,
+  );
+  if (!used.length) return queue;
+  const covered = used.map((u) => ({ kw: keywords(u.title), post: u.post_id ?? Number(/#(\d+)/.exec(u.reason ?? "")?.[1]) }));
+  const keep: SourceItem[] = [];
+  const drop = new Map<number, number[]>();
+  for (const item of queue) {
+    const kw = keywords(item.title);
+    const hit = covered.find((c) => sameStory(kw, c.kw));
+    if (!hit) keep.push(item);
+    else drop.set(hit.post, [...(drop.get(hit.post) ?? []), item.id]);
+  }
+  if (!dry) for (const [post, ids] of drop) await markItems(ids, "skipped", `assunto já publicado (post #${post})`);
+  return keep;
+}
+
 /** Fontes do mesmo assunto (outros veículos) entram juntas: mais contexto, texto mais original. */
 function groupFor(item: SourceItem, queue: SourceItem[]) {
   const kw = keywords(item.title);
@@ -612,7 +648,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
     }
     if (opts.dry && opts.guide) return { status: "skipped", message: `Teste: nenhum guia gerado. ${tried.join(" · ") || "Nenhum jogo de PC saindo agora com requisitos mínimo e recomendado na Steam."}`, stats: { tried } };
 
-    const queue = await rankedQueue();
+    const queue = await dropCovered(await rankedQueue(), Boolean(opts.dry));
     if (!queue.length) return { status: "skipped", message: `Fila vazia: nenhuma pauta nova.${tried.length ? ` ${tried.join(" · ")}` : ""}`, stats: { tried } };
     // Até 3 pautas por execução: se uma for descartada, tenta a próxima.
     for (const item of queue.slice(0, 3)) {
@@ -636,6 +672,15 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
         continue;
       }
       const a = result.article;
+      // Segunda trava: a fonte pode ter título que não entrega o assunto (piada, trocadilho).
+      // O título já escrito em português é comparado com o que saiu nos últimos 5 dias.
+      const twin = recentTitles.find((t) => sameStory(keywords(a.title), keywords(t), 3));
+      if (twin) {
+        const reason = `assunto já publicado: "${twin}"`;
+        tried.push(`#${item.id}: ${reason}`);
+        if (!opts.dry) await markItems(group.map((g) => g.id), "skipped", reason);
+        continue;
+      }
       const slug = await uniqueSlug(a.section, slugify(a.title));
       if (opts.dry) return { status: "ok", message: `Teste: matéria gerada (${a.words} palavras), nada foi gravado.`, post: summary(a, slug), stats: { tried } };
 

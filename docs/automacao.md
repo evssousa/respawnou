@@ -72,6 +72,12 @@ MySQL local (127.0.0.1:3306)
   vira matéria se outra fonte do mesmo assunto tiver imagem (sem capa, a pauta é descartada).
 - O robô junta fontes do mesmo assunto (semelhança de título ≥ 0,5) para escrever com mais
   substância; ao publicar, marca como `skipped` tudo da fila que trata do mesmo assunto.
+- **Assunto já publicado (2026-11-14):** além da fila do momento, duas travas contra matéria repetida:
+  1. antes de escrever, a pauta é comparada com as fontes usadas nos últimos 4 dias (`dropCovered`,
+     ≥ 50% das palavras e ao menos 2 em comum) e sai da fila como `assunto já publicado (post #N)`;
+  2. depois de escrever, o título em português é comparado com os publicados nos últimos 5 dias
+     (≥ 50% e ao menos 3 palavras em comum); se bater, a pauta é descartada e tenta a próxima.
+     Pega fonte com título de piada (ex.: Kotaku "a-one-a-two-hoo-a-three" sobre o Jensen Huang).
 - Descartes automáticos na coleta: reviews/impressões de terceiros, enquetes/quizzes/sorteios,
   listas de ofertas, passatempos, cinema/TV, opinião em primeira pessoa.
 

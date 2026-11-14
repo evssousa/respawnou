@@ -5,6 +5,13 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+## 2026-11-14 — Robô não repete assunto já publicado
+
+- **O quê:** a saída do Jensen Huang da Nvidia virou duas matérias (12/11 e 13/11). Agora a pauta é
+  comparada com as fontes dos últimos 4 dias e o título gerado com os publicados nos últimos 5.
+- **Por quê:** conteúdo duplicado pesa contra no Google e no AdSense ("baixo valor").
+- Desdobramento real do mesmo fato dentro de 5 dias também é barrado; aceitamos a troca.
+
 ## 2026-11-13 — Site enviado ao Google
 
 - **O quê:** Search Console como propriedade de Domínio (TXT no DNS, ao lado do SPF), sitemap enviado
