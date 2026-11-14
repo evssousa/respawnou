@@ -68,6 +68,23 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 6 | Arcade: formato horizontal no PC e vertical no celular (todos os jogos) | ✅ |
 | 6 | Arcade na home (módulo "Passe o tempo"), compartilhar resultado, textos legais/Sobre/FAQ citando o Arcade, sem script de anúncios nas páginas dos jogos (2026-11-14) | ✅ |
 
+## Próximos passos
+
+Em ordem (atualizado em 2026-11-14):
+
+1. Acompanhar a indexação: Search Console (Páginas, Sitemaps) e Bing Webmaster Tools. O robô segue publicando 7 a 8 matérias por dia.
+2. Confirmar que a coleta cobre o cron de "publicar" se ele falhar de novo (ver `automacao.md`); conferir se o deploy da Hostinger terminou depois das últimas mudanças.
+3. Quando houver ~15 a 20 páginas indexadas e 30 a 40 matérias (previsão: 2 a 3 semanas), pedir o AdSense seguindo o checklist de `adsense.md`.
+4. Ao ser aprovado: excluir `/arcade/*` dos anúncios automáticos no painel do AdSense (`arcade.md`) e abrir o console do navegador para checar avisos de hidratação (`adsense.md`).
+5. Depois: Arcade com novos jogos (ideias em `arcade.md`), ranking com apelido (precisa de banco) e capturas novas do painel no README.
+
+## Pendências suas
+
+- Conferir no Search Console quantas páginas estão indexadas e se há erros; contar aqui no chat. Daqui a uns dias, ver em Sitemaps do Bing se o sitemap foi lido.
+- Reconectar a Hostinger pelo `/mcp` (o conector pede autorização) para o Claude ver o histórico do Cron Job "publicar" e confirmar o deploy.
+- No hPanel, ao se inscrever no AdSense: cadastrar `ADSENSE_CLIENT` (só o nome da variável; o valor não vai para o chat).
+- Ao aprovar o AdSense: enviar o e-mail ao partner@igdb.com (o Claude redige, você envia).
+
 ## Histórico de commits relevantes
 
 - `7fa3e2b` frontend inicial · `8f4b64a` tema Central de Comando · `c82e4d9` auditoria UX
