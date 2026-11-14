@@ -60,6 +60,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       });
   else return notFound();
 
+  // Uma linha por chamada do agendador nos logs do aplicativo (hPanel / API da Hostinger). Em 13/11 o
+  // "publicar" deixou de rodar por 5 h sem rastro: assim dá para separar "o cron não chamou" de
+  // "chamou e o site não respondeu". Só aqui, depois do token; não loga o token nem a URL.
+  if (params.job === "coletar" || params.job === "publicar") console.log(`[cron] ${params.job} recebido (${flag("wait") ? "síncrono" : "202"})`);
+
   if (!flag("wait")) {
     // runJob já captura e registra os erros; o catch é só uma rede de segurança.
     job().catch((err) => console.error(`[robô] ${params.job}:`, err));
