@@ -76,6 +76,18 @@ MySQL local (127.0.0.1:3306)
   "publicar" das 19h05 às 23h05 (nenhum registro em `cron_runs`; a coleta seguiu normal). Agora a
   coleta (a cada 30 min) chama `publish()` se a última execução de "publicar" tem mais de 75 min
   (`catchUpMissedPublish`). Com o cron saudável nunca dispara; horário/limite/intervalo valem igual.
+- **Diagnóstico do cron (2026-11-14):** os Cron Jobs do respawnou estão corretos (`*/30` coletar,
+  `5 * * * *` publicar), mas descartam a resposta (`-o /dev/null`), então um buraco como o de 13/11 não
+  deixa rastro. Duas camadas de registro:
+  1. **No site (feito):** cada chamada autorizada de `coletar`/`publicar` escreve `[cron] <job> recebido`
+     nos logs do aplicativo (lidos pela API/hPanel; zeram a cada deploy).
+  2. **No cron (pendente, manual no hPanel → Avançado → Cron Jobs):** criar um job de `publicar` no minuto 6
+     (um depois do atual, para não haver chamadas simultâneas) com o comando abaixo, trocando `SEU_TOKEN`
+     pelo mesmo `CRON_TOKEN` do job atual; depois de ver o arquivo crescer, apagar o job antigo do minuto 5:
+     `date -u >> /home/<usuario>/cron-publicar.log; curl -s -m 50 -o /dev/null -D - "https://respawnou.com.br/api/cron/publicar?token=SEU_TOKEN" >> /home/<usuario>/cron-publicar.log 2>&1`
+     O arquivo fica fora da pasta pública (não grave em `public_html`) e cresce ~17 KB por dia; cada
+     execução deixa a data e os cabeçalhos da resposta (primeira linha = código HTTP). Sem cabeçalhos
+     depois da data = o `curl` falhou ou estourou os 50 s. Não use `%` no comando (no cron vira quebra de linha).
 - **Assunto já publicado (2026-11-14):** além da fila do momento, duas travas contra matéria repetida:
   1. antes de escrever, a pauta é comparada com as fontes usadas nos últimos 4 dias (`dropCovered`,
      ≥ 50% das palavras e ao menos 2 em comum) e sai da fila como `assunto já publicado (post #N)`;
