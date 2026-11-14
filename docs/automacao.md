@@ -72,6 +72,10 @@ MySQL local (127.0.0.1:3306)
   vira matéria se outra fonte do mesmo assunto tiver imagem (sem capa, a pauta é descartada).
 - O robô junta fontes do mesmo assunto (semelhança de título ≥ 0,5) para escrever com mais
   substância; ao publicar, marca como `skipped` tudo da fila que trata do mesmo assunto.
+- **Cron "publicar" faltando (2026-11-14):** em 13/11 o Cron Job da Hostinger não chamou o
+  "publicar" das 19h05 às 23h05 (nenhum registro em `cron_runs`; a coleta seguiu normal). Agora a
+  coleta (a cada 30 min) chama `publish()` se a última execução de "publicar" tem mais de 75 min
+  (`catchUpMissedPublish`). Com o cron saudável nunca dispara; horário/limite/intervalo valem igual.
 - **Assunto já publicado (2026-11-14):** além da fila do momento, duas travas contra matéria repetida:
   1. antes de escrever, a pauta é comparada com as fontes usadas nos últimos 4 dias (`dropCovered`,
      ≥ 50% das palavras e ao menos 2 em comum) e sai da fila como `assunto já publicado (post #N)`;

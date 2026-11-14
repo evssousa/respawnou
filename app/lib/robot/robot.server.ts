@@ -174,8 +174,23 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 
 export async function collect(): Promise<JobResult> {
   const result = await collectFeeds();
-  await retryAfterGeminiOutage();
+  if (!(await retryAfterGeminiOutage())) await catchUpMissedPublish();
   return result;
+}
+
+/**
+ * Rede de segurança do agendador: em 2026-11-13 o Cron Job "publicar" da Hostinger deixou de
+ * chamar o site por 5 h seguidas (19h05 a 23h05), enquanto a coleta rodava normalmente. Se a
+ * última execução de "publicar" (qualquer resultado) tem mais de 75 min, a coleta chama a
+ * publicação. publish() continua respeitando horário, limite diário e intervalo; com o cron
+ * saudável (de hora em hora) isto nunca dispara.
+ */
+async function catchUpMissedPublish() {
+  const [last] = await query<{ started_at: string }>("SELECT started_at FROM cron_runs WHERE job = 'publicar' ORDER BY id DESC LIMIT 1");
+  const age = last ? Date.now() - new Date(String(last.started_at).replace(" ", "T") + "Z").getTime() : Infinity;
+  if (age < 75 * 60_000) return null;
+  console.warn(`[robô] "publicar" sem rodar há ${Math.round(age / 60_000)} min; a coleta assume.`);
+  return publish();
 }
 
 /**

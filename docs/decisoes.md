@@ -5,6 +5,13 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
 
 
+## 2026-11-14 — Coleta cobre o cron de publicação
+
+- **O quê:** se "publicar" não roda há mais de 75 min, a coleta o chama.
+- **Por quê:** o Cron Job da Hostinger pulou 5 execuções seguidas sem deixar rastro no site; a coleta
+  (outro Cron Job) seguiu funcionando. Sem acesso aos logs do hPanel na hora, a saída foi tornar
+  o robô independente de uma falha pontual de um dos jobs.
+
 ## 2026-11-14 — Robô não repete assunto já publicado
 
 - **O quê:** a saída do Jensen Huang da Nvidia virou duas matérias (12/11 e 13/11). Agora a pauta é
