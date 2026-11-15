@@ -85,7 +85,7 @@ Em ordem (atualizado em 2026-11-14):
 
 ## Pendências suas
 
-- Conferir no Search Console quantas páginas estão indexadas e se há erros; contar aqui no chat. Daqui a uns dias, ver em Sitemaps do Bing se o sitemap foi lido.
+- Conferir no Search Console quantas páginas estão indexadas e se há erros; contar aqui no chat. Em 2026-11-15 o relatório de Páginas ainda dizia "Dados em processamento" (as contas dos sites foram unificadas); olhar de novo a partir de 16/11. Daqui a uns dias, ver em Sitemaps do Bing se o sitemap foi lido.
 - Cron Job de diagnóstico do "publicar" (hPanel → Avançado → Cron Jobs): o Claude não conseguiu criá-lo (o sistema bloqueou a ação). Passo a passo e comando em `automacao.md`, seção "Diagnóstico do cron". Opcional: o site já registra cada chamada nos logs do aplicativo.
 - No hPanel, ao se inscrever no AdSense: cadastrar `ADSENSE_CLIENT` (só o nome da variável; o valor não vai para o chat).
 - Ao aprovar o AdSense: enviar o e-mail ao partner@igdb.com (o Claude redige, você envia).
