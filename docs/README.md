@@ -80,7 +80,7 @@ Em ordem (atualizado em 2026-11-14):
 5. Depois: Arcade com novos jogos (ideias em `arcade.md`), ranking com apelido (precisa de banco) e capturas novas do painel no README.
 6. **Mídia kit** dentro de "Anuncie" (`app/routes/advertise.tsx`): público e números reais, formatos e pacotes (incluir o
    Arcade e parcerias com estúdios/lançamentos), regras de conteúdo patrocinado, versão para baixar/imprimir e contato.
-   Outra fonte de renda, vale para todos os sites. Falta planejar (`planejador`, tem parte visual); o piloto é o criasite.
+   Outra fonte de renda, vale para todos os sites. **Decisão (2026-11-15): só depois do AdSense ligado no respawnou.** Falta planejar (`planejador`, tem parte visual); o piloto é o criasite.
    Cuidado: não misturar com as regras do AdSense (`adsense.md`).
 
 ## Pendências suas
