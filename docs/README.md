@@ -77,6 +77,10 @@ Em ordem (atualizado em 2026-11-14):
 3. Pedir o AdSense quando: ≥ 35 a 40 matérias (em 2026-11-14 eram 25: 19 notícias, 3 guias, 3 promoções), ≥ 15 a 20 páginas indexadas no Search Console, site com 2 a 3 semanas de vida (domínio de 10/11) e algumas peças de outro tipo (consenso de reviews, artigos ou listas escritas por você pelo painel). Previsão: entre 24/11 e 1/12. Checklist em `adsense.md`.
 4. Ao ser aprovado: excluir `/arcade/*` dos anúncios automáticos no painel do AdSense (`arcade.md`) e abrir o console do navegador para checar avisos de hidratação (`adsense.md`).
 5. Depois: Arcade com novos jogos (ideias em `arcade.md`), ranking com apelido (precisa de banco) e capturas novas do painel no README.
+6. **Mídia kit** dentro de "Anuncie" (`app/routes/advertise.tsx`): público e números reais, formatos e pacotes (incluir o
+   Arcade e parcerias com estúdios/lançamentos), regras de conteúdo patrocinado, versão para baixar/imprimir e contato.
+   Outra fonte de renda, vale para todos os sites. Falta planejar (`planejador`, tem parte visual); o piloto é o criasite.
+   Cuidado: não misturar com as regras do AdSense (`adsense.md`).
 
 ## Pendências suas
 
