@@ -18,6 +18,7 @@ const LOADERS: Record<string, () => Promise<{ create: GameFactory }>> = {
   memoria: () => import("~/arcade/memoria"),
   "campo-minado": () => import("~/arcade/campo-minado"),
   paciencia: () => import("~/arcade/paciencia"),
+  sudoku: () => import("~/arcade/sudoku"),
 };
 
 type Phase = "loading" | "ready" | "play" | "paused" | "over" | "error";

@@ -18,6 +18,7 @@ banco nem do robô: o catálogo é código. Sem conta e sem servidor; recorde e 
 | `memoria` | Memória | Quebra-cabeça | Pares de ícones em pixel art (18, desenhados no código); fases de 6 a 36 cartas; vida só cai quando dava para acertar; +1 vida por fase |
 | `campo-minado` | Campo Minado | Quebra-cabeça | Infinito: campo limpo → outro com mais minas (10 a 32, 9×12); 1º toque seguro; bandeira por botão direito, toque longo ou modo bandeira; "acorde" no número |
 | `paciencia` | Paciência | Clássicos | Klondike vira 1; toque manda a carta ao melhor lugar, ou arrasta; final automático; mão completa +500 e nova mão; ENCERRAR com dois toques fecha a pontuação |
+| `sudoku` | Sudoku | Quebra-cabeça | Infinito: quadro gerado na hora com solução única; quadros 1–2 fáceis (40 pistas), 3–4 médios (33), do 5 em diante difíceis (27); número errado não entra e custa 1 de 3 vidas; resolver devolve 1 vida e dá bônus de tempo; anotações (tecla N) |
 
 Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou visual de jogo existente).
 
@@ -60,5 +61,5 @@ Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou 
 
 ## Próximos jogos (ideias)
 
-A lista original está completa (10 jogos). Ideias para depois: sudoku, caça-palavras de games,
+A lista original está completa (10 jogos) e o Sudoku entrou depois (11). Ideias para depois: caça-palavras de games,
 pinball simples. Ranking com apelido (precisa de banco) fica para depois.

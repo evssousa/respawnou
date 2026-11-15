@@ -175,6 +175,33 @@ export function ArcadeThumb({ slug, className }: { slug: string; className?: str
           <circle cx="127" cy="71" r="4.5" fill={DANGER} />
         </>
       )}
+      {slug === "sudoku" && (
+        <>
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((c) =>
+            [0, 1, 2, 3, 4, 5, 6, 7, 8].map((r) => {
+              const x = 38 + c * 9.5;
+              const y = 3 + r * 9.5;
+              const v = [5, 0, 0, 0, 7, 0, 0, 0, 0, 6, 0, 0, 1, 9, 5, 0, 0, 0, 0, 9, 8, 0, 0, 0, 0, 6, 0][(c * 3 + r * 7) % 27];
+              return (
+                <g key={`${c}-${r}`}>
+                  <rect x={x} y={y} width="9" height="9" fill={c === 4 && r === 4 ? "#3d5200" : INK3} />
+                  {v > 0 && (
+                    <text x={x + 4.5} y={y + 7.2} fontSize="7" fontWeight="700" textAnchor="middle" fill={(c + r) % 3 === 0 ? ACC : PAPER} fontFamily="monospace">
+                      {v}
+                    </text>
+                  )}
+                </g>
+              );
+            }),
+          )}
+          {[0, 3, 6, 9].map((k) => (
+            <g key={k}>
+              <rect x={38 + k * 9.5 - 0.5} y="3" width="1" height="85.5" fill={ACC} opacity="0.6" />
+              <rect x="38" y={3 + k * 9.5 - 0.5} width="85.5" height="1" fill={ACC} opacity="0.6" />
+            </g>
+          ))}
+        </>
+      )}
       {slug === "paciencia" && (
         <>
           <rect width="160" height="90" fill="#0a1a10" />

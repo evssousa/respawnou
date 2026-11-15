@@ -219,6 +219,25 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     size: { landscape: [720, 520], portrait: [360, 600] },
     playsLabel: "Partidas",
   },
+  {
+    slug: "sudoku",
+    name: "Sudoku",
+    category: "quebra-cabeca",
+    tagline: "Quadros sem fim, do fácil ao difícil.",
+    description: "Jogue Sudoku grátis no navegador, em versão infinita: quadros novos a cada rodada, do fácil ao difícil, com anotações. Para PC e celular.",
+    howTo: [
+      "Preencha o quadro de 9×9 para que cada linha, coluna e quadrado 3×3 tenha os números de 1 a 9, sem repetir.",
+      "Toque numa casa vazia e depois no número. Número errado não entra e custa uma vida (são 3).",
+      "Ligue ANOTAR para marcar candidatos pequenos na casa sem arriscar. Ao acertar um número, ele some das anotações da linha, coluna e quadrado.",
+      "Resolveu o quadro, ganha bônus por velocidade e uma vida de volta, e já vem outro mais difícil: quadros 1–2 fáceis, 3–4 médios, do 5 em diante difíceis.",
+    ],
+    controls: [
+      { device: "Toque / mouse", text: "Toque na casa e depois no número" },
+      { device: "Teclado", text: "Setas movem, 1 a 9 preenchem, N liga as anotações, Backspace limpa as anotações" },
+    ],
+    size: { landscape: [720, 450], portrait: [360, 530] },
+    playsLabel: "Partidas",
+  },
 ];
 
 export const arcadeGame = (slug: string) => ARCADE_GAMES.find((g) => g.slug === slug);
