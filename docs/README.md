@@ -53,7 +53,8 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | — | Capturas do README refeitas da produção (home, matéria, celular) + Arcade e calendário (2026-11-14); as do painel seguem com dados de teste | ✅ |
 | 4 | Google Search Console: domínio verificado por TXT, sitemap enviado, teste ao vivo OK ("disponível para o Google") e indexação solicitada (2026-11-13) | ✅ |
 | 4 | Bing Webmaster Tools importado do Search Console (2026-11-14) | ✅ |
-| 4 | Acompanhar a indexação no Search Console e no Bing (Páginas / Sitemaps) | ⏳ |
+| 4 | Search Console, relatório de Páginas (2026-11-16, dado de 12/11): 33 indexadas, 33 não indexadas (26 noindex de propósito, 1 redirecionamento, 6 "rastreada, mas não indexada") | ✅ |
+| 4 | Acompanhar o Bing (Sitemaps) e o crescimento das indexadas | ⏳ |
 | 4 | Pedido do AdSense (ver checklist em adsense.md) | 💤 |
 | 4 | Cadastrar `ADSENSE_CLIENT` no hPanel ao se inscrever no AdSense | 💤 dono |
 | 4 | Ao aprovar o AdSense: e-mail para partner@igdb.com (parceria comercial do IGDB; Claude redige, dono envia) — ver adsense.md | 💤 dono |
@@ -85,7 +86,7 @@ Em ordem (atualizado em 2026-11-14):
 
 ## Pendências suas
 
-- Conferir no Search Console quantas páginas estão indexadas e se há erros; contar aqui no chat. Em 2026-11-15 o relatório de Páginas ainda dizia "Dados em processamento" (as contas dos sites foram unificadas); olhar de novo a partir de 16/11. Daqui a uns dias, ver em Sitemaps do Bing se o sitemap foi lido.
+- Conferir no Search Console quantas páginas estão indexadas e se há erros; contar aqui no chat. Relatório liberado em 2026-11-16: 33 indexadas (dado de 12/11), acima do mínimo de 15 a 20 do AdSense. Os 26 "noindex" são as fichas de jogos e plataformas sem matéria (de propósito, fora do sitemap); 6 "rastreada, mas não indexada" é normal em site novo e tende a cair com o tempo; 1 redirecionamento (conferir qual URL na próxima olhada). Reexportar por volta de 23/11, antes do pedido do AdSense. Daqui a uns dias, ver em Sitemaps do Bing se o sitemap foi lido.
 - Cron Job de diagnóstico do "publicar" (hPanel → Avançado → Cron Jobs): o Claude não conseguiu criá-lo (o sistema bloqueou a ação). Passo a passo e comando em `automacao.md`, seção "Diagnóstico do cron". Opcional: o site já registra cada chamada nos logs do aplicativo.
 - No hPanel, ao se inscrever no AdSense: cadastrar `ADSENSE_CLIENT` (só o nome da variável; o valor não vai para o chat).
 - Ao aprovar o AdSense: enviar o e-mail ao partner@igdb.com (o Claude redige, você envia).
