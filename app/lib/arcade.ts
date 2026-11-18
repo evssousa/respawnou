@@ -238,6 +238,25 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     size: { landscape: [720, 450], portrait: [360, 530] },
     playsLabel: "Partidas",
   },
+  {
+    slug: "caca-palavras",
+    name: "Caça-Palavras",
+    category: "quebra-cabeca",
+    tagline: "Ache as palavras de games antes do tempo acabar.",
+    description: "Jogue Caça-Palavras de games grátis no navegador, em versão infinita: ache as palavras escondidas antes do tempo acabar. Rodadas cada vez mais difíceis, no PC e no celular.",
+    howTo: [
+      "Ache na grade as palavras da lista. Arraste do começo ao fim de cada uma.",
+      "Nas primeiras rodadas elas ficam na horizontal e na vertical. Depois vêm as diagonais e as palavras de trás para frente.",
+      "Cada palavra vale pontos pelo tamanho. Achou todas, sobra tempo vira bônus e já vem outra rodada, com mais palavras.",
+      "O tempo corre no topo. Quando zerar, a partida acaba.",
+    ],
+    controls: [
+      { device: "Toque / mouse", text: "Arraste do começo ao fim da palavra" },
+      { device: "Teclado", text: "Setas movem o cursor, Espaço marca o começo e depois o fim da palavra, Backspace cancela" },
+    ],
+    size: { landscape: [720, 440], portrait: [360, 480] },
+    playsLabel: "Partidas",
+  },
 ];
 
 export const arcadeGame = (slug: string) => ARCADE_GAMES.find((g) => g.slug === slug);

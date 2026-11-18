@@ -69,6 +69,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 6 | Arcade: formato horizontal no PC e vertical no celular (todos os jogos) | ✅ |
 | 6 | Arcade na home (módulo "Passe o tempo"), compartilhar resultado, textos legais/Sobre/FAQ citando o Arcade, sem script de anúncios nas páginas dos jogos (2026-11-14) | ✅ |
 | 6 | Arcade: Sudoku infinito, 11º jogo (fácil/médio/difícil, anotações, 3 vidas) (2026-11-15) | ✅ |
+| 6 | Arcade: Caça-Palavras de games, 12º jogo (rodadas com mais palavras e direções, tempo por rodada) (2026-11-17) | ✅ |
 
 ## Próximos passos
 

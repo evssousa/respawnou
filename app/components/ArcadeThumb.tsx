@@ -175,6 +175,26 @@ export function ArcadeThumb({ slug, className }: { slug: string; className?: str
           <circle cx="127" cy="71" r="4.5" fill={DANGER} />
         </>
       )}
+      {slug === "caca-palavras" && (
+        <>
+          {Array.from({ length: 8 }, (_, r) =>
+            Array.from({ length: 12 }, (_, c) => {
+              const x = 8 + c * 12;
+              const y = 4 + r * 10.5;
+              const word = r === 3 && c >= 2 && c <= 7; // palavra achada na horizontal
+              const diag = c - r === 4 && r >= 1 && r <= 4; // seleção em diagonal
+              return (
+                <g key={`${c}-${r}`}>
+                  <rect x={x} y={y} width="11" height="9.5" fill={diag ? "#3d5200" : word ? "#26360f" : INK3} />
+                  <text x={x + 5.5} y={y + 7.4} fontSize="7.5" fontWeight="700" textAnchor="middle" fill={word ? ACC : diag ? PAPER : "#8a9787"} fontFamily="monospace">
+                    {"RESPAWNOUJOGOSLEVELBOSSTURBOPIXELAMAPAHERO"[(c * 5 + r * 7) % 42]}
+                  </text>
+                </g>
+              );
+            }),
+          )}
+        </>
+      )}
       {slug === "sudoku" && (
         <>
           {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((c) =>
