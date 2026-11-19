@@ -20,6 +20,7 @@ const LOADERS: Record<string, () => Promise<{ create: GameFactory }>> = {
   paciencia: () => import("~/arcade/paciencia"),
   sudoku: () => import("~/arcade/sudoku"),
   "caca-palavras": () => import("~/arcade/caca-palavras"),
+  pinball: () => import("~/arcade/pinball"),
 };
 
 type Phase = "loading" | "ready" | "play" | "paused" | "over" | "error";

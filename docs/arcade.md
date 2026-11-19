@@ -20,6 +20,7 @@ banco nem do robô: o catálogo é código. Sem conta e sem servidor; recorde e 
 | `paciencia` | Paciência | Clássicos | Klondike vira 1; toque manda a carta ao melhor lugar, ou arrasta; final automático; mão completa +500 e nova mão; ENCERRAR com dois toques fecha a pontuação |
 | `sudoku` | Sudoku | Quebra-cabeça | Infinito: quadro gerado na hora com solução única; quadros 1–2 fáceis (40 pistas), 3–4 médios (33), do 5 em diante difíceis (27); número errado não entra e custa 1 de 3 vidas; resolver devolve 1 vida e dá bônus de tempo; anotações (tecla N) |
 | `caca-palavras` | Caça-Palavras | Quebra-cabeça | Infinito: palavras de games (sem nomes de jogos) numa grade 12×9 (PC) ou 9×9 (celular); arrastar do começo ao fim; rodadas 1–2 só → e ↓, 3–4 + diagonal, 5–6 + de trás para frente, 7+ as 8 direções; 5 a 8 palavras e tempo por rodada (25 s + 12 s por palavra); sobra de tempo vira bônus; acaba quando o tempo zera |
+| `pinball` | Pinball | Reflexo | Mesa 360×560 sempre em pé (no PC fica no centro, com painel ao lado); 3 bolas, 3 bumpers (100 pontos), 5 alvos (acendeu todos: +500 e multiplicador até x5; zera ao perder a bola); rebatedores por setas/A/D/Espaço ou toque nas metades da tela; física própria com 6 subpassos por quadro |
 
 Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou visual de jogo existente).
 
@@ -62,5 +63,5 @@ Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou 
 
 ## Próximos jogos (ideias)
 
-A lista original está completa (10 jogos); Sudoku e Caça-Palavras entraram depois (12). Ideias para depois:
-pinball simples. Ranking com apelido (precisa de banco) fica para depois.
+A lista original está completa (10 jogos); Sudoku e Caça-Palavras entraram depois, e o Pinball fechou a lista (13). Ideias para depois: novos estilos (ritmo,
+sobrevivência). Ranking com apelido (precisa de banco) fica para depois.

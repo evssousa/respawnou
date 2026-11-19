@@ -195,6 +195,24 @@ export function ArcadeThumb({ slug, className }: { slug: string; className?: str
           )}
         </>
       )}
+      {slug === "pinball" && (
+        <>
+          <path d="M52 86V40a28 28 0 0 1 28-28h0a28 28 0 0 1 28 28v46" fill="none" stroke={ACC} strokeWidth="1.5" opacity="0.6" />
+          <path d="M52 62l22 18M108 62l-22 18" stroke={ACC} strokeWidth="1.5" opacity="0.6" />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <circle key={i} cx={62 + i * 9} cy="24" r="2.8" fill={i < 3 ? WARN : INK3} stroke={WARN} strokeWidth="1" />
+          ))}
+          {[[68, 42], [92, 42], [80, 55]].map(([x, y]) => (
+            <g key={`${x}`}>
+              <circle cx={x} cy={y} r="7" fill="#3d5200" stroke={ACC} strokeWidth="1.5" />
+              <circle cx={x} cy={y} r="2" fill={ACC} />
+            </g>
+          ))}
+          <path d="M70 78l9 4" stroke={ACC} strokeWidth="4" strokeLinecap="round" />
+          <path d="M90 78l-9 4" stroke={ACC} strokeWidth="4" strokeLinecap="round" />
+          <circle cx="84" cy="66" r="3" fill={PAPER} />
+        </>
+      )}
       {slug === "sudoku" && (
         <>
           {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((c) =>

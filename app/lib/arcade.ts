@@ -257,6 +257,25 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     size: { landscape: [720, 440], portrait: [360, 480] },
     playsLabel: "Partidas",
   },
+  {
+    slug: "pinball",
+    name: "Pinball",
+    category: "reflexo",
+    tagline: "Segure a bola em jogo e acenda os alvos.",
+    description: "Jogue Pinball grátis no navegador: rebatedores, bumpers e alvos que sobem o multiplicador. Mesa de pinball simples para PC e celular, com 3 bolas.",
+    howTo: [
+      "Use os dois rebatedores para não deixar a bola cair. Você tem 3 bolas.",
+      "Os bumpers redondos dão 100 pontos e jogam a bola de volta.",
+      "Acenda os 5 alvos no alto da mesa: ganha bônus e o multiplicador sobe (até x5). Ele zera quando a bola cai.",
+      "Bata na bola com a ponta do rebatedor para ela subir com mais força.",
+    ],
+    controls: [
+      { device: "Teclado", text: "Seta esquerda ou A: rebatedor esquerdo; seta direita ou D: rebatedor direito; Espaço: os dois" },
+      { device: "Toque", text: "Toque na metade esquerda ou direita da tela" },
+    ],
+    size: { landscape: [720, 480], portrait: [360, 560] },
+    playsLabel: "Partidas",
+  },
 ];
 
 export const arcadeGame = (slug: string) => ARCADE_GAMES.find((g) => g.slug === slug);
