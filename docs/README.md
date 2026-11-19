@@ -73,11 +73,11 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 
 ## Próximos passos
 
-Em ordem (atualizado em 2026-11-14):
+Em ordem (atualizado em 2026-11-19):
 
 1. Acompanhar a indexação: Search Console (Páginas, Sitemaps) e Bing Webmaster Tools. O robô segue publicando 7 a 8 matérias por dia.
 2. Se o "publicar" pular horas de novo, ler os logs do aplicativo (linhas `[cron] publicar recebido`) e o arquivo de log do cron (ver `automacao.md`, "Diagnóstico do cron"). Deploy conferido em 2026-11-14 (commit 23356f4).
-3. Pedir o AdSense quando: ≥ 35 a 40 matérias (em 2026-11-14 eram 25: 19 notícias, 3 guias, 3 promoções), ≥ 15 a 20 páginas indexadas no Search Console, site com 2 a 3 semanas de vida (domínio de 10/11) e algumas peças de outro tipo (consenso de reviews, artigos ou listas escritas por você pelo painel). Previsão: entre 24/11 e 1/12. Checklist em `adsense.md`.
+3. Pedir o AdSense quando: ≥ 35 a 40 matérias (em 2026-11-19 eram cerca de 55 no sitemap: ~40 notícias, 7 guias, 3 artigos, 3 promoções; o critério de quantidade já está cumprido, falta variedade de peças escritas por você e a idade do site), ≥ 15 a 20 páginas indexadas no Search Console, site com 2 a 3 semanas de vida (domínio de 10/11) e algumas peças de outro tipo (consenso de reviews, artigos ou listas escritas por você pelo painel). Previsão: entre 24/11 e 1/12. Checklist em `adsense.md`.
 4. Ao ser aprovado: excluir `/arcade/*` dos anúncios automáticos no painel do AdSense (`arcade.md`) e abrir o console do navegador para checar avisos de hidratação (`adsense.md`).
 5. Depois: Arcade com novos jogos (ideias em `arcade.md`), ranking com apelido (precisa de banco) e capturas novas do painel no README.
 6. **Mídia kit** dentro de "Anuncie" (`app/routes/advertise.tsx`): público e números reais, formatos e pacotes (incluir o
