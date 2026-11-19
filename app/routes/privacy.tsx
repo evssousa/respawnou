@@ -42,7 +42,7 @@ const sections: DocSection[] = [
               </tr>
               <tr>
                 <td>Métricas de audiência</td>
-                <td>Se você aceitar cookies de métricas (quando ativados).</td>
+                <td>Contamos visitas de forma agregada, sem cookies e sem guardar o seu IP: o navegador avisa qual página abriu, de onde você veio e o tipo de aparelho e navegador. Um código calculado com uma chave que muda todo dia evita contar a mesma pessoa duas vezes e não permite identificar ninguém. Robôs não são contados.</td>
                 <td>Entender quais conteúdos são mais lidos e melhorar o site.</td>
               </tr>
               <tr>
@@ -128,8 +128,7 @@ const sections: DocSection[] = [
         <ul>
           <li>empresa de hospedagem, onde o site e o banco de dados ficam guardados;</li>
           <li>Google (AdSense), para exibir anúncios, como descrito acima;</li>
-          <li>ferramentas de métricas, se e quando forem ativadas, mediante consentimento;</li>
-          <li>autoridades públicas, quando houver ordem judicial ou obrigação legal.</li>
+                    <li>autoridades públicas, quando houver ordem judicial ou obrigação legal.</li>
         </ul>
         <p>
           Alguns desses fornecedores podem guardar dados fora do Brasil. Nesses casos, a transferência segue as regras da LGPD para transferência internacional.
@@ -144,7 +143,7 @@ const sections: DocSection[] = [
       <ul>
         <li>registros de acesso: 6 meses, como exige o Marco Civil da Internet;</li>
         <li>mensagens de contato: pelo tempo necessário para resolver o assunto e, depois, até 2 anos para histórico;</li>
-        <li>métricas: de forma agregada, sem identificar você.</li>
+        <li>contagem de visitas (números por dia, página, origem e aparelho, sem dado pessoal): 13 meses; os totais por dia ficam sem prazo.</li>
       </ul>
     ),
   },

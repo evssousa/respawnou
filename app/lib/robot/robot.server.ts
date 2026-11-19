@@ -1,5 +1,7 @@
 // Robô de postagem do Respawnou. Chamado pelas rotas /api/cron/* (Cron Job da Hostinger).
 // Regras de qualidade: docs/adsense.md. Arquitetura: docs/automacao.md.
+import { diaBrasilia } from "../../visitas/core/dia.ts";
+import { limparVisitas } from "../../visitas/server/limpeza.server.ts";
 import { createHash } from "node:crypto";
 import type { ResultSetHeader } from "mysql2";
 import { db, json, query } from "../db.server.ts";
@@ -175,7 +177,22 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 export async function collect(): Promise<JobResult> {
   const result = await collectFeeds();
   if (!(await retryAfterGeminiOutage())) await catchUpMissedPublish();
+  await limparVisitasDoDia();
   return result;
+}
+
+let visitasLimpasEm = "";
+/** Retenção das visitas (app/visitas): roda uma vez por dia, na primeira coleta depois da meia-noite de Brasília. Falha não derruba a coleta. */
+async function limparVisitasDoDia() {
+  const hoje = diaBrasilia();
+  if (visitasLimpasEm === hoje) return;
+  try {
+    const r = await limparVisitas();
+    visitasLimpasEm = hoje;
+    if (Object.values(r).some((n) => n > 0)) console.log(`[visitas] limpeza: ${JSON.stringify(r)}`);
+  } catch (e) {
+    console.error(`[visitas] limpeza falhou: ${String((e as Error)?.message ?? e).slice(0, 120)}`);
+  }
 }
 
 /**

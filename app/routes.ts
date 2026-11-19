@@ -47,12 +47,14 @@ export default [
     route("fila", "routes/admin/queue.tsx"),
     route("fontes", "routes/admin/feeds.tsx"),
     route("robo", "routes/admin/robot.tsx"),
+    route("visitas", "routes/admin/visitas.tsx"),
     route("config", "routes/admin/settings.tsx"),
   ]),
 
   // Robô de postagem (Cron Job da Hostinger), protegido por CRON_TOKEN.
   route("api/cron/:job", "routes/cron.ts"),
-  // Contador de visitas (a página da matéria avisa depois de carregar no navegador).
+  // Contador de visitas: o navegador avisa (POST) depois que cada página abre. /api/view é o endereço antigo (só responde 204).
+  route("api/v", "routes/api.v.ts"),
   route("api/view", "routes/view.ts"),
 
   route("*", "routes/not-found.tsx"),

@@ -1,0 +1,38 @@
+/* Cores do painel de visitas (respawnou, tema "Central de Comando"): só este bloco muda de um site para outro. */
+.vp {
+  --vp-bg: var(--color-ink);
+  --vp-card: var(--color-ink-2);
+  --vp-sunken: var(--color-ink-3);
+  --vp-ink: var(--color-paper);
+  --vp-soft: var(--color-muted);
+  --vp-line: var(--color-line-soft);
+  --vp-accent: var(--color-acc);
+  --vp-accent-soft: color-mix(in srgb, var(--color-acc) 14%, transparent);
+  --vp-hero: var(--color-acc);
+  --vp-hero-ink: var(--color-ink);
+  --vp-hero-label: var(--color-acc-deep);
+  --vp-up: var(--color-acc);
+  --vp-down: #ff7a6e;
+  --vp-o-direto: #8a9787;
+  --vp-o-busca: #6f9cf0;
+  --vp-o-social: #ff7a6e;
+  --vp-o-site: #f0b04a;
+  --vp-o-campanha: #c8ff2e;
+}
+.vp .vp-pulso {
+  animation: vp-pulso 2s ease-in-out infinite;
+}
+@keyframes vp-pulso {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vp .vp-pulso {
+    animation: none;
+  }
+}

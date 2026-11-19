@@ -14,7 +14,7 @@ const COOKIE_TYPES = [
     use: "No Arcade, o seu recorde e o número de partidas ficam salvos só neste navegador (localStorage), para você continuar de onde parou. Não são enviados ao servidor nem usados para anúncios.",
     consent: "Não precisa: só guarda o que você mesmo jogou. Apagar os dados do site no navegador zera os recordes.",
   },
-  { type: "Métricas", status: "Ainda não usamos", use: "Contam visitas e páginas lidas, de forma agregada.", consent: "Sim, pedido no aviso de cookies." },
+  { type: "Métricas", status: "Contagem própria, sem cookies", use: "Contam visitas e páginas lidas de forma agregada, sem cookie, sem guardar o seu IP e sem nada salvo no seu aparelho.", consent: "Não precisa: não há cookie nem dado pessoal." },
   {
     type: "Publicidade",
     status: "Google AdSense",

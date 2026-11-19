@@ -69,6 +69,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 6 | Arcade: formato horizontal no PC e vertical no celular (todos os jogos) | ✅ |
 | 6 | Arcade na home (módulo "Passe o tempo"), compartilhar resultado, textos legais/Sobre/FAQ citando o Arcade, sem script de anúncios nas páginas dos jogos (2026-11-14) | ✅ |
 | 6 | Arcade: Sudoku infinito, 11º jogo (fácil/médio/difícil, anotações, 3 vidas) (2026-11-15) | ✅ |
+| 3 | Painel de visitas em /admin/visitas: contagem própria sem cookie, cartões, gráfico de 30 dias, páginas, origem e aparelho (módulo `app/visitas`, migration 009) (2026-11-19) | ✅ |
 | 6 | Arcade: Caça-Palavras de games, 12º jogo (rodadas com mais palavras e direções, tempo por rodada) (2026-11-17) | ✅ |
 | 6 | Arcade: Pinball, 13º jogo (3 bolas, bumpers, alvos com multiplicador) (2026-11-19) | ✅ |
 
@@ -80,7 +81,7 @@ Em ordem (atualizado em 2026-11-19):
 2. Se o "publicar" pular horas de novo, ler os logs do aplicativo (linhas `[cron] publicar recebido`) e o arquivo de log do cron (ver `automacao.md`, "Diagnóstico do cron"). Deploy conferido em 2026-11-14 (commit 23356f4).
 3. Pedir o AdSense quando: ≥ 35 a 40 matérias (em 2026-11-19 eram cerca de 55 no sitemap: ~40 notícias, 7 guias, 3 artigos, 3 promoções; o critério de quantidade já está cumprido, falta variedade de peças escritas por você e a idade do site), ≥ 15 a 20 páginas indexadas no Search Console, site com 2 a 3 semanas de vida (domínio de 10/11) e algumas peças de outro tipo (consenso de reviews, artigos ou listas escritas por você pelo painel). Previsão: entre 24/11 e 1/12. Checklist em `adsense.md`.
 4. Ao ser aprovado: excluir `/arcade/*` dos anúncios automáticos no painel do AdSense (`arcade.md`) e abrir o console do navegador para checar avisos de hidratação (`adsense.md`).
-5. Depois: Arcade com novos jogos (ideias em `arcade.md`), ranking com apelido (precisa de banco) e capturas novas do painel no README.
+5. Painel de visitas no ar (2026-11-19). Depois de 2 semanas de dados, trocar o critério de "mais lidas" da home/laterais para visitas dos últimos 7 dias (`visit_pages`). Depois: Arcade com novos jogos (ideias em `arcade.md`), ranking com apelido (precisa de banco) e capturas novas do painel no README.
 6. **Mídia kit** dentro de "Anuncie" (`app/routes/advertise.tsx`): público e números reais, formatos e pacotes (incluir o
    Arcade e parcerias com estúdios/lançamentos), regras de conteúdo patrocinado, versão para baixar/imprimir e contato.
    Outra fonte de renda, vale para todos os sites. **Decisão (2026-11-15): só depois do AdSense ligado no respawnou.** Falta planejar (`planejador`, tem parte visual); o piloto é o criasite.
@@ -88,6 +89,7 @@ Em ordem (atualizado em 2026-11-19):
 
 ## Pendências suas
 
+- **Migration 009 (visitas):** roda sozinha no deploy (o `server.js` aplica as pendentes ao iniciar). Depois do deploy, abrir `/admin/visitas`, navegar em 2 ou 3 páginas do site numa janela anônima e ver em até 10 s se "Hoje" sobe. Se "Agora" ou os visitantes ficarem sempre em 1, o IP atrás da CDN não está chegando (avisar o Claude). O número será menor que o antigo `views` (sem contagem de recarregamento em 30 s).
 - Conferir no Search Console quantas páginas estão indexadas e se há erros; contar aqui no chat. Relatório liberado em 2026-11-16: 33 indexadas (dado de 12/11), acima do mínimo de 15 a 20 do AdSense. Os 26 "noindex" são as fichas de jogos e plataformas sem matéria (de propósito, fora do sitemap); 6 "rastreada, mas não indexada" é normal em site novo e tende a cair com o tempo; 1 redirecionamento (conferir qual URL na próxima olhada). Reexportar por volta de 23/11, antes do pedido do AdSense. Daqui a uns dias, ver em Sitemaps do Bing se o sitemap foi lido.
 - Cron Job de diagnóstico do "publicar" (hPanel → Avançado → Cron Jobs): o Claude não conseguiu criá-lo (o sistema bloqueou a ação). Passo a passo e comando em `automacao.md`, seção "Diagnóstico do cron". Opcional: o site já registra cada chamada nos logs do aplicativo.
 - No hPanel, ao se inscrever no AdSense: cadastrar `ADSENSE_CLIENT` (só o nome da variável; o valor não vai para o chat).

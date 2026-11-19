@@ -11,6 +11,7 @@ const NAV = [
   { to: "/admin/fila", label: "Fila" },
   { to: "/admin/fontes", label: "Fontes" },
   { to: "/admin/robo", label: "Robô" },
+  { to: "/admin/visitas", label: "Visitas" },
   { to: "/admin/config", label: "Config." },
 ];
 

@@ -31,7 +31,16 @@ Código: `app/routes/admin/*`, `app/lib/admin/*` (auth, dados, conversor do corp
 
 1. **Painel** (`/admin`): publicadas hoje/limite, 7 dias, total, pautas na fila; últimas execuções do
    robô; pendências (rascunhos, pautas reprovadas em 24 h, fontes com erro); aviso se o robô está desligado.
-2. **Matérias** (`/admin/materias`): busca, filtro por editoria e status, paginação.
+2. **Visitas** (`/admin/visitas`, 2026-11-19): cartões Hoje/Ontem/7 dias/30 dias/Total, gráfico de 30 dias, páginas mais vistas
+   (com título e filtro por tipo), origem do tráfego, aparelho, navegador e sistema. Contagem própria, sem cookie e sem
+   guardar IP: `<VisitBeacon />` (no `App` do `root.tsx`) avisa `POST /api/v` depois que a página abre; o servidor soma
+   no buffer e grava a cada 10 s em `visit_daily`, `visit_pages`, `visit_dims` e `visit_seen` (migration 009). Código do
+   módulo em `app/visitas/` (copiado do animeprofile; específicos do site: `config.ts`, `db.ts`, `site.server.ts`,
+   `ui/visitas.css`, `ui/icones.tsx` em SVG próprio). O `posts.views` agora é somado pela mesma coleta (janela de
+   30 min por pessoa e matéria). O dono logado (`__respawnou_admin`) não é contado. Retenção: `visit_seen` só do dia,
+   páginas e origens 400 dias, totais por dia sem prazo (limpeza roda uma vez por dia dentro da coleta do robô).
+   `POST /api/view` (antigo) só responde 204; pode ser apagado depois de 7 dias do deploy.
+3. **Matérias** (`/admin/materias`): busca, filtro por editoria e status, paginação.
    **Editar** (`/admin/materias/:id`): título (contador 30–70), linha fina, palavra-chave, tags,
    descrição do Google (contador 120–160), plataformas, capa/crédito/alt e corpo.
    Ações: publicar, tirar do ar (rascunho), arquivar, destacar na home, **refazer com o robô**
