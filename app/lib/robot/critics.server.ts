@@ -235,6 +235,21 @@ export async function consensusCandidate(forceKey?: string): Promise<ConsensusCa
   return null;
 }
 
+/** Painel: jogos com análises na janela de 30 dias, quantos veículos cada um tem e o que falta para virar consenso. */
+export async function consensusProgress(limit = 12) {
+  const rows = await query<{ game_key: string; name: string; n: number; outlets: string; status: string | null; note: string | null }>(
+    `SELECT r.game_key, MAX(r.game_name) AS name, COUNT(DISTINCT r.outlet) AS n, GROUP_CONCAT(DISTINCT r.outlet ORDER BY r.outlet SEPARATOR ', ') AS outlets, c.status, c.note
+     FROM critic_reviews r LEFT JOIN critic_consensus c ON c.game_key = r.game_key
+     WHERE r.published_at > UTC_TIMESTAMP() - INTERVAL ${WINDOW_DAYS} DAY
+     GROUP BY r.game_key, c.status, c.note ORDER BY n DESC, MAX(r.published_at) DESC LIMIT ?`,
+    [limit],
+  );
+  const [tot] = await query<{ reviews: number; games: number }>(
+    `SELECT COUNT(*) AS reviews, COUNT(DISTINCT game_key) AS games FROM critic_reviews WHERE published_at > UTC_TIMESTAMP() - INTERVAL ${WINDOW_DAYS} DAY`,
+  );
+  return { min: MIN_CRITICS, reviews: Number(tot?.reviews ?? 0), games: Number(tot?.games ?? 0), top: rows.map((r) => ({ ...r, n: Number(r.n) })) };
+}
+
 export async function markConsensus(c: ConsensusCandidate, status: "used" | "skipped" | "failed", note: string | null, postId?: number) {
   await db().query(
     `INSERT INTO critic_consensus (game_key, game_name, post_id, status, note, critics) VALUES (?, ?, ?, ?, ?, ?)

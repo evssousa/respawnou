@@ -6,6 +6,7 @@ import { requireAdmin } from "~/lib/admin/auth.server";
 import { blocksToText } from "~/lib/admin/body-text";
 import { iso } from "~/lib/db.server";
 import type { CompilationKind } from "~/lib/robot/compilations.server";
+import { consensusProgress } from "~/lib/robot/critics.server";
 import { collect, collectGames, collectOffers, diag, publish, recentRuns, type JobResult } from "~/lib/robot/robot.server";
 import type { Block } from "~/lib/types";
 
@@ -13,8 +14,8 @@ export const meta = () => adminMeta("Robô");
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request);
-  const runs = await recentRuns(40);
-  return { runs: runs.map((r) => ({ ...r, started_at: iso(r.started_at) ?? r.started_at })), msg: new URL(request.url).searchParams.get("ok") };
+  const [runs, consensus] = await Promise.all([recentRuns(40), consensusProgress().catch(() => null)]);
+  return { consensus, runs: runs.map((r) => ({ ...r, started_at: iso(r.started_at) ?? r.started_at })), msg: new URL(request.url).searchParams.get("ok") };
 }
 
 const JOBS: Record<string, () => Promise<JobResult>> = {
@@ -134,6 +135,31 @@ export default function AdminRobot({ loaderData }: Route.ComponentProps) {
           Gera e publica só a compilação escolhida, ignorando dia, horário e limite diário. Publicada à mão, a do período não sai de novo no automático.
         </p>
       </Card>
+
+      {loaderData.consensus && (
+        <Card title="Consenso da crítica (Reviews)">
+          <p className="text-sm text-body">
+            Janela de 30 dias: <strong>{loaderData.consensus.reviews}</strong> análise(s) de <strong>{loaderData.consensus.games}</strong> jogo(s). Um jogo vira post de Reviews com{" "}
+            <strong>{loaderData.consensus.min} veículos</strong> diferentes.
+          </p>
+          {loaderData.consensus.top.length === 0 ? (
+            <p className="mt-3 text-sm text-muted">Nenhuma análise coletada ainda.</p>
+          ) : (
+            <ul className="mt-3 flex flex-col divide-y divide-line text-sm">
+              {loaderData.consensus.top.map((g) => (
+                <li key={g.game_key} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2">
+                  <span className="font-bold text-paper">{g.name}</span>
+                  <span className={`font-mono text-xs font-bold ${g.n >= loaderData.consensus!.min ? "text-acc" : "text-muted"}`}>
+                    {g.n}/{loaderData.consensus!.min} veículos
+                  </span>
+                  <span className="text-xs text-muted">{g.outlets}</span>
+                  {g.status && <span className="font-mono text-[11px] text-warn">{g.status}{g.note ? `: ${g.note}` : ""}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
 
       <ul className="flex flex-col divide-y divide-line border border-line">
         {loaderData.runs.map((r) => {
