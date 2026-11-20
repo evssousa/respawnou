@@ -248,7 +248,7 @@ Código: `app/lib/robot/critics.server.ts` (+ tabelas `critic_reviews` e `critic
 - **Veículos que funcionam** (2026-11-11): IGN (+ feed `?tags=review`), Game Informer (+ `reviews.xml`),
   Eurogamer, VG247, PC Gamer, GamesRadar+. GameSpot e Hookshot (Nintendo Life, Push Square, Pure Xbox)
   dão 403 nas páginas; RPS não publica nota.
-- **Publicação**: com **4 veículos** ou mais (`MIN_CRITICS`), o consenso entra na fila de publicação
+- **Publicação**: com **3 veículos** ou mais (eram 4 até 2026-11-20) (`MIN_CRITICS`), o consenso entra na fila de publicação
   depois do grátis da Epic e antes das notícias. Média e lista de veículos são **calculadas pelo
   código**; o Gemini escreve o texto e o quadro (veredito, 3–5 elogios, 2–5 críticas) a partir das
   análises, sempre atribuindo a opinião ao veículo e sem citar a média. Tentativa que falha só volta

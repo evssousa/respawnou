@@ -428,7 +428,8 @@ Ritual semanal (segunda, ~10 min), anotar aqui embaixo numa tabela "Semana · in
 3. **Fichas:** podem entrar **já** (frente 2 segue com o teto de 5 por semana e os 3 de 5 blocos de dados).
 4. **Peça semanal:** a IA escreve e o dono **só revisa**, como no animeprofile-old: nasce como **rascunho** (nunca publica sozinha) e o dono revisa/edita e publica pelo painel. Vira o passo **C7** abaixo; o "dono escreve" da tabela da frente 3 passa a ser "IA escreve, dono revisa".
 5. **Marcas no texto do Arcade:** sim, só como história (já feito).
-6. Divulgação (canal/newsletter) e `MIN_CRITICS`: ainda sem resposta (ver a pendência das reviews em `docs/README.md`).
+6. **Divulgação:** sem canal de WhatsApp/Telegram nem newsletter por enquanto (frente "Depois" fica só com Reddit, Instagram/Shorts à mão e o e-mail ao IGDB).
+7. **`MIN_CRITICS` = 3** (era 4), feito em 2026-11-20. O ritmo de reviews passa a depender de quantos jogos juntam 3 análises em 30 dias.
 
 **C7 (M) Peça semanal em rascunho para revisão.** Em `compilations.server.ts`/`robot.server.ts`: um tipo `"pauta-semana"` (1 por semana, sexta, junto das ofertas ou em dia livre) que escreve pelo Gemini uma lista comentada, "vale a pena?" ou guia de iniciante a partir de dados reais do banco (jogos com nota da crítica, lançamentos, grátis do mês), grava com `status = 'draft'`, `origin = 'auto'` e o autor pseudônimo da editoria. Não entra no limite diário de publicadas. Aparece no painel em "rascunhos esperando revisão". Verificar: `dry=1` gera o texto; sem `dry`, o post fica em rascunho e `/admin/materias?status=draft` o lista.
 

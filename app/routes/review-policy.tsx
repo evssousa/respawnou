@@ -52,7 +52,7 @@ const sections: DocSection[] = [
     title: "Quando publicamos",
     body: (
       <p>
-        Só publicamos o consenso quando um jogo tem pelo menos 4 análises com nota, de veículos diferentes, publicadas em até 30 dias. Com menos do que
+        Só publicamos o consenso quando um jogo tem pelo menos 3 análises com nota, de veículos diferentes, publicadas em até 30 dias. Com menos do que
         isso, a média ainda não representa bem a recepção do jogo.
       </p>
     ),

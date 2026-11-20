@@ -12,7 +12,7 @@ import type { Review } from "../types.ts";
 import type { PreparedSources, Source } from "./writer.server.ts";
 
 /** Mínimo de veículos com nota para publicar o consenso (também citado em /como-avaliamos). */
-export const MIN_CRITICS = 4;
+export const MIN_CRITICS = 3;
 /** Janela em que análises do mesmo jogo contam juntas. */
 const WINDOW_DAYS = 30;
 
