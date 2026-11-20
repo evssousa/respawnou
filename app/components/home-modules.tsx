@@ -74,7 +74,12 @@ export function ModuleGrid({ stats, releases, showReleases = true }: { stats: Se
     ...(showReleases ? [{ to: "/lancamentos", label: "Lançamentos", info: `${pad(releases)} NA SEMANA` }] : []),
   ];
   return (
-    <nav aria-label="Módulos" className="rail -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-6">
+    // No PC os botões dividem a largura toda: com 5 módulos ficam maiores, com 6 (quando entra Reviews) encolhem para caber.
+    <nav
+      aria-label="Módulos"
+      style={{ "--cols": Math.min(Math.max(items.length, 1), 6) } as React.CSSProperties}
+      className="rail -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0 lg:[grid-template-columns:repeat(var(--cols),minmax(0,1fr))]"
+    >
       {items.map((m, i) => (
         <Link key={m.to} to={m.to} className="group ch flex w-40 shrink-0 flex-col gap-2 bg-ink-3 p-4 transition-colors hover:bg-acc hover:text-ink sm:w-auto">
           <span className="font-mono text-[11px] font-semibold text-muted group-hover:text-ink">MÓDULO {pad(i + 1)}</span>
