@@ -208,9 +208,11 @@ export const mysqlRepo: Repo = {
     // A collation utf8mb4_unicode_ci já ignora acentos e maiúsculas no LIKE.
     const conds = terms.map(() => "(p.title LIKE ? OR p.excerpt LIKE ? OR g.name LIKE ? OR CAST(p.body AS CHAR) LIKE ?)");
     const params = terms.flatMap((t) => [like(t), like(t), like(t), like(t)]);
+    // Relevância: o termo no título pesa mais que no nome do jogo, no resumo e, por último, no corpo; empate = mais novo primeiro.
+    const rank = terms.map(() => "((p.title LIKE ?) * 8 + COALESCE(g.name LIKE ?, 0) * 4 + (p.excerpt LIKE ?) * 2 + (CAST(p.body AS CHAR) LIKE ?))").join(" + ");
     const rows = await query<PostRow>(
-      `SELECT ${POST_COLS} ${FROM_POSTS} WHERE ${PUBLISHED} AND ${conds.join(" AND ")} ORDER BY p.published_at DESC LIMIT ?`,
-      [...params, limit],
+      `SELECT ${POST_COLS} ${FROM_POSTS} WHERE ${PUBLISHED} AND ${conds.join(" AND ")} ORDER BY (${rank}) DESC, p.published_at DESC LIMIT ?`,
+      [...params, ...params, limit],
     );
     return rows.map(toPost);
   },
@@ -248,8 +250,8 @@ export const mysqlRepo: Repo = {
 
   async searchGames(q, limit) {
     const rows = await query<GameRow>(
-      `SELECT ${GAME_COLS} FROM games WHERE name LIKE ? OR developer LIKE ? OR CAST(genres AS CHAR) LIKE ? ORDER BY name LIMIT ?`,
-      [like(q), like(q), like(q), limit],
+      `SELECT ${GAME_COLS} FROM games WHERE name LIKE ? OR developer LIKE ? OR CAST(genres AS CHAR) LIKE ? ORDER BY (name LIKE ?) DESC, name LIMIT ?`,
+      [like(q), like(q), like(q), like(q), limit],
     );
     return rows.map(toGame);
   },
