@@ -283,7 +283,10 @@ export function ArchiveRail({ posts }: { posts: PostView[] }) {
     <Rail label="Arquivo de artigos">
       {posts.map((p, i) => (
         <Link key={p.url} to={p.url} className="group ch relative flex h-[380px] w-[260px] shrink-0 flex-col justify-end bg-ink-2">
-          <Art variant={p.art} image={p.image} className="absolute inset-0 transition-transform duration-300 group-hover:scale-105" />
+          {/* O Art já é "relative": o absolute vai numa camada à parte (os dois na mesma classe: o relative vencia e a capa sumia). */}
+          <div className="absolute inset-0 overflow-hidden">
+            <Art variant={p.art} image={p.image} className="h-full w-full transition-transform duration-300 group-hover:scale-105" />
+          </div>
           <div aria-hidden className="absolute inset-0 bg-linear-to-t from-ink from-15% to-transparent" />
           <Hud left={`> ARQUIVO ${pad(i + 1)}`} right={p.tag?.toUpperCase()} />
           <div className="relative flex flex-col gap-2 p-5">
