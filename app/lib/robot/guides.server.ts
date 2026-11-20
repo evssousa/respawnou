@@ -33,9 +33,16 @@ export async function guideCandidate(test = false): Promise<GuideCandidate | nul
     "SELECT COUNT(*) AS n FROM posts WHERE section = 'guias' AND origin = 'auto' AND published_at > UTC_TIMESTAMP() - INTERVAL 20 HOUR",
   );
   if (!test && Number(today?.n)) return null;
+  // Teto semanal (docs/crescimento.md, C1): até `guides_per_week` guias automáticos nos últimos 7 dias (padrão 4).
+  if (!test) {
+    const [cfg] = await query<{ value: unknown }>("SELECT value FROM settings WHERE name = 'guides_per_week'");
+    const cap = Number(cfg?.value) > 0 ? Number(cfg?.value) : 4;
+    const [week] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM posts WHERE section = 'guias' AND origin = 'auto' AND published_at > UTC_TIMESTAMP() - INTERVAL 7 DAY");
+    if (Number(week?.n) >= cap) return null;
+  }
   const skip = test ? {} : await tried();
-  const games = await query<{ id: number; name: string; release_date: string; image_url: string | null; genres: unknown; developer: string; publisher: string; description: string }>(
-    `SELECT g.id, g.name, g.release_date, g.image_url, g.genres, g.developer, g.publisher, g.description FROM games g
+  const games = await query<{ id: number; slug: string; name: string; release_date: string; image_url: string | null; genres: unknown; developer: string; publisher: string; description: string }>(
+    `SELECT g.id, g.slug, g.name, g.release_date, g.image_url, g.genres, g.developer, g.publisher, g.description FROM games g
      WHERE g.igdb_id IS NOT NULL AND JSON_CONTAINS(g.platforms, '"pc"')
        AND g.release_date BETWEEN CURDATE() - INTERVAL 10 DAY AND CURDATE() + INTERVAL 21 DAY
        AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.game_id = g.id AND p.section = 'guias')
@@ -82,6 +89,7 @@ export async function guideCandidate(test = false): Promise<GuideCandidate | nul
 - h2 "Requisitos mínimos" com "ul" (um item por componente: sistema, processador, memória, placa de vídeo, DirectX, armazenamento, observações), exatamente como na fonte.
 - h2 "Requisitos recomendados" com "ul", do mesmo jeito.
 - h2 sobre o que muda do mínimo para o recomendado: compare os itens (ex.: memória de 8 GB para 16 GB) e cite resolução/fps esperados SÓ se a fonte disser.
+- h2 "Roda no seu PC?": 2 a 3 frases comparando os NÚMEROS do mínimo e do recomendado deste jogo (memória, armazenamento, placa) para o leitor se situar, sem citar peças ou modelos que não estejam na fonte; termine com o link para a ficha no formato [${g.name}](/jogos/${g.slug}).
 - "Para o jogador brasileiro" com preço em reais e idiomas, se a fonte trouxer.
 - NÃO invente desempenho, benchmarks, configurações gráficas nem peças equivalentes que não estejam na fonte.`,
       },

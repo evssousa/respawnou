@@ -214,6 +214,21 @@ export interface CheckContext {
   section: string;
 }
 
+/** Siglas que podem aparecer em caixa alta no título sem contar como grito. */
+const ACRONYMS = new Set(["PC", "PS", "PS3", "PS4", "PS5", "VR", "RPG", "MMO", "MMORPG", "FPS", "DLC", "GTA", "NBA", "FIFA", "EA", "AMD", "GPU", "CPU", "SSD", "USB", "HD", "4K", "UE5", "GOTY", "TGA", "E3", "TV", "DC", "EUA", "UK", "IA", "AI", "LOL", "CS2", "WWE", "UFC", "NFL", "UEFA", "RTX", "GTX", "OLED", "AAA", "NPC", "NES", "SNES", "XBOX", "SEGA", "SNK", "II", "III", "IV", "VI", "VII", "VIII", "IX", "XI", "XII"]);
+
+/** Motivo de o título parecer caça-clique (null = ok). Usado pela checagem do robô (docs/crescimento.md, D8). */
+export function clickbaitReason(title: string): string | null {
+  const t = title.trim();
+  if (t.endsWith("?")) return "termina em pergunta";
+  if (t.includes("!")) return "ponto de exclamação";
+  const m = t.match(/voc[eê] n[aã]o vai acreditar|inacredit[aá]vel|chocante|ningu[eé]m esperava|isso muda tudo|confira|finalmente/i);
+  if (m) return `expressão "${m[0].toLowerCase()}"`;
+  const shouts = t.split(/\s+/).map((w) => w.replace(/[^\p{L}\p{N}]/gu, "")).filter((w) => w.length >= 3 && w === w.toUpperCase() && /\p{Lu}/u.test(w) && !ACRONYMS.has(w));
+  if (shouts.length > 1) return "várias palavras em caixa alta";
+  return null;
+}
+
 /** Lista de problemas (vazia = aprovada). As mensagens vão para o Gemini na nova tentativa. */
 export function checkDraft(d: DraftArticle, ctx: CheckContext): string[] {
   const issues: string[] = [];
@@ -225,7 +240,8 @@ export function checkDraft(d: DraftArticle, ctx: CheckContext): string[] {
   if (!d.focusKeyword?.trim()) issues.push("Falta a palavra-chave (focusKeyword): o nome do jogo, empresa ou evento central.");
   if (d.title.length < TITLE_MIN || d.title.length > TITLE_MAX) issues.push(`Título com ${d.title.length} caracteres; precisa ter de ${TITLE_MIN} a ${TITLE_MAX}.`);
   if (d.title === d.title.toUpperCase() && /\p{Lu}/u.test(d.title)) issues.push("Título em caixa alta.");
-  if (d.title.trim().endsWith("?") || /voc[eê] n[aã]o vai acreditar|chocante|finalmente!/i.test(d.title)) issues.push("Título com cara de caça-clique.");
+  const bait = clickbaitReason(d.title);
+  if (bait) issues.push(`Título com cara de caça-clique (${bait}). Reescreva de forma direta, com o fato e o nome do jogo.`);
   if (d.focusKeyword && !norm(d.title).includes(norm(d.focusKeyword))) issues.push(`O título precisa conter a palavra-chave "${d.focusKeyword}".`);
   if (d.metaDescription.length < META_MIN || d.metaDescription.length > META_MAX)
     issues.push(`metaDescription com ${d.metaDescription.length} caracteres; precisa ter de ${META_MIN} a ${META_MAX}.`);

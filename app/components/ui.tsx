@@ -28,6 +28,7 @@ export function Art({
           src={image.src}
           alt={image.alt}
           loading={eager ? "eager" : "lazy"}
+          fetchPriority={eager ? "high" : undefined}
           decoding="async"
           className="absolute inset-0 h-full w-full object-cover"
         />

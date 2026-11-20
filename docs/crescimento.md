@@ -421,12 +421,22 @@ Ritual semanal (segunda, ~10 min), anotar aqui embaixo numa tabela "Semana · in
 - **Newsletter grátis semanal:** o "resumo da semana" de domingo já é o conteúdo; ferramenta de plano gratuito (decisão do dono) e formulário simples no rodapé (atualizar Privacidade se coletar e-mail).
 - **E-mail ao IGDB** (partner@igdb.com) quando o AdSense for aprovado: já anotado em `adsense.md`.
 
-## Perguntas em aberto (para o dono)
+## Decisões do dono (2026-11-20)
 
-1. **Autor humano (D6):** as peças escritas por você saem com seu nome real, com um pseudônimo ou só "Redação Respawnou"? (Recomendação: nome ou pseudônimo fixo com perfil em `/redacao`; ajuda no E-E-A-T e no Discover.)
-2. **Volume de notícias:** baixar de 7–8 para 6 por dia para abrir espaço às peças evergreen sem estourar a cota do Gemini? (Recomendação: sim.)
-3. **Indexação das fichas:** começar a liberar já (5 por semana) ou só depois da resposta do AdSense? (Recomendação: começar já com 5/semana; são páginas úteis e com dados próprios.)
-4. **Peça humana semanal:** você consegue escrever 1 por semana? Que tipo prefere (lista comentada, "vale a pena?", guia de iniciante, opinião)?
-5. **Marcas no texto do Arcade:** pode citar Windows, Snake, Breakout etc. só como história, fora dos títulos? (Recomendação: sim.)
-6. **Divulgação:** quer criar canal de WhatsApp/Telegram e newsletter? Qual ferramenta grátis de newsletter (Buttondown, Substack, MailerLite)?
-7. **Consenso da crítica:** segue a pendência de decidir `MIN_CRITICS` (4 ou 3), que afeta a cadência da frente 3.
+1. **Autor:** pseudônimo por tipo de matéria/artigo, como no animeprofile (um autor fixo por editoria, com perfil em `/redacao`). Vale para o D6: em vez de "nome real", a lista `AUTHORS` de `site.ts` tem um pseudônimo por editoria (Notícias, Guias, Artigos, Reviews, Promoções) e o `post.author` do robô passa a ser o da editoria. **Cuidado combinado:** `/redacao` e a política editorial dizem com clareza que os textos são feitos com IA e revisados por pessoa, e que os nomes são pseudônimos da redação; sem credenciais ou histórias inventadas nos perfis (o Google trata autor falso como problema de confiança).
+2. **Notícias:** reduzir de 7–8 para **6 por dia**. É configuração do painel (`/admin/config`, "posts por dia"), não código: o dono ajusta.
+3. **Fichas:** podem entrar **já** (frente 2 segue com o teto de 5 por semana e os 3 de 5 blocos de dados).
+4. **Peça semanal:** a IA escreve e o dono **só revisa**, como no animeprofile-old: nasce como **rascunho** (nunca publica sozinha) e o dono revisa/edita e publica pelo painel. Vira o passo **C7** abaixo; o "dono escreve" da tabela da frente 3 passa a ser "IA escreve, dono revisa".
+5. **Marcas no texto do Arcade:** sim, só como história (já feito).
+6. Divulgação (canal/newsletter) e `MIN_CRITICS`: ainda sem resposta (ver a pendência das reviews em `docs/README.md`).
+
+**C7 (M) Peça semanal em rascunho para revisão.** Em `compilations.server.ts`/`robot.server.ts`: um tipo `"pauta-semana"` (1 por semana, sexta, junto das ofertas ou em dia livre) que escreve pelo Gemini uma lista comentada, "vale a pena?" ou guia de iniciante a partir de dados reais do banco (jogos com nota da crítica, lançamentos, grátis do mês), grava com `status = 'draft'`, `origin = 'auto'` e o autor pseudônimo da editoria. Não entra no limite diário de publicadas. Aparece no painel em "rascunhos esperando revisão". Verificar: `dry=1` gera o texto; sem `dry`, o post fica em rascunho e `/admin/materias?status=draft` o lista.
+
+## Status dos passos
+
+| Passo | Situação |
+|---|---|
+| A1–A9 (Arcade) | ✅ 2026-11-20 (A10: o dono revisa os 13 textos) |
+| D1 capa com prioridade, D3 `og:image:alt`/`article:section`/`article:tag`, D8 título anti-isca | ✅ 2026-11-20 |
+| C1 teto de guias (4 por semana, `settings.guides_per_week`) e h2 "Roda no seu PC?" | ✅ 2026-11-20 |
+| B1–B7 (fichas), C2–C7, D2, D4–D7, D9 | ⏳ |
