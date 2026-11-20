@@ -2,6 +2,21 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+## 2026-11-20 — Plano de crescimento orgânico (custo zero)
+
+- **O quê:** o dono aprovou 4 frentes, nesta ordem: SEO do Arcade, fichas de jogos úteis, evergreen consistente,
+  Google Discover (plano em `crescimento.md`). Orçamento zero: sem API paga, Gemini só no plano gratuito.
+- **Fichas:** saem do `noindex` só com conteúdo próprio suficiente (descrição pt-BR + data + mídia + 3 de 5 blocos
+  de dados: requisitos, idiomas, nota da crítica, datas por plataforma, jogos parecidos), com teto de 5 por semana
+  e campo `index_from` que não volta; ficha indexada nunca é apagada pelo sync. Por quê: evitar páginas finas e
+  "conteúdo em massa", e não gerar 404 em página que o Google já conhece.
+- **JSON-LD:** sem `aggregateRating`/`Review` (a nota não é nossa) e sem `FAQPage` nas fichas (o Google não mostra
+  esse resultado para sites comuns e o bloco repetido em dezenas de páginas parece modelo). As perguntas ficam visíveis na página.
+- **Arcade:** textos de 150–300 palavras ficam abaixo do jogo e fora do bundle do cliente (`arcade-seo.server.ts`);
+  imagem de compartilhamento por jogo em `/og/arcade/<slug>.png` (fora de `/arcade/`, a regra de anúncios não muda).
+- **Evergreen:** ~9 a 11 peças por semana sem aumentar o volume diário; guias de requisitos limitados a 4/semana até
+  sabermos se os atuais estão sendo indexados; 1 peça com assinatura humana por semana.
+
 
 
 

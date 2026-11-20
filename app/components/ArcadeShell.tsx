@@ -192,7 +192,7 @@ export function ArcadeShell({ game }: { game: ArcadeGame }) {
   // Compartilha o resultado: menu nativo no celular; no PC abre o WhatsApp Web.
   const share = async () => {
     const url = absoluteUrl(`/arcade/${game.slug}`);
-    const text = `Fiz ${score} ${score === 1 ? "ponto" : "pontos"} no ${game.name} do ${SITE.name}! Tenta bater:`;
+    const text = `Fiz ${score} ${score === 1 ? "ponto" : "pontos"} no ${game.shareName} do ${SITE.name}! Tenta bater:`;
     try {
       // Menu nativo só em tela de toque (celular/tablet); no PC o do sistema é estranho, vai direto ao WhatsApp.
       if (navigator.share && window.matchMedia("(pointer: coarse)").matches) await navigator.share({ text, url });

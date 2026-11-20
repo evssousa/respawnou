@@ -50,7 +50,8 @@ Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou 
 2. Os dois tamanhos (`size.landscape` e `size.portrait`) e entrada em `ARCADE_GAMES` (`app/lib/arcade.ts`) e em `LOADERS` (`ArcadeShell.tsx`). O nome do
    arquivo pode diferir do slug (ex.: `cabo.ts` → `cabo-de-forca`).
 3. Miniatura em `ArcadeThumb.tsx`.
-4. Testar no celular (toque, cabe na tela, sem rolagem lateral) e no teclado.
+4. **SEO (2026-11-20):** campos `related` (3 slugs), `updated` e `shareName` em `ARCADE_GAMES`, e entrada em `ARCADE_SEO` (`app/lib/arcade-seo.server.ts`: `title` até 50 caracteres, `description` 140 a 158, `h1Line` até 44, texto `about` de 150 a 300 palavras; marcas de terceiros só como história no texto). A imagem de compartilhamento sai sozinha em `/og/arcade/<slug>.png`. Plano em `crescimento.md`.
+5. Testar no celular (toque, cabe na tela, sem rolagem lateral) e no teclado.
 
 ## Anúncios (quando o AdSense entrar)
 

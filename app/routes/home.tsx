@@ -15,7 +15,7 @@ import {
 import { getFeatured, getFreeGames, getMostRead, getReleases, getSectionStats, listPosts } from "~/lib/content.server";
 import { ArcadeCard, useArcadeRecords } from "~/components/ArcadeCard";
 import { platformsFor, useAvailability } from "~/lib/availability";
-import { ARCADE_GAMES } from "~/lib/arcade";
+import { ARCADE_GAMES, dailyArcade } from "~/lib/arcade";
 import { seo } from "~/lib/seo";
 import { absoluteUrl, SITE } from "~/lib/site";
 
@@ -35,8 +35,7 @@ export async function loader() {
     getMostRead(5),
   ]);
   // 3 jogos do Arcade, trocando todo dia (mesmo conjunto para todo mundo naquele dia).
-  const day = Math.floor(Date.now() / 86_400_000);
-  const arcade = [0, 1, 2].map((i) => ARCADE_GAMES[(day * 3 + i) % ARCADE_GAMES.length].slug);
+  const arcade = dailyArcade(3).map((g) => g.slug);
   return {
     arcade,
     featured,

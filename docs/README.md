@@ -17,6 +17,7 @@ e o que vem a seguir.
 | [adsense.md](adsense.md) | Estratégia para o site automatizado ser aprovado no AdSense |
 | [admin.md](admin.md) | Painel administrativo em /admin |
 | [arcade.md](arcade.md) | Arcade: jogos de passatempo próprios em /arcade |
+| [crescimento.md](crescimento.md) | Plano de crescimento orgânico (custo zero): SEO do Arcade, fichas de jogos, evergreen, Discover, divulgação |
 | [deploy-hostinger.md](deploy-hostinger.md) | Domínio, site Node.js, SSL, e-mail, variáveis |
 
 ## Status
@@ -72,11 +73,16 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 3 | Painel de visitas em /admin/visitas: contagem própria sem cookie, cartões, gráfico de 30 dias, páginas, origem e aparelho (módulo `app/visitas`, migration 009) (2026-11-19) | ✅ |
 | 6 | Arcade: Caça-Palavras de games, 12º jogo (rodadas com mais palavras e direções, tempo por rodada) (2026-11-17) | ✅ |
 | 6 | Arcade: Pinball, 13º jogo (3 bolas, bumpers, alvos com multiplicador) (2026-11-19) | ✅ |
+| 7 | Crescimento orgânico, frente 1: SEO das páginas do Arcade (A1–A9: títulos/H1 de busca, textos, JSON-LD, imagem de compartilhamento, jogos parecidos, card nas matérias) | ✅ 2026-11-20 (falta você revisar os textos, A10) |
+| 7 | Frente 2: fichas de jogos úteis + critério de indexação (migration 010, passos B1–B7) | ⏳ |
+| 7 | Frente 3: cardápio evergreen e cadência do robô (passos C1–C6) | ⏳ |
+| 7 | Frente 4: Google Discover (auditoria feita; passos D1–D10) | ⏳ |
 
 ## Próximos passos
 
 Em ordem (atualizado em 2026-11-19):
 
+0. **Plano de crescimento (`crescimento.md`, 2026-11-20):** executar na ordem da seção "Ordem de execução": Arcade (A1–A10), Discover rápidos (D1, D3, D8), fichas (B1–B7), evergreen (C1–C6), resto do Discover. Antes do pedido do AdSense: frente 1 inteira + D1/D3/D8 + C1.
 1. Acompanhar a indexação: Search Console (Páginas, Sitemaps) e Bing Webmaster Tools. O robô segue publicando 7 a 8 matérias por dia.
 2. Se o "publicar" pular horas de novo, ler os logs do aplicativo (linhas `[cron] publicar recebido`) e o arquivo de log do cron (ver `automacao.md`, "Diagnóstico do cron"). Deploy conferido em 2026-11-14 (commit 23356f4).
 3. Pedir o AdSense quando: ≥ 35 a 40 matérias (em 2026-11-19 eram cerca de 55 no sitemap: ~40 notícias, 7 guias, 3 artigos, 3 promoções; o critério de quantidade já está cumprido, falta variedade de peças escritas por você e a idade do site), ≥ 15 a 20 páginas indexadas no Search Console, site com 2 a 3 semanas de vida (domínio de 10/11) e algumas peças de outro tipo (consenso de reviews, artigos ou listas escritas por você pelo painel). Previsão: entre 24/11 e 1/12. Checklist em `adsense.md`.
@@ -89,6 +95,7 @@ Em ordem (atualizado em 2026-11-19):
 
 ## Pendências suas
 
+- **Plano de crescimento (2026-11-20):** responder as 7 "Perguntas em aberto" no fim de `crescimento.md` (autor com nome/pseudônimo, baixar notícias para 6/dia, quando liberar fichas no Google, 1 peça sua por semana, marcas no texto do Arcade, canal/newsletter, `MIN_CRITICS`). **Revisar os 13 textos do Arcade** (em `app/lib/arcade-seo.server.ts`; pode abrir cada `/arcade/<jogo>` depois do deploy) e dizer o que mudar.
 - **Reviews sem nenhuma publicada (2026-11-20):** abrir `/admin/robo` e olhar o quadro "Consenso da crítica": mostra quantas análises o robô guardou e quantos veículos cada jogo tem (precisa de 4). Se nenhum jogo chega perto, decidir se baixa o mínimo (`MIN_CRITICS` em `critics.server.ts`) para 3. Depois de decidido, o botão "Reviews" entra sozinho na home (a grade de módulos já se ajusta).
 - **Migration 009 (visitas):** roda sozinha no deploy (o `server.js` aplica as pendentes ao iniciar). Depois do deploy, abrir `/admin/visitas`, navegar em 2 ou 3 páginas do site numa janela anônima e ver em até 10 s se "Hoje" sobe. Se "Agora" ou os visitantes ficarem sempre em 1, o IP atrás da CDN não está chegando (avisar o Claude). O número será menor que o antigo `views` (sem contagem de recarregamento em 30 s).
 - Search Console, relatório de 2026-11-20 (dados até 15/11): **52 indexadas** (eram 33 em 12/11) e 50 não indexadas = 31 `noindex` (fichas de jogos/plataformas sem matéria, de propósito), 1 redirecionamento (é o `www` → apex, 301 correto), **14 "detectada, mas não indexada"** (URLs novas ainda na fila de rastreio, normal em site de 10 dias com robô publicando 7 a 8 por dia) e 4 "rastreada, mas não indexada" (validação iniciada). Impressões: 50 → 138 → 245 → 289 por dia. Nenhuma correção de código necessária. Falta: exportar a lista de URLs dos 4 "rastreada" e dos 14 "detectada" (clicar no motivo → exportar) para ver se há um padrão (suspeita: guias "Requisitos de PC", que são parecidos entre si). Reexportar por volta de 27/11. Ver em Sitemaps do Bing se o sitemap foi lido.

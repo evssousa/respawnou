@@ -14,7 +14,7 @@ export async function loader() {
     ...platformsFor(available).map((p) => ({ loc: `/plataforma/${p.slug}`, changefreq: "daily" })),
     ...posts.map((p) => ({ loc: postUrl(p), lastmod: p.updatedAt ?? p.publishedAt })),
     ...games.map((g) => ({ loc: `/jogos/${g.slug}`, changefreq: "weekly" })),
-    ...ARCADE_GAMES.map((g) => ({ loc: `/arcade/${g.slug}`, changefreq: "monthly" })),
+    ...ARCADE_GAMES.map((g) => ({ loc: `/arcade/${g.slug}`, changefreq: "monthly", lastmod: g.updated })),
     ...DOC_PAGES.map((d) => ({ loc: d.to, lastmod: d.updated, changefreq: "yearly" })),
   ];
 

@@ -24,6 +24,12 @@ export interface ArcadeGame {
   size: { landscape: [number, number]; portrait: [number, number] };
   /** Como chamar o contador de partidas. */
   playsLabel: string;
+  /** Jogos parecidos (3 slugs), escolhidos à mão para a seção da página do jogo. */
+  related: string[];
+  /** Última revisão da página (AAAA-MM-DD): vai para o sitemap e para o dateModified do JSON-LD. */
+  updated: string;
+  /** Nome com o termo de busca, usado no texto de compartilhar ("Fiz 120 pontos no Sudoku online..."). */
+  shareName: string;
 }
 
 export const ARCADE_GAMES: ArcadeGame[] = [
@@ -45,6 +51,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [640, 360], portrait: [480, 600] },
     playsLabel: "Respawns",
+    related: ["torre", "cabo-de-forca", "meteoros"],
+    updated: "2026-11-20",
+    shareName: "Respawn (corredor infinito)",
   },
   {
     slug: "torre",
@@ -64,6 +73,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [720, 480], portrait: [360, 640] },
     playsLabel: "Torres",
+    related: ["mira", "respawn", "trinca"],
+    updated: "2026-11-20",
+    shareName: "Torre (empilhar blocos)",
   },
   {
     slug: "quebra-pixel",
@@ -83,6 +95,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [720, 480], portrait: [360, 600] },
     playsLabel: "Partidas",
+    related: ["pinball", "cabo-de-forca", "meteoros"],
+    updated: "2026-11-20",
+    shareName: "Quebra-Pixel (quebrar blocos)",
   },
   {
     slug: "meteoros",
@@ -103,6 +118,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [720, 480], portrait: [360, 600] },
     playsLabel: "Voos",
+    related: ["quebra-pixel", "respawn", "mira"],
+    updated: "2026-11-20",
+    shareName: "Chuva de Meteoros (jogo de nave)",
   },
   {
     slug: "cabo-de-forca",
@@ -122,6 +140,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [600, 400], portrait: [360, 400] },
     playsLabel: "Partidas",
+    related: ["quebra-pixel", "respawn", "torre"],
+    updated: "2026-11-20",
+    shareName: "Cabo de Força (jogo da cobrinha)",
   },
   {
     slug: "trinca",
@@ -141,6 +162,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [504, 420], portrait: [360, 468] },
     playsLabel: "Partidas",
+    related: ["memoria", "caca-palavras", "torre"],
+    updated: "2026-11-20",
+    shareName: "Trinca (combinar 3)",
   },
   {
     slug: "mira",
@@ -160,6 +184,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [760, 480], portrait: [400, 560] },
     playsLabel: "Partidas",
+    related: ["torre", "pinball", "meteoros"],
+    updated: "2026-11-20",
+    shareName: "Mira (teste de reflexo)",
   },
   {
     slug: "memoria",
@@ -179,6 +206,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [720, 450], portrait: [360, 480] },
     playsLabel: "Partidas",
+    related: ["trinca", "caca-palavras", "sudoku"],
+    updated: "2026-11-20",
+    shareName: "Jogo da Memória online",
   },
   {
     slug: "campo-minado",
@@ -199,6 +229,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [640, 408], portrait: [360, 528] },
     playsLabel: "Partidas",
+    related: ["sudoku", "paciencia", "memoria"],
+    updated: "2026-11-20",
+    shareName: "Campo Minado online",
   },
   {
     slug: "paciencia",
@@ -218,6 +251,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [720, 520], portrait: [360, 600] },
     playsLabel: "Partidas",
+    related: ["campo-minado", "sudoku", "trinca"],
+    updated: "2026-11-20",
+    shareName: "Paciência online",
   },
   {
     slug: "sudoku",
@@ -237,6 +273,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [720, 450], portrait: [360, 530] },
     playsLabel: "Partidas",
+    related: ["campo-minado", "caca-palavras", "memoria"],
+    updated: "2026-11-20",
+    shareName: "Sudoku online",
   },
   {
     slug: "caca-palavras",
@@ -256,6 +295,9 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [720, 440], portrait: [360, 480] },
     playsLabel: "Partidas",
+    related: ["memoria", "sudoku", "trinca"],
+    updated: "2026-11-20",
+    shareName: "Caça-Palavras online",
   },
   {
     slug: "pinball",
@@ -275,8 +317,17 @@ export const ARCADE_GAMES: ArcadeGame[] = [
     ],
     size: { landscape: [720, 480], portrait: [360, 560] },
     playsLabel: "Partidas",
+    related: ["quebra-pixel", "meteoros", "mira"],
+    updated: "2026-11-20",
+    shareName: "Pinball online",
   },
 ];
+
+/** Jogos do dia (mesmo conjunto para todo mundo naquele dia): `n` jogos seguidos, trocando a cada dia. */
+export function dailyArcade(n: number): ArcadeGame[] {
+  const day = Math.floor(Date.now() / 86_400_000);
+  return Array.from({ length: n }, (_, i) => ARCADE_GAMES[(day * n + i) % ARCADE_GAMES.length]);
+}
 
 export const arcadeGame = (slug: string) => ARCADE_GAMES.find((g) => g.slug === slug);
 

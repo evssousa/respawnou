@@ -3,14 +3,31 @@ import { ArcadeCard, useArcadeRecords } from "~/components/ArcadeCard";
 import { FilterLink, SectionTitle } from "~/components/ui";
 import { ARCADE_CATEGORIES, ARCADE_GAMES, type ArcadeCategory } from "~/lib/arcade";
 import { seo } from "~/lib/seo";
-import { SITE } from "~/lib/site";
+import { absoluteUrl, SITE } from "~/lib/site";
 
-export const meta = () =>
-  seo({
-    title: "Arcade: jogos grátis para jogar no navegador",
-    description: `Jogos de passatempo do ${SITE.name} para jogar grátis no navegador, no PC ou no celular, sem baixar nada: corredor infinito, nave, cobrinha, campo minado, paciência, jogo da memória e mais.`,
+// Nome de busca de cada jogo para o ItemList (mesmo termo do shareName, sem depender do arquivo só de servidor).
+const ARCADE_SEO_NAMES: Record<string, string> = Object.fromEntries(ARCADE_GAMES.map((g) => [g.slug, g.shareName]));
+
+export const meta = () => [
+  ...seo({
+    title: "Jogos online grátis: sudoku, paciência e mais",
+    description: `Jogos online grátis do ${SITE.name}, direto no navegador e sem cadastro: sudoku, paciência, campo minado, jogo da memória, caça-palavras, pinball e mais.`,
     path: "/arcade",
-  });
+  }),
+  {
+    "script:ld+json": {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      name: "Arcade do Respawnou",
+      itemListElement: ARCADE_GAMES.map((g, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        url: absoluteUrl(`/arcade/${g.slug}`),
+        name: ARCADE_SEO_NAMES[g.slug] ?? g.name,
+      })),
+    },
+  },
+];
 
 export default function ArcadePage() {
   const best = useArcadeRecords(ARCADE_GAMES);
@@ -47,6 +64,10 @@ export default function ArcadePage() {
           </li>
         ))}
       </ul>
+
+      <p className="max-w-2xl text-body">
+        Todos os jogos do Arcade são criações do {SITE.name}: rodam direto no navegador, sem baixar nada e sem cadastro, no PC, no celular ou no tablet. Os recordes ficam salvos só no seu aparelho. Tem jogo de lógica, como sudoku, paciência, campo minado, jogo da memória e caça-palavras, e jogo de reflexo e ação, como pinball, corredor infinito, nave e quebrar blocos.
+      </p>
 
       <p className="font-mono text-xs text-muted">&gt; NOVOS JOGOS CHEGAM AOS POUCOS. TODOS SÃO CRIAÇÕES DO {SITE.name.toUpperCase()}.</p>
     </main>

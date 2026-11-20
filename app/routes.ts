@@ -34,6 +34,8 @@ export default [
   route("rss.xml", "routes/rss.ts"),
   route("robots.txt", "routes/robots.ts"),
   route("ads.txt", "routes/ads-txt.ts"),
+  // Imagem de compartilhamento dos jogos do Arcade (fora de /arcade/ de propósito: sem anúncios ali).
+  route("og/arcade/:file", "routes/og-arcade.ts"),
 
   // Painel administrativo (só o dono; fora dos menus, noindex, Disallow no robots.txt).
   route("admin/login", "routes/admin/login.tsx"),

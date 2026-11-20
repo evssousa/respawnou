@@ -1,16 +1,17 @@
-import { type ReactNode } from "react";
 import { data, Link } from "react-router";
 import type { Route } from "./+types/post";
+import { ArcadeThumb } from "~/components/ArcadeThumb";
+import { BodyBlock } from "~/components/BodyBlock";
 import { MostRead, PostCard, ScoreBadge } from "~/components/cards";
 import { ShareButtons } from "~/components/ShareButtons";
 import { Art, Hud, Kicker, PlatformTags, SectionTitle } from "~/components/ui";
 import { isAdmin } from "~/lib/admin/auth.server";
 import { getGame, getMostRead, getPost, listPosts } from "~/lib/content.server";
 import { formatDate, formatDateTime, formatScore } from "~/lib/format";
+import { arcadeGame, dailyArcade } from "~/lib/arcade";
 import { firstSegment } from "~/lib/route-path";
 import { seo } from "~/lib/seo";
 import { absoluteUrl, PLATFORMS, SITE, sectionBySlug } from "~/lib/site";
-import type { Block } from "~/lib/types";
 
 // Pré-visualização: ?previa=1 com o admin logado mostra rascunho/arquivada com o visual do site.
 // Sem sessão, o parâmetro é ignorado (rascunho continua 404). Nunca indexa nem entra em cache.
@@ -25,7 +26,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     listPosts({ section: post.section, exclude: [post.slug], perPage: 3 }),
     getMostRead(5, [post.slug]),
   ]);
-  const result = { post, game, related: related.items, mostRead, section: sectionBySlug(post.section)!, preview };
+  const result = { post, game, related: related.items, mostRead, section: sectionBySlug(post.section)!, preview, arcadeSlug: dailyArcade(1)[0].slug };
   return preview ? data(result, { headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } }) : result;
 }
 
@@ -73,7 +74,8 @@ export function meta({ loaderData }: Route.MetaArgs) {
 const platformLabels = Object.fromEntries(PLATFORMS.map((p) => [p.slug, p.label]));
 
 export default function PostPage({ loaderData }: Route.ComponentProps) {
-  const { post, game, related, mostRead, section, preview } = loaderData;
+  const { post, game, related, mostRead, section, preview, arcadeSlug } = loaderData;
+  const arcade = arcadeGame(arcadeSlug);
   // Conta a visita depois de abrir no navegador (bots e pré-carregamentos não contam).
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-14 px-4 pt-8 sm:px-6">
@@ -215,6 +217,16 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
               </Link>
             )}
             <MostRead posts={mostRead} />
+            {arcade && (
+              <Link to={`/arcade/${arcade.slug}`} className="group ch flex flex-col bg-ink-2 hover:bg-ink-3">
+                <ArcadeThumb slug={arcade.slug} className="block aspect-video w-full" />
+                <div className="flex flex-col gap-1 p-4">
+                  <span className="font-mono text-xs font-semibold text-acc">&gt; PASSE O TEMPO</span>
+                  <span className="font-display text-2xl uppercase leading-none group-hover:text-acc">{arcade.shareName}</span>
+                  <span className="text-sm text-body">{arcade.tagline}</span>
+                </div>
+              </Link>
+            )}
           </aside>
         </div>
       </article>
@@ -231,88 +243,6 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
       )}
     </main>
   );
-}
-
-const LINK = /\[([^\]\n]+)\]\(([^)\s]+)\)/g;
-
-/** Texto com links no formato [texto](url): interno vira <Link>, externo abre em outra aba. */
-function RichText({ text }: { text: string }) {
-  const parts: ReactNode[] = [];
-  let last = 0;
-  for (const m of text.matchAll(LINK)) {
-    parts.push(text.slice(last, m.index));
-    const [, label, href] = m;
-    if (href.startsWith("/")) parts.push(<Link key={m.index} to={href}>{label}</Link>);
-    else if (/^https:\/\//.test(href))
-      parts.push(
-        <a key={m.index} href={href} target="_blank" rel="noopener">
-          {label}
-        </a>,
-      );
-    else parts.push(label);
-    last = m.index + m[0].length;
-  }
-  parts.push(text.slice(last));
-  return <>{parts}</>;
-}
-
-function BodyBlock({ block }: { block: Block }) {
-  switch (block.type) {
-    case "p": {
-      const also = block.text.match(/^Leia também:\s*(.+)$/);
-      if (also)
-        return (
-          <p className="read-also">
-            <span>&gt; LEIA TAMBÉM</span>
-            <RichText text={also[1]} />
-          </p>
-        );
-      return (
-        <p>
-          <RichText text={block.text} />
-        </p>
-      );
-    }
-    case "h2":
-      return <h2>{block.text}</h2>;
-    case "h3":
-      return <h3>{block.text}</h3>;
-    case "quote":
-      return (
-        <blockquote>
-          <RichText text={block.text} />
-        </blockquote>
-      );
-    case "ul":
-      return (
-        <ul>
-          {block.items.map((item, i) => (
-            <li key={i}>
-              <RichText text={item} />
-            </li>
-          ))}
-        </ul>
-      );
-    case "img":
-      return (
-        <figure>
-          <img src={block.src} alt={block.alt} width={block.width} height={block.height} loading="lazy" decoding="async" />
-          {block.credit && <figcaption>{block.credit}</figcaption>}
-        </figure>
-      );
-    case "video":
-      return (
-        <div className="video">
-          <iframe
-            src={`https://www.youtube-nocookie.com/embed/${block.youtubeId}`}
-            title={block.title}
-            loading="lazy"
-            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-      );
-  }
 }
 
 function ProsCons({ title, items, sign }: { title: string; items: string[]; sign: string }) {
