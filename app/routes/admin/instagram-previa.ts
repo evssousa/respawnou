@@ -17,7 +17,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   try {
     const { jpegs } = await gerarSlides(modelo, e);
     const n = Math.min(Math.max(1, Number(url.searchParams.get("s")) || 1), jpegs.length);
-    return new Response(new Uint8Array(jpegs[n - 1]), { headers: { "Content-Type": "image/jpeg", "Cache-Control": "no-store" } });
+    return new Response(new Uint8Array(jpegs[n - 1]), { headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, max-age=300" } });
   } catch (err) {
     return new Response(`Não gerou: ${String((err as Error)?.message ?? err)}`, { status: 422 });
   }

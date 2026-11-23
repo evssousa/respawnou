@@ -1,4 +1,5 @@
 // Painel do Instagram (/admin/instagram): conta, automação, fila e prévias. Módulo: app/social (docs/instagram.md).
+import { useEffect, useState } from "react";
 import { Form, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/instagram";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat, when } from "~/components/admin-ui";
@@ -102,10 +103,37 @@ const MSG: Record<string, string> = {
   repostar: "Voltou para a fila (cuidado: vai criar outro post no Instagram).",
 };
 
+/** Visualizador em tela cheia: a imagem grande (1080×1350 reduzida à tela), com setas para o carrossel e Esc para fechar. */
+function Visualizador({ imgs, inicio, onFechar }: { imgs: string[]; inicio: number; onFechar: () => void }) {
+  const [i, setI] = useState(inicio);
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onFechar();
+      if (e.key === "ArrowRight") setI((x) => Math.min(imgs.length - 1, x + 1));
+      if (e.key === "ArrowLeft") setI((x) => Math.max(0, x - 1));
+    };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, [imgs.length, onFechar]);
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-3 bg-black/90 p-4" role="dialog" aria-modal="true" onClick={onFechar}>
+      <img src={imgs[i]} alt={`Slide ${i + 1} de ${imgs.length}`} className="max-h-[88vh] max-w-full object-contain" onClick={(e) => e.stopPropagation()} />
+      <div className="flex items-center gap-3 font-mono text-xs font-bold text-paper" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="min-h-10 border border-line-soft px-4 hover:border-acc disabled:opacity-40" disabled={i === 0} onClick={() => setI(i - 1)}>‹ ANTERIOR</button>
+        <span>{i + 1} / {imgs.length}</span>
+        <button type="button" className="min-h-10 border border-line-soft px-4 hover:border-acc disabled:opacity-40" disabled={i === imgs.length - 1} onClick={() => setI(i + 1)}>PRÓXIMO ›</button>
+        <a href={imgs[i]} target="_blank" rel="noopener" className="min-h-10 border border-line-soft px-4 py-2.5 hover:border-acc">ABRIR EM TAMANHO REAL</a>
+        <button type="button" className="min-h-10 bg-acc px-4 text-ink" onClick={onFechar}>FECHAR (ESC)</button>
+      </div>
+    </div>
+  );
+}
+
 const ESTADO: Record<string, string> = { pending: "na fila", preview: "prévia", sending: "enviando", published: "publicado", failed: "falhou", skipped: "pulado", expired: "expirou" };
 
 export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) {
   const busy = useNavigation().state !== "idle";
+  const [aberto, setAberto] = useState<{ imgs: string[]; i: number } | null>(null);
   if (d.semBanco) return <><PageTitle>Instagram</PageTitle><Notice tone="warn">Precisa do banco de dados.</Notice></>;
   const { conta } = d;
   const estado = conta.token_status === "invalid" ? "TOKEN INVÁLIDO" : !conta.enabled && !conta.test_mode ? "DESLIGADO" : conta.test_mode ? "MODO DE TESTE" : "LIGADO";
@@ -207,7 +235,15 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
             {d.fila.map((l) => (
               <li key={l.id} className="flex flex-col gap-3 py-4">
                 <div className="flex flex-wrap items-start gap-3">
-                  {l.imagens[0] ? <img src={l.imagens[0]} alt="" width={64} height={80} className="h-20 w-16 shrink-0 border border-line object-cover" /> : <div className="h-20 w-16 shrink-0 border border-line bg-ink" />}
+                  {/* Sem arte gerada ainda (na fila): mostra a prévia feita na hora; clicar abre grande. */}
+                  <button
+                    type="button"
+                    className="h-[150px] w-[120px] shrink-0 overflow-hidden border border-line bg-ink hover:border-acc"
+                    aria-label="Ver a arte grande"
+                    onClick={() => setAberto({ imgs: l.imagens.length ? l.imagens : [`/admin/instagram/previa/${l.post_id}?s=1`], i: 0 })}
+                  >
+                    <img src={l.imagens[0] ?? `/admin/instagram/previa/${l.post_id}?s=1`} alt="" width={120} height={150} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  </button>
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-2 font-bold text-paper">{l.title}</p>
                     <p className="mt-1 flex flex-wrap items-center gap-2 font-mono text-xs text-muted">
@@ -241,7 +277,11 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                   <details>
                     <summary className="cursor-pointer font-mono text-xs font-bold text-acc">VER {l.imagens.length} SLIDE(S) E A LEGENDA</summary>
                     <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
-                      {l.imagens.map((src) => <img key={src} src={src} alt="" width={216} height={270} className="h-[270px] w-[216px] shrink-0 border border-line object-cover" loading="lazy" />)}
+                      {l.imagens.map((src, k) => (
+                        <button key={src} type="button" className="shrink-0 hover:opacity-90" aria-label={`Ver o slide ${k + 1} grande`} onClick={() => setAberto({ imgs: l.imagens, i: k })}>
+                          <img src={src} alt="" width={216} height={270} className="h-[270px] w-[216px] border border-line object-cover" loading="lazy" />
+                        </button>
+                      ))}
                     </div>
                     {l.caption && <pre className="mt-2 whitespace-pre-wrap border border-line bg-ink p-3 text-xs text-body">{l.caption}</pre>}
                   </details>
@@ -251,6 +291,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
           </ul>
         )}
       </Card>
+      {aberto && <Visualizador imgs={aberto.imgs} inicio={aberto.i} onFechar={() => setAberto(null)} />}
     </>
   );
 }
