@@ -8,6 +8,9 @@ import { hasDatabase } from "~/lib/db.server";
 import { SOCIAL } from "~/social/config";
 import { conectar, desconectar, getConta, salvarConfig } from "~/social/server/conta.server";
 import { chaveOk } from "~/social/server/cripto.server";
+import { montarLegenda } from "~/social/core/legenda";
+import { lerEntrada } from "~/social/site.server";
+import type { Modelo } from "~/social/tipos";
 import { enfileirarRecentes, gerarDeNovo, imagensDe, listarFila, listarPostados, postarAgora, pular, repostar, resumo, tick, tirarDosPostados, zerarFila } from "~/social/server/fila.server";
 import { cota, perfil } from "~/social/server/instagram.server";
 import { getToken } from "~/social/server/conta.server";
@@ -17,7 +20,19 @@ export const meta = () => adminMeta("Instagram");
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request);
   if (!hasDatabase()) return { semBanco: true as const };
-  const [conta, fila, postados, r] = await Promise.all([getConta(), listarFila(30), listarPostados(50), resumo()]);
+  const [conta, fila0, postados, r] = await Promise.all([getConta(), listarFila(30), listarPostados(50), resumo()]);
+  // Quem ainda não tem legenda gravada (arte não gerada) ganha a legenda calculada na hora, para ela aparecer sempre.
+  const fila = await Promise.all(
+    fila0.map(async (l) => {
+      if (l.caption) return l;
+      try {
+        const e = await lerEntrada(l.post_id);
+        return e ? { ...l, caption: montarLegenda(e, l.model as Modelo) } : l;
+      } catch {
+        return l;
+      }
+    }),
+  );
   let usoApi: string | null = null;
   const url = new URL(request.url);
   if (url.searchParams.get("testar") === "1" && conta.token_status === "ok" && conta.account_id) {
@@ -303,18 +318,15 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                   </div>
                 </div>
                 {l.imagens.length > 0 && (
-                  <details>
-                    <summary className="cursor-pointer font-mono text-xs font-bold text-acc">VER {l.imagens.length} SLIDE(S) E A LEGENDA</summary>
-                    <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
-                      {l.imagens.map((src, k) => (
-                        <button key={src} type="button" className="shrink-0 hover:opacity-90" aria-label={`Ver o slide ${k + 1} grande`} onClick={() => setAberto({ imgs: l.imagens, i: k })}>
-                          <img src={src} alt="" width={216} height={270} className="h-[270px] w-[216px] border border-line object-cover" loading="lazy" />
-                        </button>
-                      ))}
-                    </div>
-                    {l.caption && <pre className="mt-2 whitespace-pre-wrap border border-line bg-ink p-3 text-xs text-body">{l.caption}</pre>}
-                  </details>
+                  <div className="flex gap-3 overflow-x-auto pb-2">
+                    {l.imagens.map((src, k) => (
+                      <button key={src} type="button" className="shrink-0 hover:opacity-90" aria-label={`Ver o slide ${k + 1} grande`} onClick={() => setAberto({ imgs: l.imagens, i: k })}>
+                        <img src={src} alt="" width={216} height={270} className="h-[270px] w-[216px] border border-line object-cover" loading="lazy" />
+                      </button>
+                    ))}
+                  </div>
                 )}
+                {l.caption && <pre className="whitespace-pre-wrap border border-line bg-ink p-3 text-xs text-body">{l.caption}</pre>}
               </li>
             ))}
           </ul>

@@ -148,6 +148,52 @@ function RequisitosTabela({ e, ins, i, total }: { e: EntradaSocial; ins: Insumos
   );
 }
 
+/** Guia de requisitos em UMA imagem: capa em faixa, título e a tabela mínimo x recomendado (pouca informação não merece vários slides). */
+function GuiaUnico({ e, ins }: { e: EntradaSocial; ins: InsumosCarrossel }) {
+  const linhas = (e.requisitos ?? []).slice(0, 5);
+  const alturaLinha = Math.min(104, Math.floor(500 / Math.max(1, linhas.length)));
+  const tituloBase = cortar(e.titulo, 90);
+  let aj = ajustarTitulo(tituloBase, 952, 2, [64, 56, 50]);
+  for (const tam of [64, 56, 50]) {
+    if (linhasDoTitulo(tituloBase, tam) <= 2) {
+      aj = { texto: tituloBase, tam, linhas: linhasDoTitulo(tituloBase, tam) };
+      break;
+    }
+  }
+  return (
+    <Tela grade={ins.grade}>
+      <Topo logo={ins.logo} direita="GUIA // REQUISITOS" />
+      <div style={{ position: "absolute", left: 64, top: 132, width: 952, height: 280, display: "flex", overflow: "hidden", backgroundColor: COR.painel }}>
+        {ins.capa && <img src={ins.capa} width={952} height={536} style={{ marginTop: -128 }} />}
+      </div>
+      <div style={{ position: "absolute", left: 64, top: 436, display: "flex", flexDirection: "column", width: 952 }}>
+        <Titulo texto={aj.texto} tam={aj.tam} />
+      </div>
+      <div style={{ position: "absolute", left: 64, top: 436 + Math.ceil(aj.linhas * aj.tam * 1.04) + 26, width: 952, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", paddingBottom: 8, borderBottom: `2px solid ${COR.linhaSuave}`, fontFamily: MONO, fontWeight: 700, fontSize: 22 }}>
+          <div style={{ display: "flex", width: 150 }} />
+          <div style={{ display: "flex", flex: 1, paddingRight: 14, color: COR.texto }}>MÍNIMO</div>
+          <div style={{ display: "flex", flex: 1, color: COR.destaque }}>RECOMENDADO</div>
+        </div>
+        {linhas.map((l) => (
+          <div key={l.rotulo} style={{ display: "flex", alignItems: "center", height: alturaLinha, borderBottom: `2px solid ${COR.linhaSuave}` }}>
+            <div style={{ display: "flex", width: 150, fontFamily: MONO, fontWeight: 700, fontSize: 19, color: COR.apagado }}>{l.rotulo.replace("PLACA DE VÍDEO", "VÍDEO").replace("ARMAZENAMENTO", "ESPAÇO")}</div>
+            <div style={{ display: "flex", flex: 1, paddingRight: 14, fontWeight: 600, fontSize: 28, lineHeight: 1.18 }}>{cortar(l.minimo, 40)}</div>
+            <div style={{ display: "flex", flex: 1, fontWeight: 600, fontSize: 28, lineHeight: 1.18, color: COR.destaque }}>{cortar(l.recomendado, 40)}</div>
+          </div>
+        ))}
+      </div>
+      {(e.lancamento || e.precoBrl) && (
+        <div style={{ position: "absolute", left: 64, top: 1206, display: "flex", fontFamily: MONO, fontWeight: 700, fontSize: 24, color: COR.texto }}>
+          {[e.lancamento ? `LANÇAMENTO ${e.lancamento}` : "", e.precoBrl ? `${e.precoBrl} NA STEAM` : ""].filter(Boolean).join(" · ")}
+        </div>
+      )}
+      <Rod dir="SALVE E SIGA" />
+      <Faixa />
+    </Tela>
+  );
+}
+
 function CtaFinal({ ins, total }: { ins: InsumosCarrossel; total: number }) {
   return (
     <Tela grade={ins.grade}>
@@ -181,13 +227,7 @@ export function slidesCarrossel(modelo: "C-artigo" | "C-review" | "C-guia", e: E
     out.push(<CtaFinal key="f" ins={ins} total={total} />);
     return out;
   }
-  if (modelo === "C-guia" && e.requisitos) {
-    const total = 3; // capa, tabela mínimo x recomendado, CTA
-    out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo="GUIA // REQUISITOS" chipFinal="MÍNIMO E RECOMENDADO" />);
-    out.push(<RequisitosTabela key="t" e={e} ins={ins} i={2} total={total} />);
-    out.push(<CtaFinal key="f" ins={ins} total={total} />);
-    return out;
-  }
+  if (modelo === "C-guia" && e.requisitos) return [<GuiaUnico key="g" e={e} ins={ins} />];
   const total = pontos.length + 2;
   out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo={`${SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} // ${e.tag ? caixa(e.tag) : "DESTAQUES"}`} chipFinal={`${pontos.length} PONTOS NESTE POST`} />);
   pontos.forEach((p, i) => out.push(<PontoSlide key={`p${i}`} p={p} i={i + 1} total={total} ins={ins} imagem={ins.imagens[i] ?? null} rotulo={SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} />));
