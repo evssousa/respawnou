@@ -204,7 +204,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
         : d.msg.startsWith("zerou-")
           ? `Fila zerada: ${d.msg.slice(6)} item(ns) removido(s). Os já postados ficam na lista de baixo. Clique em "Colocar as 30 últimas matérias na fila" para montar de novo.`
           : d.msg.startsWith("recentes-")
-          ? `${d.msg.slice(9)} matéria(s) colocada(s) na fila. Clique em "Rodar a fila agora" para gerar as artes.`
+          ? `${d.msg.slice(9)} item(ns) colocado(s) na fila (feed e Stories). Clique em "Rodar a fila agora" para gerar as artes.`
           : MSG[d.msg]
     : null;
   return (

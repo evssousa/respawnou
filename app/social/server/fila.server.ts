@@ -76,14 +76,14 @@ export async function enfileirar(postId: number, dica?: DicaSocial, origem: "aut
   } catch (err) {
     console.error(`[social] enfileirar falhou (post ${postId}): ${String((err as Error)?.message ?? err).slice(0, 120)}`);
   }
-  // Story: independente dos modelos ligados do feed; só para matéria nova (o botão "últimas 30" é só do feed).
-  if (origem === "auto" && conta && modelo && (conta.story_enabled || conta.test_mode)) {
+  // Story: independente dos modelos ligados do feed. Pelo botão "últimas 30" (manual) também entra, com validade de 7 dias.
+  if (conta && modelo && (conta.story_enabled || conta.test_mode)) {
     try {
       const cfg = SOCIAL.story.fila[modelo];
       await exec(
         `INSERT IGNORE INTO social_posts (post_id, network, kind, model, status, origin, priority, payload, expires_at)
-         VALUES (?, 'instagram', 'story', ?, 'pending', 'auto', ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? HOUR))`,
-        [postId, modelo, cfg.prioridade, dica ? JSON.stringify(dica) : null, cfg.validadeH],
+         VALUES (?, 'instagram', 'story', ?, 'pending', ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? HOUR))`,
+        [postId, modelo, origem, cfg.prioridade, dica ? JSON.stringify(dica) : null, origem === "manual" ? 168 : cfg.validadeH],
       );
     } catch (err) {
       console.error(`[social] enfileirar story falhou (post ${postId}): ${String((err as Error)?.message ?? err).slice(0, 120)}`);
@@ -311,13 +311,20 @@ const RECENTES = `SELECT id FROM (SELECT id FROM posts WHERE status = 'published
 
 /** Coloca na fila as N últimas matérias publicadas que ainda não estão (para ver as artes de matérias que já existiam). Repetir o clique não acrescenta nada além das N mais recentes. */
 export async function enfileirarRecentes(n = 30): Promise<number> {
+  // Matérias das N mais recentes que ainda não têm o post de feed OU o Story (o Story só conta se estiver ligado ou em teste).
+  const conta = await getConta();
+  const comStory = conta.story_enabled || conta.test_mode;
   const rows = await query<{ id: number }>(
-    `SELECT p.id FROM posts p WHERE p.id IN (${RECENTES}) AND NOT EXISTS (SELECT 1 FROM social_posts s WHERE s.post_id = p.id AND s.network = 'instagram' AND s.kind = 'feed') ORDER BY p.published_at DESC`,
+    `SELECT p.id FROM posts p WHERE p.id IN (${RECENTES})
+       AND (NOT EXISTS (SELECT 1 FROM social_posts s WHERE s.post_id = p.id AND s.network = 'instagram' AND s.kind = 'feed')
+         ${comStory ? "OR NOT EXISTS (SELECT 1 FROM social_posts s WHERE s.post_id = p.id AND s.network = 'instagram' AND s.kind = 'story')" : ""})
+     ORDER BY p.published_at DESC`,
     [n],
   );
-  let c = 0;
-  for (const r of rows.reverse()) if (await enfileirar(r.id, undefined, "manual")) c++;
-  return c;
+  const contar = async () => Number((await query<{ c: number }>("SELECT COUNT(*) AS c FROM social_posts WHERE network = 'instagram'"))[0]?.c ?? 0);
+  const antes = await contar();
+  for (const r of rows.reverse()) await enfileirar(r.id, undefined, "manual");
+  return (await contar()) - antes;
 }
 
 /** Zera a fila: apaga tudo que ainda não foi ao ar (o que já foi publicado fica, para nunca postar duas vezes a mesma matéria). */
