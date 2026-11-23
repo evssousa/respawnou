@@ -41,7 +41,8 @@ async function gerarBase(modelo: Modelo, e: EntradaSocial, ov: Overrides, extras
   // Troca do slide 1 = nova capa do post inteiro (capa, fundo desfocado, arte do jogo grátis).
   const t1 = ov.trocas?.["1"];
   const capaSrc = t1?.src ?? e.capa?.src;
-  const capaOpts = t1 ? { foco: t1.foco ?? "auto" } : {};
+  const focoCapa = t1 ? (t1.foco ?? "auto") : ov.focos?.["1"];
+  const capaOpts = focoCapa ? { foco: focoCapa } : {};
 
   if (modelo === "N") {
     const capa = await imagemDataUri(capaSrc, 1080, 760, capaOpts);
@@ -95,11 +96,13 @@ async function gerarBase(modelo: Modelo, e: EntradaSocial, ov: Overrides, extras
     const troca = ov.trocas?.[String(i + 2)];
     // Imagem do dono entra inteira (só recortada pelo foco), sem zoom; senão a do trecho ou um recorte da matéria.
     const propria = troca ? troca.src : pontos[i].imagem;
+    const focoPonto = ov.focos?.[String(i + 2)];
     if (troca) {
       imagens.push(await imagemDataUri(troca.src, 952, 600, { foco: troca.foco ?? "auto" }));
       continue;
     }
-    imagens.push(propria ? await imagemDataUri(propria, 952, 600) : pool.length ? await imagemDataUri(pool[i % pool.length], 952, 600, variacoes[i % variacoes.length]) : null);
+    // Alinhamento manual da imagem original do trecho (sem zoom); sem ele, o recorte com zoom de sempre.
+    imagens.push(propria && focoPonto ? await imagemDataUri(propria, 952, 600, { foco: focoPonto }) : propria ? await imagemDataUri(propria, 952, 600) : pool.length ? await imagemDataUri(pool[i % pool.length], 952, 600, variacoes[i % variacoes.length]) : null);
   }
   // Review e guia: slides de dados ganham a capa desfocada e escurecida de fundo (mais chamativo que só texto).
   const fundo = modelo === "C-artigo" ? null : await imagemDataUri(capaSrc, 1080, 1350, { blur: 26 });

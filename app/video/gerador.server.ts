@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import sharp from "sharp";
+import { recortarComFoco } from "~/social/render/imagem.server";
 import { gerarQuadros } from "./render/quadros.server";
 import { gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/ass";
 import { alinhamentoFalso, sintetizar } from "../../scripts/video/elevenlabs";
@@ -14,6 +15,7 @@ export interface PacoteVideo {
   secao: string;
   roteiro: { gancho: string; cenas: { fala: string; imagem: number }[]; titulo_curto: string };
   imagens: { src: string; url: string; foco: string }[];
+  capa?: number;
   voz: string;
   modelo: string;
   velocidade: number;
@@ -116,7 +118,9 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     const dur = c.fim - c.ini;
     const partes = Math.max(1, Math.min(3, Math.round(dur / 4.2)));
     const pref = p.roteiro.cenas[c.cena]?.imagem ?? 0;
-    for (let k = 0; k < partes; k++) plano.push({ img: escolher(k === 0 ? pref : pref + k), ini: c.ini + (dur / partes) * k, dur: dur / partes });
+    // A imagem escolhida para a capa vale para o primeiro clipe (abertura).
+    const primeiro = plano.length === 0 && p.capa != null && uso.has(p.capa) ? p.capa : null;
+    for (let k = 0; k < partes; k++) plano.push({ img: primeiro != null && k === 0 ? (uso.set(primeiro, (uso.get(primeiro) ?? 0) + 1), (ultima = primeiro), primeiro) : escolher(k === 0 ? pref : pref + k), ini: c.ini + (dur / partes) * k, dur: dur / partes });
   }
 
   // 4) Imagens enquadradas para 9:16. Imagem larga (16:9): inteira no centro, sobre ela mesma desfocada (não corta personagem nas
@@ -139,7 +143,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
       const frente = await sharp(buf).rotate().resize(LARG, ALT, { fit: "inside" }).toBuffer();
       await sharp(fundo).composite([{ input: frente, gravity: "centre" }]).jpeg({ quality: 90 }).toFile(join(dir, nome));
     } else {
-      await sharp(buf).rotate().resize(LARG, ALT, { fit: "cover", position: POSICAO[foco] ?? sharp.strategy.attention }).jpeg({ quality: 90 }).toFile(join(dir, nome));
+      await sharp(await recortarComFoco(buf, LARG, ALT, foco)).jpeg({ quality: 90 }).toFile(join(dir, nome));
     }
     const r = { nome, suave: inteira };
     prep.set(indice, r);

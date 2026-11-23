@@ -8,7 +8,26 @@ export const MAX_SLIDES = 10;
 export const MAX_LEGENDA = 140;
 const SRC = /^\/media\/social\/uploads\/\d{4}\/\d{2}\/[\w.-]+\.jpg$/;
 
-const foco = (v: unknown): Foco => (FOCOS.includes(v as Foco) ? (v as Foco) : "auto");
+const MANUAL = /^(\d{1,3}),(\d{1,3})$/;
+
+/** Alinhamento manual: "x,y" em porcentagem (0 = esquerda/topo, 100 = direita/base). */
+export const ehFocoManual = (v: unknown): v is `${number},${number}` => typeof v === "string" && MANUAL.test(v);
+
+/** Foco válido: um da lista ou "x,y" (cortado em 0–100). Qualquer outra coisa vira "auto". */
+export function foco(v: unknown): Foco {
+  if (FOCOS.includes(v as Foco)) return v as Foco;
+  const m = typeof v === "string" ? MANUAL.exec(v) : null;
+  if (m) return `${Math.min(100, Number(m[1]))},${Math.min(100, Number(m[2]))}` as Foco;
+  return "auto";
+}
+
+/** Proporção (largura/altura) em que a imagem do slide aparece na arte: serve para mostrar o enquadramento certo no painel. */
+export function aspectoDoSlot(modelo: Modelo, slide: number): number {
+  if (modelo === "N") return 1080 / 760;
+  if (modelo === "P1") return 948 / 476;
+  if (modelo === "C-artigo") return slide === 1 ? 952 / 536 : 952 / 600;
+  return 952 / 536;
+}
 
 function propria(v: unknown): ImagemPropria | null {
   if (!v || typeof v !== "object") return null;
@@ -56,6 +75,14 @@ export function lerOverrides(json: unknown, modelo?: Modelo, pontos: { titulo: s
       if (p) trocas[k] = p;
     }
   }
+  const focos: Record<string, Foco> = {};
+  if (o.focos && typeof o.focos === "object") {
+    for (const [k, val] of Object.entries(o.focos as Record<string, unknown>)) {
+      if (!/^\d{1,2}$/.test(k) || (slots && !slots.has(k))) continue;
+      const f = foco(val);
+      if (f !== "auto") focos[k] = f;
+    }
+  }
   const limite = modelo ? maxExtras(modelo, pontos.length) : MAX_SLIDES - 1;
   const extras: NonNullable<Overrides["extras"]> = [];
   if (Array.isArray(o.extras)) {
@@ -69,13 +96,14 @@ export function lerOverrides(json: unknown, modelo?: Modelo, pontos: { titulo: s
   }
   const out: Overrides = {};
   if (Object.keys(trocas).length) out.trocas = trocas;
+  if (Object.keys(focos).length) out.focos = focos;
   if (extras.length) out.extras = extras;
   return out;
 }
 
 /** Resumo para o painel: "2 trocadas · 1 extra". */
 export function resumoOverrides(ov: Overrides): string {
-  const t = Object.keys(ov.trocas ?? {}).length;
+  const t = Object.keys(ov.trocas ?? {}).length + Object.keys(ov.focos ?? {}).length;
   const x = ov.extras?.length ?? 0;
-  return [t ? `${t} trocada${t > 1 ? "s" : ""}` : "", x ? `${x} extra${x > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
+  return [t ? `${t} ajustada${t > 1 ? "s" : ""}` : "", x ? `${x} extra${x > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
 }

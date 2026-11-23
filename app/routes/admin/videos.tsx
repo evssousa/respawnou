@@ -6,7 +6,8 @@ import type { Route } from "./+types/videos";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { hasDatabase } from "~/lib/db.server";
-import { FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
+import { AlinharImagem } from "~/components/AlinharImagem";
+import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
 import type { Foco } from "~/social/tipos";
 import { SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
@@ -72,8 +73,11 @@ export async function action({ request }: Route.ActionArgs) {
           const imagem = Number(f.get(`img_${i}`));
           cenas.push({ fala: String(f.get(`fala_${i}`) ?? "").trim(), imagem });
           const fo = String(f.get(`foco_${i}`) ?? "auto");
-          if (fo === "inteira" || FOCOS.includes(fo as Foco)) focus[String(imagem)] = fo as Foco;
+          if (fo === "inteira") focus[String(imagem)] = "inteira" as Foco;
+          else focus[String(imagem)] = focoValido(fo);
         }
+        const capa = Number(f.get("capa"));
+        if (f.get("capa") !== "" && Number.isInteger(capa) && capa >= 0) focus["_capa"] = String(capa) as Foco;
         const erro = await salvarRoteiro(id, { gancho: String(f.get("gancho") ?? ""), titulo_curto: String(f.get("titulo_curto") ?? ""), cenas }, focus);
         if (erro !== "ok") return back(`erro=${encodeURIComponent(erro)}`);
       }
@@ -113,6 +117,43 @@ function Copiavel({ titulo, texto }: { titulo: string; texto: string }) {
 }
 
 type Job = Extract<Route.ComponentProps["loaderData"], { semBanco: false }>["jobs"][number];
+
+/** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
+function CenaLinha({ i, c, images, focus }: { i: number; c: { fala: string; imagem: number }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
+  const [img, setImg] = useState(c.imagem);
+  const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
+  const [alinhando, setAlinhando] = useState(false);
+  const src = images[img]?.src;
+  const real = src && !src.startsWith("arte:") ? src : null;
+  return (
+    <div className="grid gap-2 border border-line p-2 sm:grid-cols-[64px_1fr]">
+      {real ? (
+        <button type="button" className="block hover:opacity-90" aria-label="Ver a imagem grande e alinhar" onClick={() => setAlinhando(true)}>
+          <img src={real} alt="" width={64} height={114} className="h-[114px] w-16 border border-line object-cover" style={ehFocoManual(foco) ? { objectPosition: foco.replace(",", "% ") + "%" } : undefined} loading="lazy" />
+        </button>
+      ) : (
+        <div className="flex h-[114px] w-16 items-center justify-center border border-line text-[10px] text-muted">ARTE</div>
+      )}
+      <div className="flex flex-col gap-2">
+        <textarea name={`fala_${i}`} defaultValue={c.fala} rows={2} maxLength={VIDEO.limites.cena} aria-label={`Fala da cena ${i + 1}`} className={inputCls} />
+        <input type="hidden" name={`img_${i}`} value={img} />
+        <input type="hidden" name={`foco_${i}`} value={foco} />
+        <div className="flex flex-wrap gap-2">
+          <select value={img} onChange={(e) => { const n = Number(e.target.value); setImg(n); setFoco(focus[String(n)] ?? "auto"); }} aria-label="Imagem da cena" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+            {images.map((x, k) => <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>)}
+          </select>
+          <select value={foco} onChange={(e) => setFoco(e.target.value)} aria-label="Enquadramento" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+            {ehFocoManual(foco) && <option value={foco}>{`Manual (${foco.replace(",", "% / ")}%)`}</option>}
+            <option value="inteira">Imagem inteira (fundo desfocado)</option>
+            {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
+          </select>
+          {real && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando(true)}>Ver maior e alinhar</button>}
+        </div>
+      </div>
+      {alinhando && real && <AlinharImagem src={real} aspecto={9 / 16} inicial={foco} titulo={`CENA ${i + 1} · enquadramento no vídeo (9:16)`} onSalvar={(f) => { setFoco(f); setAlinhando(false); }} onFechar={() => setAlinhando(false)} />}
+    </div>
+  );
+}
 
 function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }) {
   const r = j.script;
@@ -158,22 +199,14 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
               <Field label={`Título do vídeo (até ${VIDEO.limites.tituloCurto})`}>
                 <input name="titulo_curto" defaultValue={r.titulo_curto} maxLength={VIDEO.limites.tituloCurto} className={inputCls} />
               </Field>
+              <Field label="Imagem da capa e da abertura (a 1ª imagem do vídeo)">
+                <select name="capa" defaultValue={j.focus["_capa"] ?? ""} className={inputCls}>
+                  <option value="">Automática (a da 1ª cena)</option>
+                  {j.images.map((x, k) => (x.src.startsWith("arte:") ? null : <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>))}
+                </select>
+              </Field>
               {r.cenas.map((c, i) => (
-                <div key={i} className="grid gap-2 border border-line p-2 sm:grid-cols-[64px_1fr]">
-                  {j.images[c.imagem]?.src && !j.images[c.imagem].src.startsWith("arte:") ? <img src={j.images[c.imagem].src} alt="" width={64} height={114} className="h-[114px] w-16 border border-line object-cover" loading="lazy" /> : <div className="flex h-[114px] w-16 items-center justify-center border border-line text-[10px] text-muted">ARTE</div>}
-                  <div className="flex flex-col gap-2">
-                    <textarea name={`fala_${i}`} defaultValue={c.fala} rows={2} maxLength={VIDEO.limites.cena} aria-label={`Fala da cena ${i + 1}`} className={inputCls} />
-                    <div className="flex flex-wrap gap-2">
-                      <select name={`img_${i}`} defaultValue={c.imagem} aria-label="Imagem da cena" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
-                        {j.images.map((x, k) => <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>)}
-                      </select>
-                      <select name={`foco_${i}`} defaultValue={j.focus[String(c.imagem)] ?? "auto"} aria-label="Foco do recorte" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
-                        <option value="inteira">Enquadramento: imagem inteira (fundo desfocado)</option>
-                        {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </div>
+                <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} />
               ))}
               <p className="text-xs text-muted">Fechamento fixo: “{VIDEO.fechamento}”</p>
               <p className="font-mono text-xs text-body">≈ {Math.round(palavras / 2.5 + 3)} s · {chars} caracteres · ~US$ {custo.toFixed(2).replace(".", ",")}</p>

@@ -1,6 +1,6 @@
 // Painel do Instagram (/admin/instagram): conta, automação, fila e prévias. Módulo: app/social (docs/instagram.md).
 import { useEffect, useState } from "react";
-import { Form, Link, redirect, useNavigation } from "react-router";
+import { Form, Link, redirect, useNavigation, useSubmit } from "react-router";
 import type { Route } from "./+types/instagram";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
@@ -10,7 +10,8 @@ import { ErroUpload, salvarUpload } from "~/social/server/uploads.server";
 import type { Foco } from "~/social/tipos";
 import { conectar, desconectar, getConta, salvarConfig, salvarConfigStory } from "~/social/server/conta.server";
 import { chaveOk } from "~/social/server/cripto.server";
-import { FOCOS, lerOverrides, resumoOverrides, ROTULO_FOCO, slotsDoModelo, maxExtras as maxExtrasDoModelo, MAX_LEGENDA } from "~/social/core/overrides";
+import { aspectoDoSlot, ehFocoManual, foco as focoValido, FOCOS, lerOverrides, resumoOverrides, ROTULO_FOCO, slotsDoModelo, maxExtras as maxExtrasDoModelo, MAX_LEGENDA } from "~/social/core/overrides";
+import { AlinharImagem } from "~/components/AlinharImagem";
 import { extrairPontos } from "~/social/core/pontos";
 import { montarLegenda } from "~/social/core/legenda";
 import { lerEntrada, urlDaMateria } from "~/social/site.server";
@@ -45,11 +46,13 @@ export async function loader({ request }: Route.LoaderArgs) {
       let categoria = "";
       let slides = imagensDe(l.images).length;
       let link = "";
-      let pontos: { titulo: string }[] = [];
+      let pontos: { titulo: string; imagem?: string | null }[] = [];
+      let capaOriginal: string | null = null;
       try {
         const e = await lerEntrada(l.post_id);
         if (e) {
           if (l.model === "C-artigo") pontos = extrairPontos(e.corpo);
+          capaOriginal = e.capa?.src ?? null;
           link = `${urlDaMateria(e)}?${SOCIAL.utm.replace("social", "story")}`;
           if (!caption && kind === "feed") caption = montarLegenda(e, l.model as Modelo);
           categoria = [SOCIAL.rotuloSecao[e.section] ?? e.section, e.tag].filter(Boolean).join(" · ");
@@ -60,7 +63,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       }
       const ov = lerOverrides(l.overrides, l.model, pontos);
       const podeEditar = kind === "feed" && l.status !== "published" && l.status !== "sending";
-      return { ...l, caption, categoria, slides, link, ov, slots: slotsDoModelo(l.model, pontos), maxExtras: maxExtrasDoModelo(l.model, pontos.length), podeEditar, resumoOv: resumoOverrides(ov), ovHash: JSON.stringify(ov).length.toString(36) + (l.rendered_at ?? "").slice(-5).replace(/\D/g, "") };
+      return { ...l, caption, categoria, slides, link, ov, slots: slotsDoModelo(l.model, pontos).map((sl) => ({ ...sl, aspecto: aspectoDoSlot(l.model, sl.slide), origem: sl.slide === 1 ? capaOriginal : (pontos[sl.slide - 2]?.imagem ?? null), foco: ov.trocas?.[String(sl.slide)]?.foco ?? ov.focos?.[String(sl.slide)] ?? null })), maxExtras: maxExtrasDoModelo(l.model, pontos.length), podeEditar, resumoOv: resumoOverrides(ov), ovHash: JSON.stringify(ov).length.toString(36) + (l.rendered_at ?? "").slice(-5).replace(/\D/g, "") };
     }),
   );
   let usoApi: string | null = null;
@@ -130,7 +133,7 @@ export async function action({ request }: Route.ActionArgs) {
       return back("ok=salvo");
     }
     if (intent.startsWith("img_")) {
-      const foco = (v: FormDataEntryValue | null): Foco => (FOCOS.includes(v as Foco) ? (v as Foco) : "auto");
+      const foco = (v: FormDataEntryValue | null): Foco => focoValido(v);
       const slide = String(Number(f.get("slide")) || 1);
       const idx = Number(f.get("idx"));
       if (intent === "img_trocar" || intent === "img_extra") {
@@ -149,6 +152,17 @@ export async function action({ request }: Route.ActionArgs) {
       }
       await editarOverrides(id, (ov) => {
         if (intent === "img_foco" && ov.trocas?.[slide]) ov.trocas[slide] = { ...ov.trocas[slide], foco: foco(f.get("foco")) };
+        // Alinhar à mão: vale para a imagem trocada ou para a original do slide.
+        if (intent === "img_alinhar") {
+          const novo = foco(f.get("foco"));
+          if (ov.trocas?.[slide]) ov.trocas[slide] = { ...ov.trocas[slide], foco: novo };
+          else {
+            const focos = { ...(ov.focos ?? {}) };
+            if (novo === "auto") delete focos[slide];
+            else focos[slide] = novo;
+            ov.focos = focos;
+          }
+        }
         if (intent === "img_remover" && ov.trocas) delete ov.trocas[slide];
         if (ov.extras?.[idx]) {
           if (intent === "img_extra_foco") ov.extras[idx] = { ...ov.extras[idx], foco: foco(f.get("foco")) };
@@ -244,11 +258,22 @@ const ESTADO: Record<string, string> = { pending: "na fila", preview: "prévia",
 type LinhaPainel = Extract<Route.ComponentProps["loaderData"], { semBanco: false }>["fila"][number];
 
 /** Imagens próprias dos slides: trocar a imagem de um slide, escolher o foco, acrescentar slides de foto e gerar de novo. */
-function BlocoImagens({ l, busy }: { l: LinhaPainel; busy: boolean }) {
+function BlocoImagens({ l, busy, ver }: { l: LinhaPainel; busy: boolean; ver: (imgs: string[], i: number) => void }) {
+  const enviar = useSubmit();
+  const [alinhando, setAlinhando] = useState<{ intent: string; slide?: number; idx?: number; src: string; aspecto: number; foco?: string | null; titulo: string } | null>(null);
+  const salvarAlinhamento = (foco: string) => {
+    if (!alinhando) return;
+    const campos: Record<string, string> = { intent: alinhando.intent, id: String(l.id), foco };
+    if (alinhando.slide != null) campos.slide = String(alinhando.slide);
+    if (alinhando.idx != null) campos.idx = String(alinhando.idx);
+    enviar(campos, { method: "post" });
+    setAlinhando(null);
+  };
   const auto = (e: React.ChangeEvent<HTMLElement>) => (e.currentTarget as HTMLInputElement).form?.requestSubmit();
   const extras = l.ov.extras ?? [];
   const Foco = ({ nome, valor, desabilitado, semAuto }: { nome?: string; valor?: string; desabilitado?: boolean; semAuto?: boolean }) => (
     <select name="foco" defaultValue={valor ?? "auto"} onChange={semAuto ? undefined : auto} disabled={busy || desabilitado} aria-label="Foco do recorte" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper" data-n={nome}>
+      {valor && ehFocoManual(valor) && <option value={valor}>{`Manual (${valor.replace(",", "% / ")}%)`}</option>}
       {FOCOS.map((x) => <option key={x} value={x}>{ROTULO_FOCO[x]}</option>)}
     </select>
   );
@@ -266,7 +291,9 @@ function BlocoImagens({ l, busy }: { l: LinhaPainel; busy: boolean }) {
               const troca = l.ov.trocas?.[String(s.slide)];
               return (
                 <div key={s.slide} className="flex w-[216px] shrink-0 flex-col gap-2">
-                  <img src={l.imagens[s.slide - 1] ?? `/admin/instagram/previa/${l.post_id}?s=${s.slide}&v=${l.ovHash}`} alt="" width={216} height={270} loading="lazy" className="h-[270px] w-[216px] border border-line object-cover" />
+                  <button type="button" className="block hover:opacity-90" aria-label="Ver este slide grande" onClick={() => ver(l.imagens.length ? l.imagens : l.slots.map((x) => `/admin/instagram/previa/${l.post_id}?s=${x.slide}&v=${l.ovHash}`), s.slide - 1)}>
+                    <img src={l.imagens[s.slide - 1] ?? `/admin/instagram/previa/${l.post_id}?s=${s.slide}&v=${l.ovHash}`} alt="" width={216} height={270} loading="lazy" className="h-[270px] w-[216px] border border-line object-cover" />
+                  </button>
                   <p className="font-mono text-[11px] leading-tight text-muted">{s.rotulo}</p>
                   <span className={`self-start px-2 py-0.5 font-mono text-[10px] font-bold ${troca ? "bg-acc text-ink" : "border border-line-soft text-muted"}`}>{troca ? "SUA IMAGEM" : "ORIGINAL"}</span>
                   <Form method="post" encType="multipart/form-data" className="flex flex-col gap-2">
@@ -277,6 +304,16 @@ function BlocoImagens({ l, busy }: { l: LinhaPainel; busy: boolean }) {
                     </label>
                     <Foco valor={troca?.foco} semAuto />
                   </Form>
+                  {(troca?.src || s.origem) && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="min-h-10 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc"
+                      onClick={() => setAlinhando({ intent: "img_alinhar", slide: s.slide, src: troca?.src ?? s.origem!, aspecto: s.aspecto, foco: s.foco, titulo: s.rotulo })}
+                    >
+                      Ver maior e alinhar{s.foco && ehFocoManual(s.foco) ? ` (${s.foco.replace(",", "% / ")}%)` : ""}
+                    </button>
+                  )}
                   {troca && (
                     <Form method="post" className="flex flex-col gap-1">
                       <input type="hidden" name="intent" value="img_foco" /><input type="hidden" name="id" value={l.id} /><input type="hidden" name="slide" value={s.slide} />
@@ -309,6 +346,9 @@ function BlocoImagens({ l, busy }: { l: LinhaPainel; busy: boolean }) {
                   <input type="hidden" name="intent" value="img_extra_foco" /><input type="hidden" name="id" value={l.id} /><input type="hidden" name="idx" value={k} />
                   <Foco valor={x.foco} />
                 </Form>
+                <button type="button" disabled={busy} className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando({ intent: "img_extra_foco", idx: k, src: x.src, aspecto: 1080 / 1350, foco: x.foco, titulo: `EXTRA ${k + 1}` })}>
+                  Ver maior e alinhar
+                </button>
                 <Form method="post">
                   <input type="hidden" name="intent" value="img_extra_remover" /><input type="hidden" name="id" value={l.id} /><input type="hidden" name="idx" value={k} />
                   <button type="submit" disabled={busy} className="font-mono text-xs text-muted underline hover:text-warn">Remover</button>
@@ -332,6 +372,7 @@ function BlocoImagens({ l, busy }: { l: LinhaPainel; busy: boolean }) {
           <Button tone="primary" disabled={busy}>Gerar de novo com as minhas imagens</Button>
         </Form>
       </div>
+      {alinhando && <AlinharImagem src={alinhando.src} aspecto={alinhando.aspecto} inicial={alinhando.foco} titulo={alinhando.titulo} onSalvar={salvarAlinhamento} onFechar={() => setAlinhando(null)} />}
     </details>
   );
 }
@@ -561,7 +602,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                     ))}
                   </div>
                 )}
-                {d.aba === "feed" && l.podeEditar && <BlocoImagens l={l} busy={busy} />}
+                {d.aba === "feed" && l.podeEditar && <BlocoImagens l={l} busy={busy} ver={(imgs, i) => setAberto({ imgs, i })} />}
                 {d.aba === "feed" && l.caption && <pre className="whitespace-pre-wrap border border-line bg-ink p-3 text-xs text-body">{l.caption}</pre>}
               </li>
             ))}

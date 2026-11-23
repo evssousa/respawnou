@@ -166,6 +166,8 @@ export interface PacoteWorker {
   velocidade: number;
   falado: string;
   chaveSecao: string;
+  /** Índice da imagem escolhida para a capa/abertura (opcional). */
+  capa?: number;
   fechamento: string;
   cta: string;
   baseUrl: string;
@@ -197,6 +199,7 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
     chaveSecao: e.section,
     roteiro: job.script,
     imagens: job.images.map((x, i) => ({ src: x.src, url: abs(x.src), foco: job.focus[String(i)] ?? "auto" })),
+    capa: job.focus["_capa"] != null && Number.isInteger(Number(job.focus["_capa"])) ? Number(job.focus["_capa"]) : undefined,
     voz,
     modelo: job.voice_model || cfg.model,
     velocidade: cfg.speed,

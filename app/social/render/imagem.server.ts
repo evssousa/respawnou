@@ -22,6 +22,23 @@ async function bytes(src: string): Promise<Buffer | null> {
   }
 }
 
+/**
+ * Recorta (cover) para w×h respeitando o foco. Foco manual "x,y" (%): amplia a imagem até cobrir o quadro e pega a janela
+ * deslocada x% na horizontal e y% na vertical (igual ao object-position do painel). Os outros focos usam o `position` do sharp.
+ */
+export async function recortarComFoco(entrada: Buffer, w: number, h: number, foco?: Foco | string): Promise<Buffer> {
+  const m = typeof foco === "string" ? /^(\d{1,3}),(\d{1,3})$/.exec(foco) : null;
+  if (!m) return sharp(entrada).rotate().resize(w, h, { fit: "cover", position: foco ? (foco === "auto" ? sharp.strategy.attention : foco) : "centre" }).toBuffer();
+  const { data, info } = await sharp(entrada).rotate().toBuffer({ resolveWithObject: true });
+  const escala = Math.max(w / info.width, h / info.height);
+  const sw = Math.max(w, Math.round(info.width * escala));
+  const sh = Math.max(h, Math.round(info.height * escala));
+  const grande = await sharp(data).resize(sw, sh, { fit: "fill" }).toBuffer();
+  const left = Math.round(((sw - w) * Math.min(100, Number(m[1]))) / 100);
+  const top = Math.round(((sh - h) * Math.min(100, Number(m[2]))) / 100);
+  return sharp(grande).extract({ left, top, width: w, height: h }).toBuffer();
+}
+
 /** Recorta (cover) para w×h e devolve data URI JPEG. Falhou: null (o modelo desenha um quadro sem imagem). */
 export async function imagemDataUri(src: string | null | undefined, w: number, h: number, opts: { blur?: number; posicao?: string; zoom?: number; ancora?: "centre" | "west" | "east" | "north" | "south"; foco?: Foco } = {}): Promise<string | null> {
   if (!src) return null;
@@ -38,7 +55,8 @@ export async function imagemDataUri(src: string | null | undefined, w: number, h
       const left = a === "west" ? 0 : a === "east" ? W - w : Math.floor((W - w) / 2);
       const top = a === "north" ? 0 : a === "south" ? H - h : Math.floor((H - h) / 2);
       p = sharp(grande).extract({ left, top, width: w, height: h });
-    } else p = sharp(b).resize(w, h, { fit: "cover", position: opts.foco ? (opts.foco === "auto" ? sharp.strategy.attention : opts.foco) : (opts.posicao ?? "centre") });
+    } else if (opts.foco) p = sharp(await recortarComFoco(b, w, h, opts.foco));
+    else p = sharp(b).resize(w, h, { fit: "cover", position: opts.posicao ?? "centre" });
     if (opts.blur) p = p.blur(opts.blur);
     const out = await p.jpeg({ quality: 84 }).toBuffer();
     return `data:image/jpeg;base64,${out.toString("base64")}`;

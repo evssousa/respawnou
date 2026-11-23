@@ -80,7 +80,7 @@ export interface ConfigLimites {
 }
 
 /** Foco do recorte de uma imagem própria: "auto" deixa o sharp achar a parte mais chamativa. */
-export type Foco = "auto" | "centre" | "north" | "south" | "west" | "east";
+export type Foco = "auto" | "centre" | "north" | "south" | "west" | "east" | `${number},${number}`;
 export interface ImagemPropria {
   src: string;
   foco?: Foco;
@@ -89,6 +89,8 @@ export interface ImagemPropria {
 export interface Overrides {
   /** Troca por número do slide (1 = capa do post). */
   trocas?: Record<string, ImagemPropria>;
+  /** Alinhamento manual ("x,y" em %) ou foco da imagem ORIGINAL de um slide que não foi trocada. */
+  focos?: Record<string, Foco>;
   /** Slides de foto acrescentados, na ordem. */
   extras?: (ImagemPropria & { legenda?: string })[];
 }
