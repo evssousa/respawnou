@@ -2,7 +2,7 @@
 import { COR, SOCIAL } from "../../config";
 import { cortar, maiusculasBR } from "../../core/texto";
 import type { EntradaSocial } from "../../tipos";
-import { ANTON, Chip, Faixa, MONO, Rodape, Tela, Topo, tamanhoTitulo } from "../ui";
+import { ajustarTitulo, ANTON, Chip, Faixa, MONO, Rodape, Tela, Topo } from "../ui";
 
 export interface InsumosPromo {
   logo: string;
@@ -18,8 +18,9 @@ export interface InsumosPromo {
 /** P1: GRÁTIS em letras enormes e um "cupom" com a arte, o preço e o prazo. */
 export function ModeloGratis({ e, ins }: { e: EntradaSocial; ins: InsumosPromo }) {
   const g = e.gratis!;
-  const nome = cortar(g.nome, 60);
-  const tam = tamanhoTitulo(nome, 888, 2, [64, 56, 48]);
+  const aj = ajustarTitulo(cortar(g.nome, 70), 888, 2, [64, 56, 48]);
+  const nome = aj.texto;
+  const tam = aj.tam;
   return (
     <Tela grade={ins.grade} fundo={ins.fundo ?? undefined}>
       <Topo logo={ins.logo} direita="PROMOÇÃO //" />

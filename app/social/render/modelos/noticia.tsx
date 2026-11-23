@@ -2,7 +2,7 @@
 import { COR, SOCIAL } from "../../config";
 import { cortar, frasesInteiras, maiusculasBR, igual } from "../../core/texto";
 import type { EntradaSocial } from "../../tipos";
-import { ANTON, Chip, Faixa, Play, Rodape, Tela, Topo, MONO, tamanhoTitulo } from "../ui";
+import { ajustarTitulo, ANTON, Chip, Faixa, Play, Rodape, Tela, Topo, MONO } from "../ui";
 
 export interface Insumos {
   logo: string;
@@ -26,9 +26,13 @@ function Titulo({ titulo, chave, tam }: { titulo: string; chave: string | null; 
 }
 
 export function ModeloNoticia({ e, ins }: { e: EntradaSocial; ins: Insumos }) {
-  const titulo = cortar(e.titulo, 100);
-  const tam = tamanhoTitulo(titulo);
-  const fina = frasesInteiras(e.excerpt || e.metaDescription || "", 165);
+  const t = ajustarTitulo(cortar(e.titulo, 110));
+  const titulo = t.texto;
+  const tam = t.tam;
+  // Espaço entre o título e o rodapé (y 1176): a linha fina só ocupa o que sobra (1 a 3 linhas).
+  const alturaTitulo = Math.ceil(t.linhas * tam * 1.02);
+  const linhasFina = Math.max(1, Math.min(3, Math.floor((1176 - 784 - alturaTitulo - 22 - 24) / 46)));
+  const fina = frasesInteiras(e.excerpt || e.metaDescription || "", linhasFina * 56);
   const plats = e.plataformas.length >= 4 ? "MULTIPLATAFORMA" : e.plataformas.map((p) => SOCIAL.plataformaCurta[p] ?? p.toUpperCase()).join(" · ");
   const rumor = /rumor|vazamento/i.test(`${e.titulo} ${e.tags.join(" ")}`);
   const trailer = e.corpo.some((b) => b.type === "video");
@@ -48,7 +52,7 @@ export function ModeloNoticia({ e, ins }: { e: EntradaSocial; ins: Insumos }) {
       </div>
       <div style={{ position: "absolute", left: 64, top: 784, display: "flex", flexDirection: "column", width: 952 }}>
         <Titulo titulo={titulo} chave={e.focusKeyword} tam={tam} />
-        <div style={{ display: "flex", marginTop: 22, fontSize: 34, lineHeight: 1.35, color: COR.corpo, width: 952, lineClamp: 3 } as never}>{fina}</div>
+        <div style={{ display: "flex", marginTop: 22, fontSize: 34, lineHeight: 1.35, color: COR.corpo, width: 952, maxHeight: linhasFina * 46, overflow: "hidden" }}>{fina}</div>
       </div>
       <Rodape frase={SOCIAL.frases.rodape} />
       <Faixa />

@@ -4,7 +4,7 @@ import { COR, SOCIAL } from "../../config";
 import { cortar, maiusculasBR } from "../../core/texto";
 import { ordenarNotas } from "../../core/pontos";
 import type { EntradaSocial, Ponto } from "../../tipos";
-import { ANTON, Chip, Faixa, MONO, Seta, Tela, Topo, tamanhoTitulo } from "../ui";
+import { ajustarTitulo, ANTON, Chip, Faixa, MONO, Seta, Tela, Topo } from "../ui";
 
 export interface InsumosCarrossel {
   logo: string;
@@ -37,8 +37,9 @@ function Rod({ dir = "ARRASTA" }: { dir?: string }) {
 }
 
 function Capa({ e, ins, total, rotulo, chipFinal }: { e: EntradaSocial; ins: InsumosCarrossel; total: number; rotulo: string; chipFinal: string }) {
-  const titulo = cortar(e.titulo, 100);
-  const tam = tamanhoTitulo(titulo, 952, 3, [88, 76, 68, 60]);
+  const aj = ajustarTitulo(cortar(e.titulo, 110), 952, 3, [88, 76, 68, 60]);
+  const titulo = aj.texto;
+  const tam = aj.tam;
   return (
     <Tela grade={ins.grade}>
       <Topo logo={ins.logo} direita={nn(1, total)} />

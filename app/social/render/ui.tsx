@@ -82,11 +82,45 @@ export function Rodape({ frase, botao = SOCIAL.dominio }: { frase: string; botao
   );
 }
 
-/** Maior tamanho de título (Anton, maiúsculo) que cabe em até `linhas` linhas na largura dada. */
-export function tamanhoTitulo(texto: string, largura = 952, linhas = 3, opcoes = [96, 84, 72, 64]): number {
-  for (const t of opcoes) {
-    const porLinha = Math.floor(largura / (t * 0.47));
-    if (Math.ceil(texto.length / porLinha) <= linhas) return t;
+/** Largura estimada de uma palavra em Anton maiúsculo (conservadora: melhor sobrar espaço do que invadir o rodapé). */
+const larguraPalavra = (w: string, tam: number) => w.length * tam * 0.56;
+
+/** Quantas linhas o título ocupa nesse tamanho (quebra de palavras simulada, com o espaço entre palavras). */
+export function linhasDoTitulo(texto: string, tam: number, largura = 952): number {
+  const gap = tam * 0.3;
+  let linhas = 1;
+  let x = 0;
+  for (const w of texto.split(" ")) {
+    const lw = larguraPalavra(w, tam);
+    if (x > 0 && x + lw > largura) {
+      linhas++;
+      x = 0;
+    }
+    x += lw + gap;
   }
-  return opcoes[opcoes.length - 1];
+  return linhas;
+}
+
+/**
+ * Escolhe o maior tamanho (de `opcoes`) em que o título cabe em `maxLinhas`. Se nem o menor serve, corta o título por palavras
+ * (com reticências) até caber. Devolve o texto final, o tamanho e quantas linhas ocupa.
+ */
+export function ajustarTitulo(texto: string, largura = 952, maxLinhas = 3, opcoes = [96, 84, 72, 64]): { texto: string; tam: number; linhas: number } {
+  for (const t of opcoes) {
+    const l = linhasDoTitulo(texto, t, largura);
+    if (l <= maxLinhas) return { texto, tam: t, linhas: l };
+  }
+  const tam = opcoes[opcoes.length - 1];
+  const palavras = texto.split(" ");
+  while (palavras.length > 1) {
+    palavras.pop();
+    const t = `${palavras.join(" ").replace(/[,;:.\s]+$/, "")}…`;
+    if (linhasDoTitulo(t, tam, largura) <= maxLinhas) return { texto: t, tam, linhas: linhasDoTitulo(t, tam, largura) };
+  }
+  return { texto, tam, linhas: maxLinhas };
+}
+
+/** Compatível com o uso antigo: só o tamanho. */
+export function tamanhoTitulo(texto: string, largura = 952, linhas = 3, opcoes = [96, 84, 72, 64]): number {
+  return ajustarTitulo(texto, largura, linhas, opcoes).tam;
 }
