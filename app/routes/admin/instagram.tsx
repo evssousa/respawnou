@@ -8,7 +8,7 @@ import { hasDatabase } from "~/lib/db.server";
 import { SOCIAL } from "~/social/config";
 import { conectar, desconectar, getConta, salvarConfig } from "~/social/server/conta.server";
 import { chaveOk } from "~/social/server/cripto.server";
-import { enfileirarRecentes, gerarDeNovo, imagensDe, listarFila, postarAgora, pular, repostar, resumo, tick } from "~/social/server/fila.server";
+import { enfileirarRecentes, gerarDeNovo, imagensDe, listarFila, postarAgora, pular, repostar, resumo, tick, zerarFila } from "~/social/server/fila.server";
 import { cota, perfil } from "~/social/server/instagram.server";
 import { getToken } from "~/social/server/conta.server";
 
@@ -78,6 +78,10 @@ export async function action({ request }: Route.ActionArgs) {
     if (intent === "recentes") {
       const n = await enfileirarRecentes(30);
       return back(`ok=recentes-${n}`);
+    }
+    if (intent === "zerar") {
+      const n = await zerarFila();
+      return back(`ok=zerou-${n}`);
     }
     if (intent === "postar") {
       // Em segundo plano (a CDN corta pedidos longos).
@@ -157,7 +161,9 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
       ? `Conectado: @${decodeURIComponent(d.msg.slice(10))}.`
       : d.msg.startsWith("rodou-")
         ? `Fila rodou: ${decodeURIComponent(d.msg.slice(6))}.`
-        : d.msg.startsWith("recentes-")
+        : d.msg.startsWith("zerou-")
+          ? `Fila zerada: ${d.msg.slice(6)} item(ns) removido(s). Clique em "Colocar as 30 últimas matérias na fila" para montar de novo.`
+          : d.msg.startsWith("recentes-")
           ? `${d.msg.slice(9)} matéria(s) colocada(s) na fila. Clique em "Rodar a fila agora" para gerar as artes.`
           : MSG[d.msg]
     : null;
@@ -236,6 +242,10 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
             <Form method="post">
               <input type="hidden" name="intent" value="rodar" />
               <Button disabled={busy}>Rodar a fila agora</Button>
+            </Form>
+            <Form method="post" onSubmit={(e) => { if (!confirm("Zerar a fila? Apaga tudo que ainda não foi postado (o que já está no Instagram fica registrado).")) e.preventDefault(); }}>
+              <input type="hidden" name="intent" value="zerar" />
+              <Button disabled={busy}>Zerar a fila</Button>
             </Form>
           </div>
           <p className="mt-2 text-xs text-muted">A fila só recebe sozinha as matérias publicadas depois da conexão. O botão de cima traz as que já estão no site.</p>

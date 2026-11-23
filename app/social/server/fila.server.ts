@@ -272,6 +272,12 @@ export async function enfileirarRecentes(n = 30): Promise<number> {
   return c;
 }
 
+/** Zera a fila: apaga tudo que ainda não foi ao ar (o que já foi publicado fica, para nunca postar duas vezes a mesma matéria). */
+export async function zerarFila(): Promise<number> {
+  const r = await exec("DELETE FROM social_posts WHERE network = 'instagram' AND status <> 'published' AND status <> 'sending'");
+  return r.affected;
+}
+
 export const pular = (id: number) => exec("UPDATE social_posts SET status = 'skipped' WHERE id = ? AND status <> 'published'", [id]);
 export const gerarDeNovo = (id: number) => exec("UPDATE social_posts SET images = NULL, caption = NULL, rendered_at = NULL, status = 'pending', error = NULL, attempts = 0 WHERE id = ? AND status <> 'published'", [id]);
 export const repostar = (id: number) => exec("UPDATE social_posts SET status = 'pending', origin = 'manual', media_id = NULL, permalink = NULL, published_at = NULL, container_id = NULL, attempts = 0, error = NULL WHERE id = ? AND status = 'published'", [id]);
