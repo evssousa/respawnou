@@ -101,8 +101,9 @@ const limpa = (t: string) => t.replace(/[{}\\]/g, "").toLocaleUpperCase("pt-BR")
 export function gerarAss(palavrasCenas: Palavra[], opts: { margemV?: number } = {}): string {
   const pags = paginas(palavrasCenas);
   const eventos: string[] = [];
-  const verde = "{\\c&H2EFFC8&}";
-  const base = "{\\c&H00EAF3EE&}";
+  // A palavra da vez acende em verde-limão e "pula" (cresce e volta ao normal em 0,12 s).
+  const verde = "{\\c&H2EFFC8&\\fscx122\\fscy122\\t(0,120,\\fscx100\\fscy100)}";
+  const base = "{\\c&H00EAF3EE&\\fscx100\\fscy100}";
   for (let pi = 0; pi < pags.length; pi++) {
     const pag = pags[pi];
     const proxima = pags[pi + 1]?.[0];

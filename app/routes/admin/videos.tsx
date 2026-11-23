@@ -72,7 +72,7 @@ export async function action({ request }: Route.ActionArgs) {
           const imagem = Number(f.get(`img_${i}`));
           cenas.push({ fala: String(f.get(`fala_${i}`) ?? "").trim(), imagem });
           const fo = String(f.get(`foco_${i}`) ?? "auto");
-          if (FOCOS.includes(fo as Foco)) focus[String(imagem)] = fo as Foco;
+          if (fo === "inteira" || FOCOS.includes(fo as Foco)) focus[String(imagem)] = fo as Foco;
         }
         const erro = await salvarRoteiro(id, { gancho: String(f.get("gancho") ?? ""), titulo_curto: String(f.get("titulo_curto") ?? ""), cenas }, focus);
         if (erro !== "ok") return back(`erro=${encodeURIComponent(erro)}`);
@@ -168,7 +168,8 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
                         {j.images.map((x, k) => <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>)}
                       </select>
                       <select name={`foco_${i}`} defaultValue={j.focus[String(c.imagem)] ?? "auto"} aria-label="Foco do recorte" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
-                        {FOCOS.map((x) => <option key={x} value={x}>{`Foco: ${ROTULO_FOCO[x]}`}</option>)}
+                        <option value="inteira">Enquadramento: imagem inteira (fundo desfocado)</option>
+                        {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
                       </select>
                     </div>
                   </div>

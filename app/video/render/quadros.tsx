@@ -27,13 +27,19 @@ export function Moldura({ logo, secao }: { logo: string; secao: string }) {
   );
 }
 
-/** Cartão de abertura: chip da seção + título (Anton 96/84/72, até 4 linhas), em y 1000–1480. */
+/**
+ * Cartão de abertura: painel escuro (para o título ler sobre qualquer imagem) com a barra verde da marca, o chip da seção e o
+ * título (Anton 96/84/72, até 4 linhas), em y 960–1500.
+ */
 export function Abertura({ titulo, secao }: { titulo: string; secao: string }) {
-  const t = ajustarTitulo(cortar(titulo, 120), 852, 4, [96, 84, 72]);
+  const t = ajustarTitulo(cortar(titulo, 120), 800, 4, [96, 84, 72]);
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H }}>
-      <div style={{ position: "absolute", left: 64, top: 1000, display: "flex", alignItems: "center", height: 48, padding: "0 20px", backgroundColor: COR.destaque, color: COR.sobreDestaque, fontFamily: MONO, fontWeight: 700, fontSize: 24 }}>{caixa(secao)}</div>
-      <div style={{ position: "absolute", left: 64, top: 1072, display: "flex", width: 852, fontFamily: ANTON, fontSize: t.tam, lineHeight: 1.02, color: COR.texto }}>{caixa(t.texto)}</div>
+      <div style={{ position: "absolute", left: 0, top: 940, width: W, height: 580, backgroundImage: "linear-gradient(to bottom, rgba(6,8,7,0), rgba(6,8,7,0.55))" }} />
+      <div style={{ position: "absolute", left: 40, top: 980, width: 900, display: "flex", flexDirection: "column", padding: "28px 36px 36px 40px", backgroundColor: "rgba(6,8,7,0.82)", borderLeft: `10px solid ${COR.destaque}` }}>
+        <div style={{ display: "flex", alignItems: "center", alignSelf: "flex-start", height: 48, padding: "0 20px", backgroundColor: COR.destaque, color: COR.sobreDestaque, fontFamily: MONO, fontWeight: 700, fontSize: 24 }}>{caixa(secao)}</div>
+        <div style={{ display: "flex", width: 800, marginTop: 22, fontFamily: ANTON, fontSize: t.tam, lineHeight: 1.04, color: COR.texto }}>{caixa(t.texto)}</div>
+      </div>
     </div>
   );
 }

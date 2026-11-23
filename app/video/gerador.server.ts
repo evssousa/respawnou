@@ -90,36 +90,84 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   await mkdir(join(dir, "fonts"), { recursive: true });
   await copyFile(join(process.cwd(), "app/video/fonts/Anton-Regular.ttf"), join(dir, "fonts/Anton-Regular.ttf"));
 
-  // 3) Imagens 2160×3840 por segmento (abertura usa a imagem da 1ª cena)
-  const primeira = p.imagens.find((x) => x.url && !x.url.startsWith("arte:"));
-  if (!primeira) throw new Error("nenhuma imagem utilizável");
-  const cache = new Map<number, string>();
-  const preparar = async (indice: number): Promise<string> => {
-    if (cache.has(indice)) return cache.get(indice)!;
-    const img = p.imagens[indice];
-    const usa = img && img.url && !img.url.startsWith("arte:") ? img : primeira;
-    const nome = `cena${indice}.jpg`;
-    const buf = await baixar(usa.url);
-    await sharp(buf).rotate().resize(leve ? 1620 : 2160, leve ? 2880 : 3840, { fit: "cover", position: POSICAO[usa.foco] ?? sharp.strategy.attention }).jpeg({ quality: 90 }).toFile(join(dir, nome));
-    cache.set(indice, nome);
-    return nome;
+  // 3) Plano de clipes. Abertura + cena 1 viram um clipe só (o cartão de título fica por cima do gancho). Cenas longas são
+  //    divididas em cortes de ~4 s, e as imagens variam: usa todas as da matéria antes de repetir uma.
+  const usaveis = p.imagens.map((x, i) => (x.url && !x.url.startsWith("arte:") ? i : -1)).filter((i) => i >= 0);
+  if (!usaveis.length) throw new Error("nenhuma imagem utilizável");
+  const cenasSeg = seg.segs.filter((x) => x.tipo === "cena").map((x) => ({ ...x }));
+  if (cenasSeg.length) cenasSeg[0].ini = 0;
+  const uso = new Map<number, number>(usaveis.map((i) => [i, 0]));
+  let ultima = -1;
+  const escolher = (pref: number): number => {
+    const alvo = uso.has(pref) ? pref : usaveis[0];
+    let melhor = alvo;
+    if ((uso.get(alvo) ?? 0) > 0 || alvo === ultima) {
+      const cand = usaveis.filter((i) => i !== ultima).sort((a, b) => (uso.get(a)! - uso.get(b)!) || Math.abs(a - alvo) - Math.abs(b - alvo));
+      if (cand.length && (uso.get(cand[0])! < (uso.get(alvo) ?? 0) || alvo === ultima)) melhor = cand[0];
+    }
+    uso.set(melhor, (uso.get(melhor) ?? 0) + 1);
+    ultima = melhor;
+    return melhor;
   };
-  const imagens: string[] = [];
-  for (const s of seg.segs) if (s.tipo !== "fechamento") imagens.push(await preparar(p.roteiro.cenas[s.cena]?.imagem ?? 0));
+  const plano: { img: number; ini: number; dur: number }[] = [];
+  for (const c of cenasSeg) {
+    const dur = c.fim - c.ini;
+    const partes = Math.max(1, Math.min(3, Math.round(dur / 4.2)));
+    const pref = p.roteiro.cenas[c.cena]?.imagem ?? 0;
+    for (let k = 0; k < partes; k++) plano.push({ img: escolher(k === 0 ? pref : pref + k), ini: c.ini + (dur / partes) * k, dur: dur / partes });
+  }
 
-  // 4) Quadros (marca, abertura, fechamento) e montagem
+  // 4) Imagens enquadradas para 9:16. Imagem larga (16:9): inteira no centro, sobre ela mesma desfocada (não corta personagem nas
+  //    bordas); vertical/quadrada: recorte pelo foco (ou pela parte mais chamativa). Foco "inteira" força o primeiro modo.
+  const LARG = leve ? 1620 : 2160;
+  const ALT = leve ? 2880 : 3840;
+  const prep = new Map<number, { nome: string; suave: boolean }>();
+  const preparar = async (indice: number) => {
+    const feito = prep.get(indice);
+    if (feito) return feito;
+    const img = p.imagens[indice];
+    const buf = await baixar(img.url);
+    const meta = await sharp(buf).metadata();
+    const foco = img.foco || "auto";
+    const larga = (meta.width ?? 1) / (meta.height ?? 1) >= 1.25;
+    const inteira = foco === "inteira" || (foco === "auto" && larga);
+    const nome = `cena${indice}.jpg`;
+    if (inteira) {
+      const fundo = await sharp(buf).rotate().resize(LARG, ALT, { fit: "cover", position: sharp.strategy.attention }).blur(40).modulate({ brightness: 0.5 }).jpeg({ quality: 85 }).toBuffer();
+      const frente = await sharp(buf).rotate().resize(LARG, ALT, { fit: "inside" }).toBuffer();
+      await sharp(fundo).composite([{ input: frente, gravity: "centre" }]).jpeg({ quality: 90 }).toFile(join(dir, nome));
+    } else {
+      await sharp(buf).rotate().resize(LARG, ALT, { fit: "cover", position: POSICAO[foco] ?? sharp.strategy.attention }).jpeg({ quality: 90 }).toFile(join(dir, nome));
+    }
+    const r = { nome, suave: inteira };
+    prep.set(indice, r);
+    return r;
+  };
+  const clips = [];
+  for (const c of plano) {
+    const x = await preparar(c.img);
+    clips.push({ img: x.nome, ini: c.ini, dur: c.dur, suave: x.suave });
+  }
+
+  // 5) Quadros (marca, abertura, fechamento) e montagem
   const q = await gerarQuadros({ titulo: p.titulo, secao: p.secao, cta: p.cta });
   await writeFile(join(dir, "moldura.png"), q.moldura);
   await writeFile(join(dir, "abertura.png"), q.abertura);
   await writeFile(join(dir, "fechamento.png"), q.fechamento);
-  const fimAbertura = seg.segs.find((s) => s.tipo === "abertura")?.fim ?? 3;
-  const { args, filtro } = montar({ leve, segs: seg.segs, imagens, total: seg.total, fimAbertura, inicioFechamento: seg.inicioFechamento, arq: { moldura: "moldura.png", abertura: "abertura.png", fechamento: "fechamento.png", audio, legenda: "legenda.ass", saida: "saida.mp4" } });
+  const fimAbertura = seg.segs.find((x) => x.tipo === "abertura")?.fim ?? 3;
+  const { args, filtro } = montar({
+    leve,
+    clips,
+    fechamento: { ini: seg.inicioFechamento, dur: Math.max(0.5, seg.total - seg.inicioFechamento) },
+    total: seg.total,
+    fimAbertura,
+    arq: { moldura: "moldura.png", abertura: "abertura.png", fechamento: "fechamento.png", audio, legenda: "legenda.ass", saida: "saida.mp4" },
+  });
   await writeFile(join(dir, "filtro.txt"), filtro);
   await rodar(ff, args, dir);
 
-  // 5) Capa: 1º quadro com moldura e cartão de abertura por cima
-  const base = await sharp(join(dir, imagens[0])).resize(1080, 1920, { fit: "cover" }).toBuffer();
+  // 6) Capa: 1º quadro com moldura e cartão de abertura por cima
+  const base = await sharp(join(dir, clips[0].img)).resize(1080, 1920, { fit: "cover" }).toBuffer();
   const capa = await sharp(base).composite([{ input: q.moldura }, { input: q.abertura }]).jpeg({ quality: 88 }).toBuffer();
   return { mp4: join(dir, "saida.mp4"), capa, chars: p.falado.length, duracao: seg.total };
 }
-
