@@ -94,7 +94,7 @@ export async function action({ request }: Route.ActionArgs) {
   } catch (e) {
     return back(`erro=${encodeURIComponent(String((e as Error)?.message ?? e).slice(0, 200))}`);
   }
-  return back("");
+  return back(`erro=${encodeURIComponent(`Ação desconhecida: ${intent}. Se acabou de publicar uma versão nova, espere o deploy terminar e recarregue a página.`)}`);
 }
 
 const MSG: Record<string, string> = {
