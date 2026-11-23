@@ -91,6 +91,12 @@ export async function getAllGames(): Promise<Game[]> {
   return repo().allGames();
 }
 
+/** Jogos parecidos (ids do IGDB) que existem como ficha no site. */
+export async function getSimilarGames(ids: number[] | undefined, limit = 4): Promise<Game[]> {
+  if (!ids?.length) return [];
+  return repo().gamesByIgdbIds(ids, limit);
+}
+
 export async function searchGames(query: string): Promise<Game[]> {
   const q = query.trim();
   if (!q) return [];

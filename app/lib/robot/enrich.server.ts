@@ -45,6 +45,8 @@ export interface SteamGame {
   releaseDate: string | null;
   /** Ex.: "interface e legendas em português do Brasil; áudio em inglês" (null se a loja não informa). */
   languages: string | null;
+  /** Português do Brasil na loja: null = não consta; audio = dublagem completa (asterisco). */
+  ptbr: { audio: boolean } | null;
   minRequirements: string | null;
   recRequirements: string | null;
   /** Preço na Steam Brasil agora (null se gratuito ou indisponível). */
@@ -76,6 +78,16 @@ function steamLanguages(html?: string) {
   const ptbr = items.find((i) => /portugu[eê]s.*brasil/i.test(i.name));
   if (!ptbr) return "sem português do Brasil na lista de idiomas da loja";
   return ptbr.audio ? "interface, legendas e áudio em português do Brasil" : "interface e legendas em português do Brasil (áudio em outros idiomas)";
+}
+
+/** Português do Brasil na lista de idiomas da loja (interface e legendas; o asterisco marca o áudio). */
+function steamPtbr(html?: string): { audio: boolean } | null {
+  if (!html) return null;
+  const item = html
+    .split(/<br>/i)[0]
+    .split(",")
+    .find((s) => /portugu[eê]s.*brasil/i.test(stripTags(s)));
+  return item ? { audio: /<strong>\*<\/strong>/.test(item) } : null;
 }
 
 /** Jogo na Steam pelo nome (null se não achar um que seja claramente o mesmo). */
@@ -110,6 +122,7 @@ export async function steamApp(appId: number): Promise<SteamGame | null> {
     publishers: data.publishers ?? [],
     releaseDate: data.release_date?.date ?? null,
     languages: steamLanguages(data.supported_languages),
+    ptbr: steamPtbr(data.supported_languages),
     price: data.price_overview?.final_formatted
       ? {
           normal: data.price_overview.initial_formatted || data.price_overview.final_formatted,

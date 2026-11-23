@@ -180,18 +180,13 @@ export function ReviewBoard({ posts }: { posts: PostView[] }) {
             <Hud left="> CONSENSO DA CRÍTICA" />
           </Art>
           <div className="flex flex-1 flex-col gap-4 p-5">
-            <div className="flex items-end justify-between gap-4">
+            <div className="flex items-start gap-4">
               <span className="font-display text-[72px] leading-[0.8] text-acc" aria-label={p.review ? `Média da crítica ${formatScore(p.review.score)}` : undefined}>
                 {p.review ? formatScore(p.review.score) : "—"}
               </span>
-              <span className="pb-1 text-right font-mono text-[11px] font-semibold text-muted">
-                MÉDIA DE
-                <br />
-                {p.review ? `${p.review.critics.length} ANÁLISES` : "DE 10"}
-              </span>
+              <h3 className="min-w-0 flex-1 font-display text-2xl uppercase leading-[1.02] transition-colors group-hover:text-acc">{p.title}</h3>
             </div>
             {p.review && <ScoreMeter score={p.review.score} />}
-            <h3 className="font-display text-2xl uppercase leading-[1.02] transition-colors group-hover:text-acc">{p.title}</h3>
             <span className="font-mono text-[11px] font-semibold text-muted">{platformsText(p.platforms)}</span>
             {p.review && <p className="mt-auto text-sm leading-relaxed text-body">“{p.review.verdict}”</p>}
           </div>

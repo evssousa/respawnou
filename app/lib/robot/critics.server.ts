@@ -6,6 +6,7 @@
 // (schema.org Review.reviewRating), nunca de adivinhação. Só jogos (filmes, séries e hardware saem).
 import { createHash } from "node:crypto";
 import { db, query } from "../db.server.ts";
+import { gameIdFor } from "./igdb.server.ts";
 import { emptyMedia, mergeMedia, type SourceMedia } from "./media.ts";
 import { fetchArticle, fetchText } from "./rss.server.ts";
 import type { Review } from "../types.ts";
@@ -49,7 +50,10 @@ export function gameKey(name: string) {
     .trim()
     .split(" ")
     .map((w) => ROMAN[w] ?? w)
-    .join(" ");
+    .join(" ")
+    // Siglas e artigos que fazem o mesmo jogo aparecer com dois nomes ("GTA 6" = "Grand Theft Auto VI", "The Witcher" = "Witcher").
+    .replace(/^gta(?= |$)/, "grand theft auto")
+    .replace(/^the /, "");
 }
 
 export interface ParsedRating {
@@ -208,10 +212,32 @@ export interface ConsensusCandidate {
 }
 
 /**
+ * Análises gravadas com uma chave antiga (antes de "GTA 6" virar "grand theft auto 6") passam para a chave atual, e o
+ * consenso já publicado ou tentado acompanha: assim o mesmo jogo nunca vira dois grupos nem dois posts.
+ */
+export async function rekeyReviews() {
+  const rows = await query<{ game_key: string; game_name: string }>("SELECT game_key, MAX(game_name) AS game_name FROM critic_reviews GROUP BY game_key");
+  for (const r of rows) {
+    const next = gameKey(r.game_name);
+    if (next.length < 2 || next === r.game_key) continue;
+    await db().query("UPDATE critic_reviews SET game_key = ? WHERE game_key = ?", [next, r.game_key]);
+    const [oldC] = await query<{ status: string }>("SELECT status FROM critic_consensus WHERE game_key = ?", [r.game_key]);
+    if (!oldC) continue;
+    const [newC] = await query<{ status: string }>("SELECT status FROM critic_consensus WHERE game_key = ?", [next]);
+    if (!newC) await db().query("UPDATE critic_consensus SET game_key = ? WHERE game_key = ?", [next, r.game_key]);
+    else if (oldC.status === "used" && newC.status !== "used") {
+      await db().query("DELETE FROM critic_consensus WHERE game_key = ?", [next]);
+      await db().query("UPDATE critic_consensus SET game_key = ? WHERE game_key = ?", [next, r.game_key]);
+    } else await db().query("DELETE FROM critic_consensus WHERE game_key = ?", [r.game_key]);
+  }
+}
+
+/**
  * Jogo com análises suficientes e sem consenso publicado. Tentativa que falhou só volta a ser
  * tentada quando chegam pelo menos 2 análises novas.
  */
 export async function consensusCandidate(forceKey?: string): Promise<ConsensusCandidate | null> {
+  await rekeyReviews().catch((e) => console.error(`[consenso] rekey falhou: ${String(e?.message ?? e).slice(0, 120)}`));
   // Teste (dry): um jogo específico, mesmo abaixo do mínimo (precisa de 2 análises).
   if (forceKey) {
     const rows = await reviewsFor(gameKey(forceKey));
@@ -230,7 +256,14 @@ export async function consensusCandidate(forceKey?: string): Promise<ConsensusCa
     if (g.status === "used") continue;
     if (g.status && n < Number(g.critics ?? 0) + 2) continue;
     const rows = await reviewsFor(g.game_key);
-    if (rows.length >= MIN_CRITICS) return { key: g.game_key, name: displayName(rows), rows };
+    if (rows.length < MIN_CRITICS) continue;
+    // Rede de segurança: já há um post de Reviews do mesmo jogo (mesma ficha)? Então este grupo é repetição.
+    const gameId = await gameIdFor(displayName(rows), gameKey).catch(() => null);
+    if (gameId) {
+      const [dup] = await query<{ id: number }>("SELECT id FROM posts WHERE game_id = ? AND section = 'reviews' LIMIT 1", [gameId]);
+      if (dup) continue;
+    }
+    return { key: g.game_key, name: displayName(rows), rows };
   }
   return null;
 }

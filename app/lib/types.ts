@@ -99,6 +99,26 @@ export interface Game {
   trailer?: string | null;
   /** Página do jogo no IGDB (crédito dos dados). */
   igdbUrl?: string | null;
+  /** Datas exatas por plataforma ("PS5", "PC"...), em ordem de data (IGDB). */
+  releases?: { p: string; date: string }[];
+  /** Nota agregada da imprensa (0 a 100) e quantas análises (IGDB). */
+  criticScore?: number | null;
+  criticCount?: number | null;
+  /** Modos de jogo em português ("Um jogador", "Cooperativo"...). */
+  modes?: string[];
+  franchise?: string | null;
+  /** Ids do IGDB dos jogos parecidos (a página busca os que existem no site). */
+  similarIgdb?: number[];
+  /** Requisitos de PC e preço em reais (Steam), texto "Rótulo: valor; Rótulo: valor". */
+  pcMin?: string | null;
+  pcRec?: string | null;
+  priceBrl?: string | null;
+  /** Português do Brasil: interface, legendas, áudio e a fonte ("steam" ou "igdb"). null = sem informação. */
+  languages?: { interface: boolean; legendas: boolean; audio: boolean; fonte: string } | null;
+  /** Quando os dados da Steam foram consultados pela última vez (ISO). */
+  steamSyncedAt?: string | null;
+  /** Quando a ficha foi liberada para o Google (ISO). Com matéria publicada ela já é indexável, com ou sem isto. */
+  indexFrom?: string | null;
 }
 
 export interface Release {

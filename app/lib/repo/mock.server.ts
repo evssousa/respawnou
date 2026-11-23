@@ -68,6 +68,10 @@ export const mockRepo: Repo = {
     return MOCK_GAMES;
   },
 
+  async gamesByIgdbIds() {
+    return [];
+  },
+
   async searchGames(query, limit) {
     const q = normalize(query);
     return MOCK_GAMES.filter((g) => normalize(`${g.name} ${g.genres.join(" ")} ${g.developer}`).includes(q)).slice(0, limit);

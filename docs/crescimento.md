@@ -440,4 +440,6 @@ Ritual semanal (segunda, ~10 min), anotar aqui embaixo numa tabela "Semana · in
 | A1–A9 (Arcade) | ✅ 2026-11-20 (A10: o dono revisa os 13 textos) |
 | D1 capa com prioridade, D3 `og:image:alt`/`article:section`/`article:tag`, D8 título anti-isca | ✅ 2026-11-20 |
 | C1 teto de guias (4 por semana, `settings.guides_per_week`) e h2 "Roda no seu PC?" | ✅ 2026-11-20 |
-| B1–B7 (fichas), C2–C7, D2, D4–D7, D9 | ⏳ |
+| B1 a B6 (fichas: migration 010, dados extras do IGDB, Steam, critério `index_from`, página nova, sitemap) | ✅ 2026-11-22 (testado local; falta ver com dados reais depois do deploy) |
+| B7 docs das fichas | ⏳ |
+| C2–C7, D2, D4–D7, D9 | ⏳ (pausados: prioridade é preparar o site para o AdSense) |

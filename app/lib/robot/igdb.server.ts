@@ -231,12 +231,102 @@ export async function syncGames() {
   if (kept.length >= 50) {
     const [res] = await db().query<import("mysql2").ResultSetHeader>(
       `DELETE FROM games WHERE igdb_id IS NOT NULL AND igdb_id NOT IN (${kept.map(() => "?").join(",")})
-       AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.game_id = games.id)`,
+       AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.game_id = games.id) AND index_from IS NULL`,
       kept,
     );
     removed = res.affectedRows;
   }
-  return { fetched: list.length, created, updated, skipped, removed };
+  // Dados extras das fichas (docs/crescimento.md): numa consulta à parte, para um campo que mude de nome
+  // no IGDB nunca derrubar a sincronização do calendário.
+  let extras = 0;
+  let extrasError = "";
+  try {
+    extras = await syncExtras(kept);
+  } catch (err) {
+    extrasError = err instanceof Error ? err.message.slice(0, 160) : String(err);
+    console.error(`[igdb] dados extras das fichas falharam: ${extrasError}`);
+  }
+  return { fetched: list.length, created, updated, skipped, removed, extras, extrasError };
+}
+
+// ───────────── Dados extras das fichas ─────────────
+
+/** Nome de cada plataforma na tabela de datas da ficha. */
+const PLATFORM_NAMES: Record<number, string> = { 6: "PC", 48: "PS4", 167: "PS5", 49: "Xbox One", 169: "Xbox Series X|S", 130: "Switch", 508: "Switch 2", 34: "Android", 39: "iOS" };
+
+const MODES_PT: Record<string, string> = {
+  "Single player": "Um jogador",
+  Multiplayer: "Multijogador",
+  "Co-operative": "Cooperativo",
+  "Split screen": "Tela dividida",
+  "Battle Royale": "Battle royale",
+  "Massively Multiplayer Online (MMO)": "MMO",
+};
+
+interface IgdbExtra {
+  id: number;
+  aggregated_rating?: number;
+  aggregated_rating_count?: number;
+  game_modes?: { name: string }[];
+  franchises?: { name: string }[];
+  collections?: { name: string }[];
+  similar_games?: number[];
+  release_dates?: { date?: number; platform?: number; date_format?: number; human?: string }[];
+  language_supports?: { language?: { locale?: string }; language_support_type?: { name?: string } }[];
+}
+
+/** Datas por plataforma (só as exatas, 1 por plataforma, em ordem de data). */
+function releasesOf(g: IgdbExtra) {
+  const byPlatform = new Map<string, string>();
+  for (const r of g.release_dates ?? []) {
+    const name = r.platform != null ? PLATFORM_NAMES[r.platform] : undefined;
+    const exact = (r.date_format ?? 0) === 0 || /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(r.human ?? "");
+    if (!name || !r.date || !exact) continue;
+    const d = ymd(r.date);
+    if (!byPlatform.has(name) || d < byPlatform.get(name)!) byPlatform.set(name, d);
+  }
+  return [...byPlatform].map(([p, date]) => ({ p, date })).sort((a, b) => a.date.localeCompare(b.date) || a.p.localeCompare(b.p));
+}
+
+/** Português do Brasil no IGDB (usado só se a Steam não disser): interface / legendas / áudio. */
+function languagesOf(g: IgdbExtra) {
+  const pt = (g.language_supports ?? []).filter((l) => l.language?.locale === "pt-BR");
+  if (!pt.length) return null;
+  const has = (re: RegExp) => pt.some((l) => re.test(l.language_support_type?.name ?? ""));
+  return { interface: has(/interface/i), legendas: has(/subtitle/i), audio: has(/audio/i), fonte: "igdb" };
+}
+
+async function syncExtras(igdbIds: number[]) {
+  let saved = 0;
+  for (let i = 0; i < igdbIds.length; i += 100) {
+    const ids = igdbIds.slice(i, i + 100);
+    const rows = await igdb<IgdbExtra[]>(
+      "games",
+      `fields aggregated_rating, aggregated_rating_count, game_modes.name, franchises.name, collections.name, similar_games, release_dates.date, release_dates.platform, release_dates.date_format, release_dates.human, language_supports.language.locale, language_supports.language_support_type.name; where id = (${ids.join(",")}); limit 100;`,
+    );
+    for (const g of rows) {
+      const count = g.aggregated_rating_count ?? 0;
+      const rel = releasesOf(g);
+      const lang = languagesOf(g);
+      await db().query(
+        `UPDATE games SET releases = ?, critic_score = ?, critic_count = ?, modes = ?, franchise = ?, similar_igdb = ?,
+           languages = IF(languages IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(languages, '$.fonte')) = 'steam', languages, ?)
+         WHERE igdb_id = ?`,
+        [
+          rel.length ? JSON.stringify(rel) : null,
+          count >= 1 && g.aggregated_rating != null ? Math.round(g.aggregated_rating * 10) / 10 : null,
+          count || null,
+          JSON.stringify((g.game_modes ?? []).map((m) => MODES_PT[m.name] ?? m.name)),
+          (g.franchises?.[0]?.name ?? g.collections?.[0]?.name ?? null)?.slice(0, 160) ?? null,
+          JSON.stringify((g.similar_games ?? []).slice(0, 12)),
+          lang ? JSON.stringify(lang) : null,
+          g.id,
+        ],
+      );
+      saved++;
+    }
+  }
+  return saved;
 }
 
 // ───────────── Descrição em português ─────────────

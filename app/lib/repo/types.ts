@@ -31,6 +31,8 @@ export interface Repo {
   /** Jogos com página indexável (têm matéria publicada): sitemap. */
   allGames(): Promise<Game[]>;
   searchGames(query: string, limit: number): Promise<Game[]>;
+  /** Fichas pelos ids do IGDB (jogos parecidos). */
+  gamesByIgdbIds(ids: number[], limit: number): Promise<Game[]>;
   /** Jogos com lançamento entre as datas (AAAA-MM-DD, inclusive), em ordem de data. */
   findReleases(from: string, to: string, platform?: PlatformSlug): Promise<Game[]>;
 

@@ -80,6 +80,18 @@ interface GameRow {
   genres: unknown;
   description: string;
   art: string;
+  releases: unknown;
+  critic_score: string | number | null;
+  critic_count: number | null;
+  modes: unknown;
+  franchise: string | null;
+  similar_igdb: unknown;
+  pc_min: string | null;
+  pc_rec: string | null;
+  price_brl: string | null;
+  languages: unknown;
+  steam_synced_at: string | null;
+  index_from: string | null;
 }
 
 const art = (v: string): ArtVariant => (["a", "b", "c", "d"].includes(v) ? (v as ArtVariant) : "a");
@@ -128,6 +140,18 @@ function toGame(r: GameRow): Game {
     screenshots: json<string[]>(r.screenshots, []),
     trailer: r.trailer,
     igdbUrl: r.igdb_url,
+    releases: json<{ p: string; date: string }[]>(r.releases, []),
+    criticScore: r.critic_score != null ? Number(r.critic_score) : null,
+    criticCount: r.critic_count,
+    modes: json<string[]>(r.modes, []),
+    franchise: r.franchise,
+    similarIgdb: json<number[]>(r.similar_igdb, []),
+    pcMin: r.pc_min,
+    pcRec: r.pc_rec,
+    priceBrl: r.price_brl,
+    languages: json<Game["languages"]>(r.languages, null),
+    steamSyncedAt: iso(r.steam_synced_at) ?? null,
+    indexFrom: iso(r.index_from) ?? null,
   };
 }
 
@@ -161,7 +185,7 @@ function where(f: PostFilter) {
 
 const like = (t: string) => `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
-const GAME_COLS = `slug, name, hypes, platforms, release_date, release_label, developer, publisher, genres, description, art, image_url, cover_url, screenshots, trailer, igdb_url`;
+const GAME_COLS = `slug, name, hypes, platforms, release_date, release_label, developer, publisher, genres, description, art, image_url, cover_url, screenshots, trailer, igdb_url, releases, critic_score, critic_count, modes, franchise, similar_igdb, pc_min, pc_rec, price_brl, languages, steam_synced_at, index_from`;
 
 export const mysqlRepo: Repo = {
   async findPosts(filter, offset, limit) {
@@ -240,12 +264,18 @@ export const mysqlRepo: Repo = {
   },
 
   async allGames() {
-    // Só jogos com matéria publicada: ficha só com dados fica fora do sitemap (e com noindex).
+    // Ficha entra no sitemap com matéria publicada OU quando foi liberada (games.index_from, ver app/lib/game-index.ts).
     return (
       await query<GameRow>(
-        `SELECT ${GAME_COLS} FROM games g WHERE EXISTS (SELECT 1 FROM posts p WHERE p.game_id = g.id AND p.status = 'published' AND p.published_at <= UTC_TIMESTAMP()) ORDER BY name`,
+        `SELECT ${GAME_COLS} FROM games g WHERE g.index_from IS NOT NULL OR EXISTS (SELECT 1 FROM posts p WHERE p.game_id = g.id AND p.status = 'published' AND p.published_at <= UTC_TIMESTAMP()) ORDER BY name`,
       )
     ).map(toGame);
+  },
+
+  async gamesByIgdbIds(ids, limit) {
+    if (!ids.length) return [];
+    const rows = await query<GameRow>(`SELECT ${GAME_COLS} FROM games WHERE igdb_id IN (${ids.map(() => "?").join(",")}) ORDER BY hypes DESC LIMIT ?`, [...ids, limit]);
+    return rows.map(toGame);
   },
 
   async searchGames(q, limit) {

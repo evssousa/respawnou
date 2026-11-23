@@ -1,5 +1,6 @@
 // Robô de postagem do Respawnou. Chamado pelas rotas /api/cron/* (Cron Job da Hostinger).
 // Regras de qualidade: docs/adsense.md. Arquitetura: docs/automacao.md.
+import { enrichGamesFromSteam, liberarFichas } from "./fichas.server.ts";
 import { diaBrasilia } from "../../visitas/core/dia.ts";
 import { limparVisitas } from "../../visitas/server/limpeza.server.ts";
 import { createHash } from "node:crypto";
@@ -341,10 +342,20 @@ export function collectGames(): Promise<JobResult> {
       // Gemini fora do ar não perde a sincronização; as descrições ficam para a próxima vez.
       translateError = err instanceof Error ? err.message.slice(0, 200) : String(err);
     }
+    // Fichas: requisitos/preço/idiomas pela Steam e liberação para o Google (docs/crescimento.md, frente 2).
+    let steam = { checked: 0, found: 0, missing: 0 };
+    let index = { released: 0, candidates: 0, cap: 0 };
+    let ficheError = "";
+    try {
+      steam = await enrichGamesFromSteam();
+      index = await liberarFichas();
+    } catch (err) {
+      ficheError = err instanceof Error ? err.message.slice(0, 200) : String(err);
+    }
     return {
       status: "ok",
-      message: `${sync.fetched} do IGDB: ${sync.created} novos, ${sync.updated} atualizados, ${sync.skipped} ignorados, ${sync.removed} removidos; ${translated} descrição(ões) em português${translateError ? ` (tradução falhou: ${translateError})` : ""}`,
-      stats: { ...sync, translated },
+      message: `${sync.fetched} do IGDB: ${sync.created} novos, ${sync.updated} atualizados, ${sync.skipped} ignorados, ${sync.removed} removidos; ${translated} descrição(ões) em português${translateError ? ` (tradução falhou: ${translateError})` : ""}; extras ${sync.extras}${sync.extrasError ? ` (falhou: ${sync.extrasError})` : ""}; Steam ${steam.found}/${steam.checked}; fichas liberadas: ${index.released}${ficheError ? ` (fichas falharam: ${ficheError})` : ""}`,
+      stats: { ...sync, translated, steam, index },
     };
   });
 }
