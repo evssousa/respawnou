@@ -2,7 +2,7 @@
 import { COR, SOCIAL } from "../../config";
 import { cortar, frasesInteiras, maiusculasBR, igual } from "../../core/texto";
 import type { EntradaSocial } from "../../tipos";
-import { ajustarTitulo, ANTON, Chip, Faixa, Play, Rodape, Tela, Topo, MONO } from "../ui";
+import { ajustarTitulo, ANTON, Chip, Faixa, linhasDoTitulo, Play, Rodape, Tela, Topo, MONO } from "../ui";
 
 export interface Insumos {
   logo: string;
@@ -25,14 +25,29 @@ function Titulo({ titulo, chave, tam }: { titulo: string; chave: string | null; 
   );
 }
 
+/**
+ * Reserva espaço para a descrição COMPLETA (frase inteira, até 3 linhas): escolhe o maior título que ainda deixa a descrição caber
+ * entre y 784 e o rodapé (y 1176). Se nem o menor serve, encurta a descrição por frases e, por último, o título.
+ */
+function planejar(e: EntradaSocial) {
+  const base = e.excerpt || e.metaDescription || "";
+  const tituloBase = cortar(e.titulo, 110);
+  const orcamento = 1176 - 784 - 22 - 20; // altura disponível para título + descrição
+  for (const maxChars of [168, 112, 56]) {
+    const fina = frasesInteiras(base, maxChars);
+    const linhasFina = Math.max(1, Math.ceil(fina.length / 49));
+    for (const tam of [96, 84, 72, 64]) {
+      const linhas = linhasDoTitulo(tituloBase, tam);
+      if (linhas <= 3 && Math.ceil(linhas * tam * 1.02) + linhasFina * 46 <= orcamento) return { titulo: tituloBase, tam, fina, linhasFina };
+    }
+  }
+  // Título enorme: corta o título (2 linhas no menor tamanho) e usa a descrição mais curta.
+  const t = ajustarTitulo(tituloBase, 952, 2, [64]);
+  return { titulo: t.texto, tam: t.tam, fina: frasesInteiras(base, 112), linhasFina: 2 };
+}
+
 export function ModeloNoticia({ e, ins }: { e: EntradaSocial; ins: Insumos }) {
-  const t = ajustarTitulo(cortar(e.titulo, 110));
-  const titulo = t.texto;
-  const tam = t.tam;
-  // Espaço entre o título e o rodapé (y 1176): a linha fina só ocupa o que sobra (1 a 3 linhas).
-  const alturaTitulo = Math.ceil(t.linhas * tam * 1.02);
-  const linhasFina = Math.max(1, Math.min(3, Math.floor((1176 - 784 - alturaTitulo - 22 - 24) / 46)));
-  const fina = frasesInteiras(e.excerpt || e.metaDescription || "", linhasFina * 56);
+  const { titulo, tam, fina, linhasFina } = planejar(e);
   const plats = e.plataformas.length >= 4 ? "MULTIPLATAFORMA" : e.plataformas.map((p) => SOCIAL.plataformaCurta[p] ?? p.toUpperCase()).join(" · ");
   const rumor = /rumor|vazamento/i.test(`${e.titulo} ${e.tags.join(" ")}`);
   const trailer = e.corpo.some((b) => b.type === "video");

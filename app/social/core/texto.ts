@@ -28,7 +28,12 @@ export function frasesInteiras(t: string, max: number): string {
     if (next.length > max) break;
     out = next;
   }
-  return out || cortar(fs[0] ?? t, max);
+  if (out) return out;
+  const f = fs[0] ?? t;
+  const cut = f.slice(0, max);
+  const p = Math.max(cut.lastIndexOf(","), cut.lastIndexOf(";"));
+  // Frase longa demais: fecha numa vírgula/ponto e vírgula (texto completo, sem reticências) se der; senão corta na palavra.
+  return p > max * 0.6 ? `${cut.slice(0, p)}.` : cortar(f, max);
 }
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "");

@@ -83,7 +83,7 @@ export function Rodape({ frase, botao = SOCIAL.dominio }: { frase: string; botao
 }
 
 /** Largura estimada de uma palavra em Anton maiúsculo (conservadora: melhor sobrar espaço do que invadir o rodapé). */
-const larguraPalavra = (w: string, tam: number) => w.length * tam * 0.56;
+const larguraPalavra = (w: string, tam: number) => w.length * tam * 0.5;
 
 /** Quantas linhas o título ocupa nesse tamanho (quebra de palavras simulada, com o espaço entre palavras). */
 export function linhasDoTitulo(texto: string, tam: number, largura = 952): number {
