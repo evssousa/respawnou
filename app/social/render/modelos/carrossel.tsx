@@ -127,26 +127,6 @@ function NotasSlide({ e, total, ins }: { e: EntradaSocial; total: number; ins: I
   );
 }
 
-function ListaSlide({ titulo, itens, sinal, i, total, ins, rotulo }: { titulo: string; itens: string[]; sinal: "+" | "−"; i: number; total: number; ins: InsumosCarrossel; rotulo: string }) {
-  return (
-    <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
-      <Topo logo={ins.logo} tam={48} y={40} direita={`${rotulo} · ${nn(i, total)}`} />
-      <div style={{ position: "absolute", left: 64, top: 150, display: "flex" }}>
-        <Titulo texto={titulo} tam={72} />
-      </div>
-      <div style={{ position: "absolute", left: 64, top: 330, width: 952, display: "flex", flexDirection: "column" }}>
-        {itens.slice(0, 4).map((t, k) => (
-          <div key={k} style={{ display: "flex", alignItems: "flex-start", marginBottom: 44 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 56, height: 56, marginRight: 28, flexShrink: 0, backgroundColor: sinal === "+" ? COR.destaque : COR.alerta, color: COR.sobreDestaque, fontFamily: ANTON, fontSize: 48 }}>{sinal}</div>
-            <div style={{ display: "flex", flex: 1, fontWeight: 600, fontSize: 36, lineHeight: 1.33 }}>{cortar(t, 120)}</div>
-          </div>
-        ))}
-      </div>
-      <Rod />
-    </Tela>
-  );
-}
-
 function VereditoSlide({ e, total, ins }: { e: EntradaSocial; total: number; ins: InsumosCarrossel }) {
   return (
     <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
@@ -161,53 +141,62 @@ function VereditoSlide({ e, total, ins }: { e: EntradaSocial; total: number; ins
   );
 }
 
-function RequisitosSlide({ e, ins, ladoALado, total, i, minimo }: { e: EntradaSocial; ins: InsumosCarrossel; ladoALado?: boolean; total: number; i: number; minimo?: boolean }) {
-  const linhas = e.requisitos ?? [];
-  if (ladoALado) {
-    const pega = linhas.filter((l) => l.rotulo === "PLACA DE VÍDEO" || l.rotulo === "MEMÓRIA");
-    return (
-      <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
-        <Topo logo={ins.logo} tam={48} y={40} direita={`GUIA · ${nn(i, total)}`} />
-        <div style={{ position: "absolute", left: 64, top: 150, display: "flex" }}>
-          <Titulo texto="Mínimo x recomendado" tam={72} />
-        </div>
-        <div style={{ position: "absolute", left: 64, top: 340, width: 952, display: "flex", justifyContent: "space-between" }}>
-          {(["minimo", "recomendado"] as const).map((k) => (
-            <div key={k} style={{ display: "flex", flexDirection: "column", width: 468, padding: 28, backgroundColor: COR.painel, border: `2px solid ${k === "recomendado" ? COR.destaque : COR.linhaSuave}` }}>
-              <div style={{ display: "flex", fontFamily: ANTON, fontSize: 44, color: k === "recomendado" ? COR.destaque : COR.texto, marginBottom: 20 }}>{k === "minimo" ? "MÍNIMO" : "RECOMENDADO"}</div>
-              {pega.map((l) => (
-                <div key={l.rotulo} style={{ display: "flex", flexDirection: "column", marginBottom: 26 }}>
-                  <div style={{ display: "flex", fontFamily: MONO, fontWeight: 700, fontSize: 22, color: COR.apagado }}>{l.rotulo}</div>
-                  <div style={{ display: "flex", fontWeight: 600, fontSize: 34, lineHeight: 1.25 }}>{cortar(l[k], 40)}</div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-        {(e.lancamento || e.precoBrl) && (
-          <div style={{ position: "absolute", left: 64, top: 1100, display: "flex", fontFamily: MONO, fontWeight: 700, fontSize: 26 }}>
-            {[e.lancamento ? `LANÇAMENTO ${e.lancamento}` : "", e.precoBrl ? `${e.precoBrl} NA STEAM` : ""].filter(Boolean).join(" · ")}
-          </div>
-        )}
-        <Rod />
-      </Tela>
-    );
-  }
+/** Review: "o que elogiaram" e "o que criticaram" juntos num slide só (em vez de um slide quase vazio para cada). */
+function ProsContrasSlide({ e, i, total, ins }: { e: EntradaSocial; i: number; total: number; ins: InsumosCarrossel }) {
+  const blocos = [
+    { titulo: "O que elogiaram", itens: e.review!.pros.slice(0, 3), sinal: "+" as const },
+    { titulo: "O que criticaram", itens: e.review!.cons.slice(0, 3), sinal: "−" as const },
+  ].filter((b) => b.itens.length);
   return (
     <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
-      <Topo logo={ins.logo} tam={48} y={40} direita={`GUIA · ${nn(i, total)}`} />
-      <div style={{ position: "absolute", left: 64, top: 150, display: "flex", alignItems: "center" }}>
-        <Titulo texto={minimo ? "Mínimo" : "Recomendado"} tam={96} largura={560} />
-        {!minimo && <Chip texto="PRA JOGAR BEM" estilo={{ marginLeft: 20 }} />}
-      </div>
-      <div style={{ position: "absolute", left: 64, top: 330, width: 952, display: "flex", flexDirection: "column" }}>
-        {linhas.slice(0, 5).map((l) => (
-          <div key={l.rotulo} style={{ display: "flex", flexDirection: "column", padding: "18px 0", borderBottom: `2px solid ${COR.linhaSuave}` }}>
-            <div style={{ display: "flex", fontFamily: MONO, fontWeight: 700, fontSize: 24, color: COR.apagado }}>{l.rotulo}</div>
-            <div style={{ display: "flex", fontWeight: 600, fontSize: 38, lineHeight: 1.25, marginTop: 4 }}>{cortar(minimo ? l.minimo : l.recomendado, 70)}</div>
+      <Topo logo={ins.logo} tam={48} y={40} direita={`REVIEW · ${nn(i, total)}`} />
+      <div style={{ position: "absolute", left: 64, top: 110, width: 952, height: 1090, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        {blocos.map((b) => (
+          <div key={b.titulo} style={{ display: "flex", flexDirection: "column", marginBottom: 56 }}>
+            <Titulo texto={b.titulo} tam={64} cor={b.sinal === "+" ? COR.destaque : COR.alerta} />
+            {b.itens.map((t, k) => (
+              <div key={k} style={{ display: "flex", alignItems: "flex-start", marginTop: 26 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 52, height: 52, marginRight: 26, flexShrink: 0, backgroundColor: b.sinal === "+" ? COR.destaque : COR.alerta, color: COR.sobreDestaque, fontFamily: ANTON, fontSize: 44 }}>{b.sinal}</div>
+                <div style={{ display: "flex", flex: 1, fontWeight: 600, fontSize: 40, lineHeight: 1.3 }}>{cortar(t, 110)}</div>
+              </div>
+            ))}
           </div>
         ))}
       </div>
+      <Rod />
+    </Tela>
+  );
+}
+
+/** Guia de requisitos: mínimo ao lado do recomendado, com todos os itens, em UM slide. */
+function RequisitosTabela({ e, ins, i, total }: { e: EntradaSocial; ins: InsumosCarrossel; i: number; total: number }) {
+  const linhas = (e.requisitos ?? []).slice(0, 5);
+  const alturaLinha = Math.min(150, Math.floor(780 / Math.max(1, linhas.length)));
+  return (
+    <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
+      <Topo logo={ins.logo} tam={48} y={40} direita={`GUIA · ${nn(i, total)}`} />
+      <div style={{ position: "absolute", left: 64, top: 130, display: "flex" }}>
+        <Titulo texto="Mínimo x recomendado" tam={72} />
+      </div>
+      <div style={{ position: "absolute", left: 64, top: 250, width: 952, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", paddingBottom: 10, borderBottom: `2px solid ${COR.linhaSuave}`, fontFamily: MONO, fontWeight: 700, fontSize: 24 }}>
+          <div style={{ display: "flex", width: 160, color: COR.apagado }} />
+          <div style={{ display: "flex", flex: 1, color: COR.texto }}>MÍNIMO</div>
+          <div style={{ display: "flex", flex: 1, color: COR.destaque }}>RECOMENDADO</div>
+        </div>
+        {linhas.map((l) => (
+          <div key={l.rotulo} style={{ display: "flex", alignItems: "center", height: alturaLinha, borderBottom: `2px solid ${COR.linhaSuave}` }}>
+            <div style={{ display: "flex", width: 160, fontFamily: MONO, fontWeight: 700, fontSize: 20, color: COR.apagado }}>{l.rotulo.replace("PLACA DE VÍDEO", "VÍDEO").replace("ARMAZENAMENTO", "ESPAÇO")}</div>
+            <div style={{ display: "flex", flex: 1, paddingRight: 16, fontWeight: 600, fontSize: 32, lineHeight: 1.2 }}>{cortar(l.minimo, 46)}</div>
+            <div style={{ display: "flex", flex: 1, fontWeight: 600, fontSize: 32, lineHeight: 1.2, color: COR.destaque }}>{cortar(l.recomendado, 46)}</div>
+          </div>
+        ))}
+      </div>
+      {(e.lancamento || e.precoBrl) && (
+        <div style={{ position: "absolute", left: 64, top: 1170, display: "flex", fontFamily: MONO, fontWeight: 700, fontSize: 26, color: COR.texto }}>
+          {[e.lancamento ? `LANÇAMENTO ${e.lancamento}` : "", e.precoBrl ? `${e.precoBrl} NA STEAM` : ""].filter(Boolean).join(" · ")}
+        </div>
+      )}
       <Rod />
     </Tela>
   );
@@ -236,29 +225,25 @@ function CtaFinal({ ins, total }: { ins: InsumosCarrossel; total: number }) {
   );
 }
 
-/** Monta os slides do carrossel (elementos React) de acordo com o modelo. */
+/** Monta os slides do carrossel (elementos React) de acordo com o modelo. Poucos slides, cheios: nada de slide quase vazio. */
 export function slidesCarrossel(modelo: "C-artigo" | "C-review" | "C-guia", e: EntradaSocial, ins: InsumosCarrossel, pontos: Ponto[]): ReactElement[] {
   const out: ReactElement[] = [];
   if (modelo === "C-review" && e.review) {
-    const temProsCons = e.review.pros.length > 0 || e.review.cons.length > 0;
-    const total = 1 + 1 + (e.review.pros.length ? 1 : 0) + (e.review.cons.length ? 1 : 0) + 1 + 1;
+    const temLista = e.review.pros.length > 0 || e.review.cons.length > 0;
+    const total = 4 + (temLista ? 1 : 0); // capa, notas, [elogios e críticas], veredito, CTA
     let n = 2;
     out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo="REVIEW // CONSENSO DA CRÍTICA" chipFinal="O QUE A CRÍTICA ACHOU" />);
     out.push(<NotasSlide key="n" e={e} total={total} ins={ins} />);
     n++;
-    if (e.review.pros.length) out.push(<ListaSlide key="p" titulo="O que elogiaram" itens={e.review.pros} sinal="+" i={n++} total={total} ins={ins} rotulo="REVIEW" />);
-    if (e.review.cons.length) out.push(<ListaSlide key="k" titulo="O que criticaram" itens={e.review.cons} sinal="−" i={n++} total={total} ins={ins} rotulo="REVIEW" />);
-    void temProsCons;
+    if (temLista) out.push(<ProsContrasSlide key="p" e={e} i={n++} total={total} ins={ins} />);
     out.push(<VereditoSlide key="v" e={e} total={total} ins={ins} />);
     out.push(<CtaFinal key="f" ins={ins} total={total} />);
     return out;
   }
   if (modelo === "C-guia" && e.requisitos) {
-    const total = 5;
+    const total = 3; // capa, tabela mínimo x recomendado, CTA
     out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo="GUIA // REQUISITOS" chipFinal="MÍNIMO E RECOMENDADO" />);
-    out.push(<RequisitosSlide key="m" e={e} ins={ins} total={total} i={2} minimo />);
-    out.push(<RequisitosSlide key="r" e={e} ins={ins} total={total} i={3} />);
-    out.push(<RequisitosSlide key="l" e={e} ins={ins} total={total} i={4} ladoALado />);
+    out.push(<RequisitosTabela key="t" e={e} ins={ins} i={2} total={total} />);
     out.push(<CtaFinal key="f" ins={ins} total={total} />);
     return out;
   }
