@@ -431,8 +431,8 @@ Verificar: dono olha as capturas e aprova (pendência dele).
 Checklist antes de clicar em "Solicitar revisão" (além do checklist de `adsense.md`):
 
 - [ ] Fase A no ar e capturas do modo espaços aprovadas.
-- [ ] `ADSENSE_CLIENT` cadastrado no hPanel; abrir `https://respawnou.com.br/ads.txt` e ver a linha `google.com, pub-…, DIRECT, f08c47fec0942fa0`.
-- [ ] Ver o código-fonte de uma matéria e achar `adsbygoogle.js?client=ca-pub-…` (e **não** achar em `/arcade/sudoku`).
+- [x] (2026-11-22, conferido ao vivo) `ADSENSE_CLIENT` cadastrado no hPanel; abrir `https://respawnou.com.br/ads.txt` e ver a linha `google.com, pub-…, DIRECT, f08c47fec0942fa0`.
+- [x] (2026-11-22, conferido ao vivo: script na home/matéria e ausente em /arcade/sudoku) Ver o código-fonte de uma matéria e achar `adsbygoogle.js?client=ca-pub-…` (e **não** achar em `/arcade/sudoku`).
 - [ ] Banner de cookies aparece numa janela anônima.
 - [ ] Nenhuma página com "em breve", placeholder ou imagem quebrada no menu.
 - [ ] Interruptor "Anúncios ligados" **desmarcado** e IDs vazios (durante a revisão não há blocos; é normal).
