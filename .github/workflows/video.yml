@@ -1,0 +1,32 @@
+# Gerador de vídeos curtos (Reels, Shorts, TikTok). O site aprova o roteiro e dispara este fluxo (workflow_dispatch);
+# a cada 3 h ele também roda sozinho, para pegar o que sobrou. O worker só fala com a API do site (VIDEO_WORKER_SECRET).
+# Segredos do repositório: SITE_URL, VIDEO_WORKER_SECRET, ELEVENLABS_API_KEY. Docs: docs/instagram-stories-videos.md.
+name: video
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */3 * * *"
+concurrency:
+  group: video
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: npm ci
+      - name: Gerar o próximo vídeo aprovado
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          VIDEO_WORKER_SECRET: ${{ secrets.VIDEO_WORKER_SECRET }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: npx --yes tsx@4 scripts/video/worker.ts

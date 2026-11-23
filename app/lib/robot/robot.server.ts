@@ -1,6 +1,7 @@
 // Robô de postagem do Respawnou. Chamado pelas rotas /api/cron/* (Cron Job da Hostinger).
 // Regras de qualidade: docs/adsense.md. Arquitetura: docs/automacao.md.
 import { enfileirar, tick as tickSocial } from "../../social/server/fila.server.ts";
+import { escolherDoDia, limparArquivos as limparVideos } from "../../video/fila.server.ts";
 import { atualizarPecas } from "./atualizacoes.server.ts";
 import { enrichGamesFromSteam, liberarFichas } from "./fichas.server.ts";
 import { authorForSection } from "../site.ts";
@@ -188,6 +189,7 @@ export async function collect(): Promise<JobResult> {
   await limparVisitasDoDia();
   await atualizarPecasDaSemana();
   await rodarFilaSocial();
+  await rodarVideoDoDia();
   return result;
 }
 
@@ -208,6 +210,17 @@ export async function rodarFilaSocial() {
     if (r.acao === "enviado") console.log(`[social] post ${r.postId} enviado ao Instagram`);
   } catch (e) {
     console.error(`[social] tick falhou: ${String((e as Error)?.message ?? e).slice(0, 120)}`);
+  }
+}
+
+/** Vídeos curtos (docs/instagram-stories-videos.md): escolhe a matéria do dia e limpa arquivos velhos. Falha não derruba a coleta. */
+export async function rodarVideoDoDia() {
+  try {
+    const r = await escolherDoDia();
+    if (/^job/.test(r)) console.log(`[video] ${r}`);
+    await limparVideos();
+  } catch (e) {
+    console.error(`[video] rotina diária falhou: ${String((e as Error)?.message ?? e).slice(0, 120)}`);
   }
 }
 

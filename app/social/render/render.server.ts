@@ -28,3 +28,9 @@ export async function salvar(jpeg: Buffer, socialId: number, n: number, prefixo 
   await writeFile(join(mediaDir(), dir, nome), jpeg);
   return `/media/${dir}/${nome}`;
 }
+
+/** Igual a `renderizar`, mas devolve PNG (mantém a transparência: para sobrepor no vídeo). */
+export async function renderizarPng(elemento: ReactElement, tamanho: { largura?: number; altura?: number } = {}): Promise<Buffer> {
+  const svg = await satori(elemento, { width: tamanho.largura ?? LARGURA, height: tamanho.altura ?? ALTURA, fonts: await fontes() });
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}

@@ -93,6 +93,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 
 ## Próximos passos
 
+- **Vídeos curtos, fase 1 pronta no código (2026-11-24):** `/admin/videos` (roteiro pelo Gemini → você revisa e aprova → o GitHub Actions gera voz + vídeo → você baixa o MP4 e copia as legendas de Instagram, YouTube e TikTok). Escolha automática de 1 matéria por dia (desligada até você ligar), voz por editoria, migration 015. Falta só o que é seu (veja "Pendências suas"). Reels automático, YouTube e TikTok são as fases 2 a 4.
 - **Imagens próprias nos slides (2026-11-24, frente C do plano `instagram-stories-videos.md`):** em `/admin/instagram`, cada item da fila do feed tem o bloco "Imagens dos slides": trocar a imagem de um slide (com foco do recorte), acrescentar slides de foto (até 10 no total) e "Gerar de novo com as minhas imagens". Migration 014 (`overrides`). Itens já publicados não aceitam troca.
 - **Regras da fila do Instagram (2026-11-23):** só sai sozinho o que entrou sozinho (matéria nova): notícia (vale 48 h desde a publicação), promoções e lançamentos. Carrossel (artigo, review, guia) e tudo que vem do botão "Colocar as 30 últimas" ficam na fila só para "Postar agora" (revisão manual). Stories seguem as mesmas regras (os de carrossel também são manuais).
 - **Robô só de games (2026-11-23):** filtro de cinema/TV/quadrinhos no título, no endereço da fonte e no redator. Matérias de filme já publicadas precisam ser despublicadas à mão em `/admin/posts`.
@@ -116,6 +117,8 @@ Em ordem (atualizado em 2026-11-22):
    Cuidado: não misturar com as regras do AdSense (`adsense.md`).
 
 ## Pendências suas
+
+- **Vídeos (fase 1):** (1) gerar um código de 64 letras/números (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) e cadastrar como `VIDEO_WORKER_SECRET` no hPanel **e** nos segredos do GitHub (repositório respawnou → Settings → Secrets and variables → Actions); (2) nos segredos do GitHub também `SITE_URL` (`https://respawnou.com.br`) e `ELEVENLABS_API_KEY`; (3) no GitHub criar um token fino (Settings → Developer settings → Fine-grained tokens) só deste repositório com a permissão "Actions: Read and write" e cadastrar no hPanel como `GITHUB_DISPATCH_TOKEN`, mais `GITHUB_REPO` = `evssousa/respawnou`; (4) escolher uma voz por editoria na ElevenLabs e colar os códigos (`voice_id`) em `/admin/videos` → Configuração; (5) ligar "Ligado" quando quiser que o site escolha 1 matéria por dia. Nada disso vai no chat nem no código.
 
 - **Stories e vídeos (2026-11-23, `instagram-stories-videos.md`):** responder as 9 perguntas do fim do plano. Para os
   vídeos começarem: assinar o ElevenLabs **Starter (US$ 5/mês)** e escolher a voz (perguntas 1 a 4). Para os Stories:

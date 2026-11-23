@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/post-edit";
+import { criarJob } from "~/video/fila.server";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { blocksToText, textToBlocks } from "~/lib/admin/body-text";
@@ -52,6 +53,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "excluir") {
     if (!(await deletePost(id))) return data({ errors: ["Matéria no ar não pode ser excluída: tire do ar primeiro."] }, { status: 400 });
     return redirect("/admin/materias?ok=excluida");
+  }
+  if (intent === "video") {
+    // Vídeo curto desta matéria: cria o job e o roteiro (Gemini); a revisão e a aprovação são em /admin/videos.
+    const r = await criarJob(id, "manual");
+    return redirect("erro" in r ? `/admin/videos?erro=${encodeURIComponent(r.erro)}` : "/admin/videos?ok=roteiro");
   }
   if (intent === "refazer") {
     publish({ redoPostId: id }).catch((err) => console.error("[admin] refazer:", err));
@@ -234,6 +240,11 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
               {post.status === "published" && (
                 <Button name="intent" value="rascunho" disabled={busy}>
                   Tirar do ar (rascunho)
+                </Button>
+              )}
+              {post.status === "published" && (
+                <Button name="intent" value="video" disabled={busy}>
+                  Fazer vídeo desta matéria
                 </Button>
               )}
               <Button name="intent" value="destaque" disabled={busy}>

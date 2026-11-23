@@ -67,3 +67,4 @@ Dados de exemplo para desenvolvimento: `npm run db:seed-dev` (apaga posts/jogos;
 ## Migrations 013 e 014 (Instagram)
 - `013_stories`: `social_posts.kind` (feed|story|reel), índice único `(post_id, network, kind)`, colunas `story_*` em `social_accounts`.
 - `014_social_uploads`: `social_posts.overrides` (JSON com as imagens próprias do dono: `trocas` por slide e `extras`).
+- `015_videos`: tabela `video_jobs` (roteiro, imagens, estado, arquivos, legendas por rede), colunas `reel_*` em `social_accounts` e linhas `youtube`/`tiktok` em `social_accounts` (reservadas para as fases 2 a 4). Configuração em `settings.video_config`.
