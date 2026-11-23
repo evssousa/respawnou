@@ -8,9 +8,10 @@ import { requireAdmin } from "~/lib/admin/auth.server";
 import { hasDatabase } from "~/lib/db.server";
 import { FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
 import type { Foco } from "~/social/tipos";
-import { SECOES_VOZ, VIDEO, lerConfig, salvarConfig, type VideoConfig } from "~/video/config";
-import { aprovar, caracteresDoRoteiro, descartar, gerarRoteiroDoJob, listarJobs, resumoMes, salvarRoteiro } from "~/video/fila.server";
-import { palavrasDoRoteiro } from "~/video/roteiro.server";
+import { SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
+import { lerConfig, salvarConfig } from "~/video/config.server";
+import { aprovar, descartar, gerarRoteiroDoJob, listarJobs, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { caracteresDoRoteiro, palavrasDoRoteiro } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
 

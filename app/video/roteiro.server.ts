@@ -3,19 +3,9 @@ import { generateJson } from "~/lib/robot/gemini.server";
 import { limparLinks } from "~/social/core/texto";
 import type { EntradaSocial, Overrides } from "~/social/tipos";
 import { VIDEO } from "./config";
+import { palavrasDoRoteiro, type Imagem, type Roteiro } from "./roteiro";
 
-export interface Imagem {
-  src: string;
-  alt: string;
-}
-export interface Roteiro {
-  gancho: string;
-  cenas: { fala: string; imagem: number }[];
-  titulo_curto: string;
-}
-
-export const contarPalavras = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
-export const palavrasDoRoteiro = (r: Roteiro) => contarPalavras(r.gancho) + r.cenas.reduce((a, c) => a + contarPalavras(c.fala), 0);
+export type { Imagem, Roteiro } from "./roteiro";
 
 /** Imagens que as cenas podem usar: capa, imagens da matéria, imagens do dono (upload) e, nos modelos de dados, a arte do post. */
 export function imagensDisponiveis(e: EntradaSocial, ov: Overrides = {}): Imagem[] {

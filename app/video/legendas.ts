@@ -3,7 +3,7 @@ import { SOCIAL } from "~/social/config";
 import { hashtags, montarLegenda } from "~/social/core/legenda";
 import type { EntradaSocial, Modelo } from "~/social/tipos";
 import { VIDEO } from "./config";
-import type { Roteiro } from "./roteiro.server";
+import type { Roteiro } from "./roteiro";
 
 export interface LegendasVideo {
   instagram: string;

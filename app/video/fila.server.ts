@@ -8,11 +8,13 @@ import { lerOverrides } from "~/social/core/overrides";
 import { SOCIAL } from "~/social/config";
 import { escolherModelo, lerEntrada, urlDaMateria } from "~/social/site.server";
 import type { Foco } from "~/social/tipos";
-import { VIDEO, lerConfig, vozDaSecao } from "./config";
+import { VIDEO, vozDaSecao } from "./config";
+import { lerConfig } from "./config.server";
 import { exec, hasDatabase, query } from "./db";
 import { dispararWorkflow } from "./github.server";
 import { legendasDoVideo } from "./legendas";
-import { gerarRoteiro, imagensDisponiveis, palavrasDoRoteiro, validarRoteiro, type Imagem, type Roteiro } from "./roteiro.server";
+import { textoFalado, type Imagem, type Roteiro } from "./roteiro";
+import { gerarRoteiro, imagensDisponiveis, validarRoteiro } from "./roteiro.server";
 
 export type StatusVideo = "aguardando" | "aprovado" | "gerando" | "pronto" | "falhou" | "descartado";
 
@@ -63,10 +65,6 @@ function linha(r: Record<string, unknown>): JobVideo {
     duration_s: r.duration_s == null ? null : Number(r.duration_s),
   };
 }
-
-/** Texto que vai para a ElevenLabs: gancho, falas das cenas e o fechamento fixo. */
-export const textoFalado = (r: Roteiro) => [r.gancho, ...r.cenas.map((c) => c.fala), VIDEO.fechamento].map((t) => t.trim().replace(/[.!?…]+$/, "")).join(". ") + ".";
-export const caracteresDoRoteiro = (r: Roteiro) => textoFalado(r).length;
 
 /** Cria o job (a matéria precisa estar publicada e ter imagens). O roteiro é pedido na hora; se falhar, o job fica `falhou` com o motivo. */
 export async function criarJob(postId: number, origem: "auto" | "manual"): Promise<{ id: number } | { erro: string }> {
