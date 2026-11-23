@@ -46,25 +46,30 @@ export async function imagemDataUri(src: string | null | undefined, w: number, h
   }
 }
 
-let logoCache: string | undefined;
-/** Logo do site (PNG quadrada) redimensionada, em data URI. */
+const logoCache = new Map<number, string>();
+/** Logo do site (PNG quadrada) redimensionada, em data URI (um cache por tamanho). */
 export async function logoDataUri(tamanho = 128): Promise<string> {
-  if (logoCache) return logoCache;
+  const c = logoCache.get(tamanho);
+  if (c) return c;
   const b = await readFile(join(process.cwd(), SOCIAL.logo));
   const out = await sharp(b).resize(tamanho, tamanho).png().toBuffer();
-  logoCache = `data:image/png;base64,${out.toString("base64")}`;
-  return logoCache;
+  const uri = `data:image/png;base64,${out.toString("base64")}`;
+  logoCache.set(tamanho, uri);
+  return uri;
 }
 
-/** Grade fina do fundo (linhas de 1 px a cada 54 px), gerada uma vez, como data URI PNG. */
-let gradeCache: string | undefined;
+/** Grade fina do fundo (linhas de 1 px a cada 54 px), gerada uma vez por tamanho, como data URI PNG. */
+const gradeCache = new Map<string, string>();
 export async function gradeDataUri(w = 1080, h = 1350): Promise<string> {
-  if (gradeCache) return gradeCache;
+  const chave = `${w}x${h}`;
+  const c = gradeCache.get(chave);
+  if (c) return c;
   let linhas = "";
   for (let x = 0; x <= w; x += 54) linhas += `<rect x="${x}" y="0" width="1" height="${h}" fill="#1c241a" fill-opacity="0.6"/>`;
   for (let y = 0; y <= h; y += 54) linhas += `<rect x="0" y="${y}" width="${w}" height="1" fill="#1c241a" fill-opacity="0.6"/>`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${linhas}</svg>`;
   const out = await sharp(Buffer.from(svg)).png().toBuffer();
-  gradeCache = `data:image/png;base64,${out.toString("base64")}`;
-  return gradeCache;
+  const uri = `data:image/png;base64,${out.toString("base64")}`;
+  gradeCache.set(chave, uri);
+  return uri;
 }

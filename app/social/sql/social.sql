@@ -1,4 +1,4 @@
--- 012: postagem automática no Instagram (docs/instagram.md, módulo app/social).
+-- 012+013: postagem automática no Instagram (docs/instagram.md, módulo app/social).
 SET NAMES utf8mb4;
 
 -- Uma linha por rede. O token fica criptografado (AES-256-GCM, chave em SOCIAL_KEY): nunca em texto puro.
@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS social_accounts (
   start_hour         TINYINT UNSIGNED  NOT NULL DEFAULT 9,         -- horário de Brasília
   end_hour           TINYINT UNSIGNED  NOT NULL DEFAULT 22,
   models             JSON         NULL,                            -- modelos ligados: {"N":true,"C":true,"P":true,"S":true}
+  story_enabled         TINYINT(1)        NOT NULL DEFAULT 0,      -- stories (013)
+  story_daily_limit     TINYINT UNSIGNED  NOT NULL DEFAULT 6,
+  story_min_gap_minutes SMALLINT UNSIGNED NOT NULL DEFAULT 45,
   paused_until       DATETIME     NULL,                            -- UTC
   note               VARCHAR(500) NULL,                            -- último aviso (bloqueio, cota)
   updated_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -29,6 +32,7 @@ CREATE TABLE IF NOT EXISTS social_posts (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   post_id       INT UNSIGNED NOT NULL,
   network       VARCHAR(20)  NOT NULL DEFAULT 'instagram',
+  kind          ENUM('feed','story','reel') NOT NULL DEFAULT 'feed',   -- formato (013)
   model         VARCHAR(20)  NOT NULL,                             -- N|C-artigo|C-review|C-guia|P1|P2|S
   status        ENUM('pending','preview','sending','published','failed','skipped','expired') NOT NULL DEFAULT 'pending',
   origin        ENUM('auto','manual') NOT NULL DEFAULT 'auto',
@@ -47,9 +51,9 @@ CREATE TABLE IF NOT EXISTS social_posts (
   created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   rendered_at   DATETIME     NULL,
   published_at  DATETIME     NULL,                                 -- UTC
-  UNIQUE KEY uq_social_posts_post (post_id, network),
-  KEY ix_social_posts_queue (network, status, priority, created_at),
-  KEY ix_social_posts_published (network, published_at),
+  UNIQUE KEY uq_social_posts_kind (post_id, network, kind),
+  KEY ix_social_posts_queue (network, kind, status, priority, created_at),
+  KEY ix_social_posts_published (network, kind, published_at),
   CONSTRAINT fk_social_posts_post FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -141,7 +141,7 @@ async function enviar(l: LinhaFila, conta: Conta, token: string): Promise<void> 
 
 /** Linha presa em `sending` (o processo caiu): confere o contêiner para não postar duas vezes. */
 async function recuperarPresas(token: string | null): Promise<void> {
-  const presas = await query<LinhaFila>("SELECT * FROM social_posts WHERE status = 'sending' AND locked_at < UTC_TIMESTAMP() - INTERVAL 15 MINUTE");
+  const presas = await query<LinhaFila>("SELECT * FROM social_posts WHERE kind = 'feed' AND status = 'sending' AND locked_at < UTC_TIMESTAMP() - INTERVAL 15 MINUTE");
   for (const l of presas) {
     let publicada = false;
     if (l.container_id && token) {
@@ -165,10 +165,17 @@ async function limparArquivos(): Promise<void> {
   const raiz = join(mediaDir(), "social");
   const limite = Date.now() - 30 * 86400_000;
   try {
-    for (const ano of await readdir(raiz)) for (const mes of await readdir(join(raiz, ano))) for (const f of await readdir(join(raiz, ano, mes))) {
-      const p = join(raiz, ano, mes, f);
-      if ((await stat(p)).mtimeMs < limite) await rm(p, { force: true });
-    }
+    // Só as pastas ano/mês das artes geradas; qualquer outra pasta (ex.: uploads do dono) não é tocada nem derruba a limpeza.
+    for (const ano of (await readdir(raiz)).filter((x) => /^\d{4}$/.test(x)))
+      for (const mes of (await readdir(join(raiz, ano))).filter((x) => /^\d{2}$/.test(x)))
+        for (const f of await readdir(join(raiz, ano, mes))) {
+          const p = join(raiz, ano, mes, f);
+          try {
+            if ((await stat(p)).mtimeMs < limite) await rm(p, { force: true });
+          } catch {
+            /* arquivo sumiu ou é pasta: segue */
+          }
+        }
   } catch {
     /* pasta ainda não existe */
   }
@@ -203,7 +210,7 @@ export async function tick(): Promise<ResultadoTick> {
 
       if (conta.test_mode) {
         // Modo de teste: gera arte e legenda de até 2 pendentes e deixa como "preview" (não envia).
-        const lista = await query<LinhaFila>("SELECT * FROM social_posts WHERE network = 'instagram' AND status = 'pending' ORDER BY priority DESC, created_at DESC LIMIT 2");
+        const lista = await query<LinhaFila>("SELECT * FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status = 'pending' ORDER BY priority DESC, created_at DESC LIMIT 2");
         for (const l of lista) {
           try {
             await gerar(l);
@@ -215,8 +222,8 @@ export async function tick(): Promise<ResultadoTick> {
         return { acao: `modo de teste: ${lista.length} prévia(s)` };
       }
 
-      const [pub] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND status = 'published' AND published_at >= ?", [inicioDoDia()]);
-      const [ult] = await query<{ t: string | null }>("SELECT MAX(published_at) AS t FROM social_posts WHERE network = 'instagram' AND status = 'published'");
+      const [pub] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status = 'published' AND published_at >= ?", [inicioDoDia()]);
+      const [ult] = await query<{ t: string | null }>("SELECT MAX(published_at) AS t FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status = 'published'");
       const decisao = podeEnviar(
         { limiteDia: conta.daily_limit, intervaloMin: conta.min_gap_minutes, inicioHora: conta.start_hour, fimHora: conta.end_hour },
         { agora: new Date(), publicadosHoje: Number(pub?.n ?? 0), ultimoPublicado: ult?.t ? new Date(`${String(ult.t).replace(" ", "T")}Z`) : null, pausadoAte: conta.paused_until ? new Date(`${String(conta.paused_until).replace(" ", "T")}Z`) : null, tokenOk: conta.token_status === "ok" && !!token && !!conta.account_id },
@@ -224,7 +231,7 @@ export async function tick(): Promise<ResultadoTick> {
       if (!decisao.pode) return { acao: decisao.motivo };
 
       const [l] = await query<LinhaFila>(
-        `SELECT * FROM social_posts WHERE network = 'instagram' AND (status = 'pending' OR (status = 'failed' AND attempts < 3 AND next_try_at <= UTC_TIMESTAMP()))
+        `SELECT * FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND (status = 'pending' OR (status = 'failed' AND attempts < 3 AND next_try_at <= UTC_TIMESTAMP()))
          ORDER BY priority DESC, created_at DESC LIMIT 1`,
       );
       if (!l) return { acao: "fila vazia" };
@@ -264,7 +271,7 @@ const RECENTES = `SELECT id FROM (SELECT id FROM posts WHERE status = 'published
 /** Coloca na fila as N últimas matérias publicadas que ainda não estão (para ver as artes de matérias que já existiam). Repetir o clique não acrescenta nada além das N mais recentes. */
 export async function enfileirarRecentes(n = 30): Promise<number> {
   const rows = await query<{ id: number }>(
-    `SELECT p.id FROM posts p WHERE p.id IN (${RECENTES}) AND NOT EXISTS (SELECT 1 FROM social_posts s WHERE s.post_id = p.id AND s.network = 'instagram') ORDER BY p.published_at DESC`,
+    `SELECT p.id FROM posts p WHERE p.id IN (${RECENTES}) AND NOT EXISTS (SELECT 1 FROM social_posts s WHERE s.post_id = p.id AND s.network = 'instagram' AND s.kind = 'feed') ORDER BY p.published_at DESC`,
     [n],
   );
   let c = 0;
@@ -274,7 +281,7 @@ export async function enfileirarRecentes(n = 30): Promise<number> {
 
 /** Zera a fila: apaga tudo que ainda não foi ao ar (o que já foi publicado fica, para nunca postar duas vezes a mesma matéria). */
 export async function zerarFila(): Promise<number> {
-  const r = await exec("DELETE FROM social_posts WHERE network = 'instagram' AND status <> 'published' AND status <> 'sending'");
+  const r = await exec("DELETE FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status <> 'published' AND status <> 'sending'");
   return r.affected;
 }
 
@@ -284,7 +291,7 @@ export const repostar = (id: number) => exec("UPDATE social_posts SET status = '
 
 export async function listarFila(limite = 30): Promise<LinhaFila[]> {
   return query<LinhaFila>(
-    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.status <> 'published' AND s.post_id IN (${RECENTES}) ORDER BY p.published_at DESC, p.id DESC`,
+    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = 'feed' AND s.status <> 'published' AND s.post_id IN (${RECENTES}) ORDER BY p.published_at DESC, p.id DESC`,
     [limite],
   );
 }
@@ -292,7 +299,7 @@ export async function listarFila(limite = 30): Promise<LinhaFila[]> {
 /** Já postados no Instagram (lista à parte, mais discreta), do mais recente para o mais antigo. */
 export async function listarPostados(limite = 50): Promise<LinhaFila[]> {
   return query<LinhaFila>(
-    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.status = 'published' ORDER BY s.published_at DESC LIMIT ?`,
+    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = 'feed' AND s.status = 'published' ORDER BY s.published_at DESC LIMIT ?`,
     [limite],
   );
 }
@@ -301,8 +308,8 @@ export async function listarPostados(limite = 50): Promise<LinhaFila[]> {
 export const tirarDosPostados = (id: number) => exec("DELETE FROM social_posts WHERE id = ? AND status = 'published'", [id]);
 
 export async function resumo() {
-  const [h] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND status = 'published' AND published_at >= ?", [inicioDoDia()]);
-  const [p] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND status IN ('pending','preview','failed')");
+  const [h] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status = 'published' AND published_at >= ?", [inicioDoDia()]);
+  const [p] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status IN ('pending','preview','failed')");
   return { hoje: Number(h?.n ?? 0), naFila: Number(p?.n ?? 0) };
 }
 

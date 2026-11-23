@@ -14,7 +14,7 @@ export async function loader() {
     try {
       const rows = await query<{ section: string; slug: string }>(
         `SELECT p.section, p.slug FROM social_posts s JOIN posts p ON p.id = s.post_id
-         WHERE s.status = 'published' AND p.status = 'published' ORDER BY s.published_at DESC LIMIT 20`,
+         WHERE s.kind = 'feed' AND s.status = 'published' AND p.status = 'published' ORDER BY s.published_at DESC LIMIT 20`,
       );
       citadas = await Promise.all(rows.map((r) => getPost(r.section, r.slug)));
     } catch {
