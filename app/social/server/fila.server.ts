@@ -284,10 +284,21 @@ export const repostar = (id: number) => exec("UPDATE social_posts SET status = '
 
 export async function listarFila(limite = 30): Promise<LinhaFila[]> {
   return query<LinhaFila>(
-    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.post_id IN (${RECENTES}) ORDER BY p.published_at DESC, p.id DESC`,
+    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.status <> 'published' AND s.post_id IN (${RECENTES}) ORDER BY p.published_at DESC, p.id DESC`,
     [limite],
   );
 }
+
+/** Já postados no Instagram (lista à parte, mais discreta), do mais recente para o mais antigo. */
+export async function listarPostados(limite = 50): Promise<LinhaFila[]> {
+  return query<LinhaFila>(
+    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.status = 'published' ORDER BY s.published_at DESC LIMIT ?`,
+    [limite],
+  );
+}
+
+/** Tira da lista de postados (não apaga nada no Instagram; a matéria pode voltar à fila depois). */
+export const tirarDosPostados = (id: number) => exec("DELETE FROM social_posts WHERE id = ? AND status = 'published'", [id]);
 
 export async function resumo() {
   const [h] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND status = 'published' AND published_at >= ?", [inicioDoDia()]);

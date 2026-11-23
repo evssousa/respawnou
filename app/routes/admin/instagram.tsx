@@ -8,7 +8,7 @@ import { hasDatabase } from "~/lib/db.server";
 import { SOCIAL } from "~/social/config";
 import { conectar, desconectar, getConta, salvarConfig } from "~/social/server/conta.server";
 import { chaveOk } from "~/social/server/cripto.server";
-import { enfileirarRecentes, gerarDeNovo, imagensDe, listarFila, postarAgora, pular, repostar, resumo, tick, zerarFila } from "~/social/server/fila.server";
+import { enfileirarRecentes, gerarDeNovo, imagensDe, listarFila, listarPostados, postarAgora, pular, repostar, resumo, tick, tirarDosPostados, zerarFila } from "~/social/server/fila.server";
 import { cota, perfil } from "~/social/server/instagram.server";
 import { getToken } from "~/social/server/conta.server";
 
@@ -17,7 +17,7 @@ export const meta = () => adminMeta("Instagram");
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request);
   if (!hasDatabase()) return { semBanco: true as const };
-  const [conta, fila, r] = await Promise.all([getConta(), listarFila(30), resumo()]);
+  const [conta, fila, postados, r] = await Promise.all([getConta(), listarFila(30), listarPostados(50), resumo()]);
   let usoApi: string | null = null;
   const url = new URL(request.url);
   if (url.searchParams.get("testar") === "1" && conta.token_status === "ok" && conta.account_id) {
@@ -39,6 +39,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     usoApi,
     msg: url.searchParams.get("ok"),
     erro: url.searchParams.get("erro"),
+    postados: postados.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, published_at: l.published_at, permalink: l.permalink, imagem: imagensDe(l.images)[0] ?? null })),
     fila: fila.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, status: l.status, origin: l.origin, created_at: l.created_at, published_at: l.published_at, permalink: l.permalink, error: l.error, attempts: l.attempts, caption: l.caption, imagens: imagensDe(l.images) })),
   };
 }
@@ -90,6 +91,7 @@ export async function action({ request }: Route.ActionArgs) {
     }
     if (intent === "pular") return (await pular(id), back("ok=pulado"));
     if (intent === "novo") return (await gerarDeNovo(id), back("ok=novo"));
+    if (intent === "tirar") return (await tirarDosPostados(id), back("ok=tirado"));
     if (intent === "repostar") return (await repostar(id), back("ok=repostar"));
   } catch (e) {
     return back(`erro=${encodeURIComponent(String((e as Error)?.message ?? e).slice(0, 200))}`);
@@ -104,6 +106,7 @@ const MSG: Record<string, string> = {
   enviando: "Enviando em segundo plano; recarregue em 1 minuto.",
   pulado: "Post pulado.",
   novo: "Vai gerar a arte de novo no próximo ciclo.",
+  tirado: "Tirado da lista de postados (continua no Instagram).",
   repostar: "Voltou para a fila (cuidado: vai criar outro post no Instagram).",
 };
 
@@ -162,7 +165,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
       : d.msg.startsWith("rodou-")
         ? `Fila rodou: ${decodeURIComponent(d.msg.slice(6))}.`
         : d.msg.startsWith("zerou-")
-          ? `Fila zerada: ${d.msg.slice(6)} item(ns) removido(s). Clique em "Colocar as 30 últimas matérias na fila" para montar de novo.`
+          ? `Fila zerada: ${d.msg.slice(6)} item(ns) removido(s). Os já postados ficam na lista de baixo. Clique em "Colocar as 30 últimas matérias na fila" para montar de novo.`
           : d.msg.startsWith("recentes-")
           ? `${d.msg.slice(9)} matéria(s) colocada(s) na fila. Clique em "Rodar a fila agora" para gerar as artes.`
           : MSG[d.msg]
@@ -317,6 +320,25 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
           </ul>
         )}
       </Card>
+      {d.postados.length > 0 && (
+        <section className="mt-6 opacity-70 transition hover:opacity-100">
+          <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-wide text-muted">Já postados no Instagram ({d.postados.length})</h2>
+          <ul className="flex flex-col divide-y divide-line border border-line">
+            {d.postados.map((l) => (
+              <li key={l.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
+                {l.imagem && <img src={l.imagem} alt="" width={32} height={40} loading="lazy" className="h-10 w-8 shrink-0 border border-line object-cover" />}
+                <span className="min-w-0 flex-1 truncate text-body" title={l.title}>{l.title}</span>
+                <span className="font-mono text-xs text-muted">{l.model} · {when(l.published_at)}</span>
+                {l.permalink && <a href={l.permalink} target="_blank" rel="noopener" className="font-mono text-xs font-bold text-acc underline">Abrir</a>}
+                <Form method="post" onSubmit={(e) => { if (!confirm("Tirar da lista? O post continua no Instagram; a matéria poderá entrar na fila de novo.")) e.preventDefault(); }}>
+                  <input type="hidden" name="intent" value="tirar" /><input type="hidden" name="id" value={l.id} />
+                  <button type="submit" disabled={busy} className="font-mono text-xs text-muted underline hover:text-warn">Tirar da lista</button>
+                </Form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {aberto && <Visualizador imgs={aberto.imgs} inicio={aberto.i} onFechar={() => setAberto(null)} />}
     </>
   );
