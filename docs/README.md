@@ -76,7 +76,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 3 | Painel de visitas em /admin/visitas: contagem própria sem cookie, cartões, gráfico de 30 dias, páginas, origem e aparelho (módulo `app/visitas`, migration 009) (2026-11-19) | ✅ |
 | 6 | Arcade: Caça-Palavras de games, 12º jogo (rodadas com mais palavras e direções, tempo por rodada) (2026-11-17) | ✅ |
 | 6 | Arcade: Pinball, 13º jogo (3 bolas, bumpers, alvos com multiplicador) (2026-11-19) | ✅ |
-| 8 | Anúncios: espaços prontos e inertes (`<AdSlot>`, modo "ver espaços", card em `/admin/config`, locais por página, banner x aviso europeu do Google) — `anuncios.md` fase A (2026-11-22) | ✅ (falta você ver as capturas e, depois da aprovação, colar os 4 IDs) |
+| 8 | Anúncios: espaços prontos e inertes (`<AdSlot>`, modo "ver espaços", card em `/admin/config`, locais por página, banner x aviso europeu do Google) — `anuncios.md` fase A (2026-11-22) | ✅ pedido de revisão feito no AdSense em 2026-11-22; falta, depois da aprovação, criar os 4 blocos e colar os IDs (`anuncios.md`, Fase C) |
 | 7 | Crescimento orgânico, frente 1: SEO das páginas do Arcade (A1–A9: títulos/H1 de busca, textos, JSON-LD, imagem de compartilhamento, jogos parecidos, card nas matérias) | ✅ 2026-11-20 (falta você revisar os textos, A10) |
 | 7 | Frente 2: fichas de jogos úteis + critério de indexação (migration 010, passos B1–B7) | ⏳ |
 | 7 | Frente 3: cardápio evergreen e cadência do robô (passos C1–C6) | ⏳ |

@@ -477,7 +477,7 @@ matéria → matéria e conferir `<ins>` novos (um `push` por caixa). Registrar 
 **AN15 (P, executor, 3 dias depois) — Medir de novo.** Repetir AN1 (coluna "Depois"). Se o CLS de alguma URL
 passar de 0,1 ou o LCP piorar mais de 0,5 s, investigar o local responsável e corrigir antes de qualquer outra coisa.
 
-### Fase D — opcional, só com decisão do dono (3ª semana em diante)
+### Fase D — DESCARTADA pelo dono em 2026-11-22 (sem âncora)
 
 **AN16 (M) — Teste da âncora inferior no celular.** Só se o dono quiser (pergunta 1). Antes de ligar no painel
 (Anúncios automáticos → só "Âncora", posição inferior, sem vinheta, sem anúncios na página), os links para
@@ -567,11 +567,12 @@ deve levar meses, e o que faz a receita crescer é o tráfego, não mais anúnci
 - Sem modo espaços e sem IDs: HTML de uma matéria sem `ad-slot` (nada muda para o visitante antes da aprovação).
 - Depois da aprovação: AN14 e AN15.
 
-## Perguntas em aberto (para o dono)
+## Decisões do dono (2026-11-22)
 
-1. **Âncora inferior no celular** (Fase D): testar na 3ª semana ou nunca? Recomendação: decidir com os dados do dia 14.
-2. **Categorias sensíveis**: além de "Jogos de azar e apostas" (recomendado bloquear), bloquear também "Namoro" e
-   "Conteúdo sexual sugestivo"? Cada bloqueio tira um pouco de receita.
-3. **2º anúncio no meio** das matérias longas (≥ 900 palavras, guias e listas): começar ligado (recomendado) ou só 1?
-4. **Faixa na lista do Arcade** (`/arcade`): manter (recomendado, fica abaixo da grade) ou deixar o Arcade todo sem anúncio?
-5. **Billboard 970×250 na home** no PC: ok, ou prefere 728×90 (mais discreto, rende menos)?
+1. **Âncora inferior:** não. Sem âncora, nunca: a Fase D (AN16) fica **descartada** e os automáticos continuam todos desligados.
+2. **Categorias sensíveis:** bloquear "Jogos de azar e apostas" desde o início; "Namoro" e "Conteúdo sexual sugestivo" **só se o AdSense apontar problema** (o dono avisa e bloqueia no painel, Fase C, passo 6).
+3. **2º anúncio no meio** das matérias longas (900+ palavras): **sim**, ligado desde o início (já é o comportamento do código, regra AN7).
+4. **Home no PC:** billboard **970×250** (já é o tamanho da classe `ad-size-bb` a partir de 1024 px), mesmo sendo menos discreto.
+5. **Faixa na lista do Arcade** (`/arcade`): não foi respondida; **fica como recomendado** (1 faixa abaixo da grade, nunca nos jogos). Se o dono preferir o Arcade todo sem anúncio, é só tirar o `<AdSlot place="arcade-lista">` de `app/routes/arcade.tsx`.
+
+**Andamento (2026-11-22):** `ADSENSE_CLIENT` configurado e conferido ao vivo; banner de cookies visto pelo dono numa janela anônima; **pedido de revisão feito no AdSense**. PageSpeed (AN1) adiado por decisão do dono. Enquanto o Google analisa, o interruptor "Anúncios ligados" fica desmarcado.
