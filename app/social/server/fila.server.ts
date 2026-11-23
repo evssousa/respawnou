@@ -411,7 +411,17 @@ export const pular = (id: number) => exec("UPDATE social_posts SET status = 'ski
 export const gerarDeNovo = (id: number) => exec("UPDATE social_posts SET images = NULL, caption = NULL, rendered_at = NULL, status = 'pending', error = NULL, attempts = 0 WHERE id = ? AND status <> 'published'", [id]);
 export const repostar = (id: number) => exec("UPDATE social_posts SET status = 'pending', origin = 'manual', media_id = NULL, permalink = NULL, published_at = NULL, container_id = NULL, attempts = 0, error = NULL WHERE id = ? AND status = 'published'", [id]);
 
-export async function listarFila(limite = 30, kind: "feed" | "story" = "feed"): Promise<LinhaFila[]> {
+/**
+ * Fila de um formato. Sem `secao`: as 30 matérias mais recentes (a vitrine do botão "últimas 30"). Com `secao` (noticias, artigos,
+ * reviews, guias, promocoes): tudo o que está na fila daquela categoria, da mais nova para a mais antiga.
+ */
+export async function listarFila(limite = 30, kind: "feed" | "story" = "feed", secao?: string): Promise<LinhaFila[]> {
+  if (secao) {
+    return query<LinhaFila>(
+      `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = ? AND s.status <> 'published' AND p.section = ? ORDER BY p.published_at DESC, p.id DESC LIMIT 100`,
+      [kind, secao],
+    );
+  }
   if (kind === "story") {
     return query<LinhaFila>(`SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = 'story' AND s.status <> 'published' ORDER BY s.created_at DESC, s.id DESC LIMIT ?`, [limite]);
   }
@@ -419,6 +429,15 @@ export async function listarFila(limite = 30, kind: "feed" | "story" = "feed"): 
     `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = 'feed' AND s.status <> 'published' AND s.post_id IN (${RECENTES}) ORDER BY p.published_at DESC, p.id DESC`,
     [limite],
   );
+}
+
+/** Quantos itens (ainda não postados) há na fila por categoria da matéria, para as abas do painel. */
+export async function contagemPorSecao(kind: "feed" | "story" = "feed"): Promise<Record<string, number>> {
+  const rows = await query<{ section: string; n: number }>(
+    "SELECT p.section, COUNT(*) AS n FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = ? AND s.status <> 'published' AND s.status <> 'expired' GROUP BY p.section",
+    [kind],
+  );
+  return Object.fromEntries(rows.map((r) => [r.section, Number(r.n)]));
 }
 
 /** Já postados no Instagram (lista à parte, mais discreta), do mais recente para o mais antigo. */

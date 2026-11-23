@@ -15,18 +15,29 @@ import { extrairPontos } from "~/social/core/pontos";
 import { montarLegenda } from "~/social/core/legenda";
 import { lerEntrada, urlDaMateria } from "~/social/site.server";
 import type { Modelo } from "~/social/tipos";
-import { enfileirarRecentes, gerarDeNovo, imagensDe, editarOverrides, gerarAgora, listarFila, listarPostados, marcarPostadoAMao, postarAgora, pular, repostar, resumo, tick, tirarDosPostados, zerarFila } from "~/social/server/fila.server";
+import { enfileirarRecentes, gerarDeNovo, imagensDe, contagemPorSecao, editarOverrides, gerarAgora, listarFila, listarPostados, marcarPostadoAMao, postarAgora, pular, repostar, resumo, tick, tirarDosPostados, zerarFila } from "~/social/server/fila.server";
 import { cota, perfil } from "~/social/server/instagram.server";
 import { getToken } from "~/social/server/conta.server";
 
 export const meta = () => adminMeta("Instagram");
+
+/** Categorias da fila (a seção da matéria no site). */
+const CATEGORIAS = [
+  { id: "noticias", rotulo: "Notícias" },
+  { id: "artigos", rotulo: "Artigos" },
+  { id: "reviews", rotulo: "Reviews" },
+  { id: "guias", rotulo: "Guias" },
+  { id: "promocoes", rotulo: "Promoções" },
+];
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request);
   if (!hasDatabase()) return { semBanco: true as const };
   const aba = new URL(request.url).searchParams.get("aba") === "stories" ? ("stories" as const) : ("feed" as const);
   const kind = aba === "stories" ? ("story" as const) : ("feed" as const);
-  const [conta, fila0, postados, r] = await Promise.all([getConta(), listarFila(30, kind), listarPostados(50, kind), resumo()]);
+  const catPedida = new URL(request.url).searchParams.get("cat") ?? "";
+  const cat = CATEGORIAS.some((c) => c.id === catPedida) ? catPedida : "";
+  const [conta, fila0, postados, r, porSecao] = await Promise.all([getConta(), listarFila(30, kind, cat || undefined), listarPostados(50, kind), resumo(), contagemPorSecao(kind)]);
   // Para cada item: legenda (calculada na hora se a arte ainda não foi gerada), categoria da matéria e quantos slides terá.
   const fila = await Promise.all(
     fila0.map(async (l) => {
@@ -67,6 +78,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   return {
     semBanco: false as const,
     aba,
+    cat,
+    porSecao,
     conta,
     resumo: r,
     chave: chaveOk(),
@@ -85,7 +98,18 @@ export async function action({ request }: Route.ActionArgs) {
   const f = await request.formData();
   const intent = String(f.get("intent"));
   const id = Number(f.get("id"));
-  const back = (q: string) => redirect(`/admin/instagram?${q}${f.get("aba") === "stories" ? "&aba=stories" : ""}`);
+  const origem = (() => {
+    try {
+      return new URL(request.headers.get("referer") ?? "").searchParams;
+    } catch {
+      return new URLSearchParams();
+    }
+  })();
+  const manter = (k: string, ok: (v: string) => boolean) => {
+    const v = String(f.get(k) ?? origem.get(k) ?? "");
+    return ok(v) ? `&${k}=${v}` : "";
+  };
+  const back = (q: string) => redirect(`/admin/instagram?${q}${manter("aba", (v) => v === "stories")}${manter("cat", (v) => CATEGORIAS.some((c) => c.id === v))}`);
   try {
     if (intent === "conectar") {
       const r = await conectar(String(f.get("token") ?? ""));
@@ -453,9 +477,22 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
         <Link to="/admin/instagram?aba=stories" className={`-mb-px border-b-2 px-1 py-2 ${d.aba === "stories" ? "border-acc text-paper" : "border-transparent text-muted hover:text-paper"}`}>Stories ({d.resumo.storiesNaFila})</Link>
       </nav>
 
-      <Card title={d.aba === "stories" ? "Fila de Stories" : "Fila (últimas 30)"}>
+      <nav className="mb-3 mt-3 flex flex-wrap gap-2 font-mono text-xs font-bold" aria-label="Categoria">
+        {[{ id: "", rotulo: "Todas" }, ...CATEGORIAS].map((c) => {
+          const n = c.id ? (d.porSecao[c.id] ?? 0) : Object.values(d.porSecao).reduce((a, b) => a + b, 0);
+          const href = `/admin/instagram?${[d.aba === "stories" ? "aba=stories" : "", c.id ? `cat=${c.id}` : ""].filter(Boolean).join("&")}`.replace(/\?$/, "");
+          const ativo = d.cat === c.id;
+          return (
+            <Link key={c.id || "todas"} to={href} className={`inline-flex min-h-9 items-center gap-2 border px-3 ${ativo ? "border-acc bg-acc text-ink" : "border-line-soft text-muted hover:border-acc hover:text-paper"}`}>
+              {c.rotulo}
+              <span className={ativo ? "text-ink" : "text-acc"}>{n}</span>
+            </Link>
+          );
+        })}
+      </nav>
+      <Card title={d.aba === "stories" ? "Fila de Stories" : d.cat ? `Fila: ${CATEGORIAS.find((c) => c.id === d.cat)?.rotulo}` : "Fila (últimas 30)"}>
         {d.fila.length === 0 ? (
-          <p className="text-sm text-muted">{d.aba === "stories" ? "Nenhum Story na fila. Ligue os stories no card acima; cada matéria publicada gera um." : "Nada na fila. Assim que uma matéria for publicada, ela aparece aqui."}</p>
+          <p className="text-sm text-muted">{d.aba === "stories" ? "Nenhum Story na fila. Ligue os stories no card acima; cada matéria publicada gera um." : d.cat ? "Nada desta categoria na fila." : "Nada na fila. Assim que uma matéria for publicada, ela aparece aqui."}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-line">
             {d.fila.map((l) => (
