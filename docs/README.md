@@ -93,6 +93,8 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 
 ## Próximos passos
 
+- **Regras da fila do Instagram (2026-11-23):** só sai sozinho o que entrou sozinho (matéria nova): notícia (vale 48 h desde a publicação), promoções e lançamentos. Carrossel (artigo, review, guia) e tudo que vem do botão "Colocar as 30 últimas" ficam na fila só para "Postar agora" (revisão manual). Stories seguem as mesmas regras (os de carrossel também são manuais).
+- **Robô só de games (2026-11-23):** filtro de cinema/TV/quadrinhos no título, no endereço da fonte e no redator. Matérias de filme já publicadas precisam ser despublicadas à mão em `/admin/posts`.
 - **Stories no ar em modo de teste:** em `/admin/instagram` → card Stories, ligar "Stories" (o modo de teste do feed vale para eles); conferir as artes na aba Stories, depois "Postar agora" em 1 (ST10/ST11). A conta precisa ser **Empresa**.
 - Instagram, plano em `instagram-stories-videos.md` (2026-11-23), na ordem: (1) **Stories** ST1–ST11 (combinado para
   2026-11-24; migration 013, colar o SQL no chat); (2) **imagens próprias nos slides** UP1–UP8 (migration 014);
