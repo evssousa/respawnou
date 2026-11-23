@@ -76,7 +76,7 @@ export async function action({ request }: Route.ActionArgs) {
       return back(`ok=rodou-${encodeURIComponent(r.acao)}`);
     }
     if (intent === "recentes") {
-      const n = await enfileirarRecentes(10);
+      const n = await enfileirarRecentes(30);
       return back(`ok=recentes-${n}`);
     }
     if (intent === "postar") {
@@ -231,7 +231,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
           <div className="mt-3 flex flex-wrap gap-2">
             <Form method="post">
               <input type="hidden" name="intent" value="recentes" />
-              <Button disabled={busy}>Colocar as 10 últimas matérias na fila</Button>
+              <Button disabled={busy}>Colocar as 30 últimas matérias na fila</Button>
             </Form>
             <Form method="post">
               <input type="hidden" name="intent" value="rodar" />

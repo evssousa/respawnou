@@ -258,15 +258,17 @@ export async function postarAgora(id: number): Promise<string> {
   return "ok";
 }
 
-/** Coloca na fila as últimas matérias publicadas que ainda não estão (para ver as artes de matérias que já existiam). */
-export async function enfileirarRecentes(n = 10): Promise<number> {
+/** As N matérias publicadas mais recentes (a "vitrine" da fila: é só isso que o painel mostra). */
+const RECENTES = `SELECT id FROM (SELECT id FROM posts WHERE status = 'published' AND published_at <= UTC_TIMESTAMP() ORDER BY published_at DESC, id DESC LIMIT ?) r`;
+
+/** Coloca na fila as N últimas matérias publicadas que ainda não estão (para ver as artes de matérias que já existiam). Repetir o clique não acrescenta nada além das N mais recentes. */
+export async function enfileirarRecentes(n = 30): Promise<number> {
   const rows = await query<{ id: number }>(
-    `SELECT p.id FROM posts p WHERE p.status = 'published' AND p.published_at <= UTC_TIMESTAMP()
-       AND NOT EXISTS (SELECT 1 FROM social_posts s WHERE s.post_id = p.id AND s.network = 'instagram') ORDER BY p.published_at DESC LIMIT ?`,
+    `SELECT p.id FROM posts p WHERE p.id IN (${RECENTES}) AND NOT EXISTS (SELECT 1 FROM social_posts s WHERE s.post_id = p.id AND s.network = 'instagram') ORDER BY p.published_at DESC`,
     [n],
   );
   let c = 0;
-  for (const r of rows) if (await enfileirar(r.id, undefined, "manual")) c++;
+  for (const r of rows.reverse()) if (await enfileirar(r.id, undefined, "manual")) c++;
   return c;
 }
 
@@ -276,7 +278,7 @@ export const repostar = (id: number) => exec("UPDATE social_posts SET status = '
 
 export async function listarFila(limite = 30): Promise<LinhaFila[]> {
   return query<LinhaFila>(
-    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' ORDER BY s.created_at DESC LIMIT ?`,
+    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.post_id IN (${RECENTES}) ORDER BY p.published_at DESC, p.id DESC`,
     [limite],
   );
 }
