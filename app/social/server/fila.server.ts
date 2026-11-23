@@ -245,10 +245,15 @@ async function passo(kind: "feed" | "story", conta: Conta, token: string | null)
   );
   if (!decisao.pode) return { acao: decisao.motivo };
 
+  // Feed: só os modelos marcados em "Modelos ligados" saem sozinhos (o resto fica na fila para "Postar agora"). Story não depende disso.
+  const GRUPOS: Record<string, Modelo[]> = { N: ["N"], C: ["C-artigo", "C-review", "C-guia"], P: ["P1", "P2"], S: ["S"] };
+  const modelos = kind === "feed" ? Object.entries(GRUPOS).filter(([g]) => conta.models[g] !== false).flatMap(([, m]) => m) : null;
+  if (modelos && !modelos.length) return { acao: "nenhum modelo ligado" };
   const [l] = await query<LinhaFila>(
-    `SELECT * FROM social_posts WHERE network = 'instagram' AND kind = ? AND (status = 'pending' OR (status = 'failed' AND attempts < 3 AND next_try_at <= UTC_TIMESTAMP()))
+    `SELECT * FROM social_posts WHERE network = 'instagram' AND kind = ? ${modelos ? `AND model IN (${modelos.map(() => "?").join(",")})` : ""}
+       AND (status = 'pending' OR (status = 'failed' AND attempts < 3 AND next_try_at <= UTC_TIMESTAMP()))
      ORDER BY priority DESC, created_at DESC LIMIT 1`,
-    [kind],
+    [kind, ...(modelos ?? [])],
   );
   if (!l) return { acao: "fila vazia" };
   const r = await exec("UPDATE social_posts SET status = 'sending', locked_at = UTC_TIMESTAMP() WHERE id = ? AND status IN ('pending','failed')", [l.id]);
