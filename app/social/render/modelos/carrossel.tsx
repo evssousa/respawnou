@@ -2,7 +2,6 @@
 import type { ReactElement } from "react";
 import { COR, SOCIAL } from "../../config";
 import { cortar, frasesInteiras, maiusculasBR } from "../../core/texto";
-import { ordenarNotas } from "../../core/pontos";
 import type { EntradaSocial, Ponto } from "../../tipos";
 import { ajustarTitulo, ANTON, Chip, Faixa, linhasDoTitulo, MONO, Seta, Tela, Topo } from "../ui";
 
@@ -101,67 +100,14 @@ function PontoSlide({ p, i, total, ins, imagem, rotulo }: { p: Ponto; i: number;
   );
 }
 
-function NotasSlide({ e, total, ins }: { e: EntradaSocial; total: number; ins: InsumosCarrossel }) {
-  const notas = ordenarNotas(e.review!.critics);
-  const mostra = notas.slice(0, 6);
-  return (
-    <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
-      <Topo logo={ins.logo} tam={48} y={40} direita={`REVIEW · ${nn(2, total)}`} />
-      <div style={{ position: "absolute", left: 64, top: 150, display: "flex" }}>
-        <Titulo texto="O que cada veículo deu" tam={72} />
-      </div>
-      <div style={{ position: "absolute", left: 64, top: 360, width: 952, display: "flex", flexDirection: "column" }}>
-        {mostra.map((c, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", height: 120, borderBottom: `2px solid ${COR.linhaSuave}` }}>
-            <div style={{ display: "flex", width: 340, fontWeight: 600, fontSize: 34 }}>{cortar(c.outlet, 18)}</div>
-            <div style={{ display: "flex", width: 440, height: 20, backgroundColor: COR.painel2 }}>
-              <div style={{ display: "flex", width: Math.round((c.score / 10) * 440), height: 20, backgroundColor: corNota(c.score) }} />
-            </div>
-            <div style={{ display: "flex", flex: 1, justifyContent: "flex-end", fontFamily: MONO, fontWeight: 700, fontSize: 40 }}>{dec(c.score)}</div>
-          </div>
-        ))}
-        {notas.length > 6 && <div style={{ display: "flex", marginTop: 20, fontFamily: MONO, fontWeight: 700, fontSize: 26, color: COR.apagado }}>{`+ ${notas.length - 6} VEÍCULOS NA MATÉRIA`}</div>}
-      </div>
-      <Rod />
-    </Tela>
-  );
-}
-
 function VereditoSlide({ e, total, ins }: { e: EntradaSocial; total: number; ins: InsumosCarrossel }) {
   return (
-    <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
+    <Tela grade={ins.grade}>
       <Topo logo={ins.logo} tam={48} y={40} direita={`REVIEW · ${nn(total - 1, total)}`} />
       <div style={{ position: "absolute", left: 64, top: 110, display: "flex", fontFamily: ANTON, fontSize: 300, lineHeight: 1, color: COR.destaque }}>“</div>
       <div style={{ position: "absolute", left: 64, top: 430, width: 952, display: "flex", fontWeight: 800, fontSize: 52, lineHeight: 1.28 }}>{cortar(e.review!.verdict, 230)}</div>
       <div style={{ position: "absolute", left: 64, top: 1100, display: "flex" }}>
         <Chip texto={`NOTA MÉDIA ${dec(e.review!.score)} · ${e.review!.critics.length} VEÍCULOS`} />
-      </div>
-      <Rod />
-    </Tela>
-  );
-}
-
-/** Review: "o que elogiaram" e "o que criticaram" juntos num slide só (em vez de um slide quase vazio para cada). */
-function ProsContrasSlide({ e, i, total, ins }: { e: EntradaSocial; i: number; total: number; ins: InsumosCarrossel }) {
-  const blocos = [
-    { titulo: "O que elogiaram", itens: e.review!.pros.slice(0, 3), sinal: "+" as const },
-    { titulo: "O que criticaram", itens: e.review!.cons.slice(0, 3), sinal: "−" as const },
-  ].filter((b) => b.itens.length);
-  return (
-    <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
-      <Topo logo={ins.logo} tam={48} y={40} direita={`REVIEW · ${nn(i, total)}`} />
-      <div style={{ position: "absolute", left: 64, top: 110, width: 952, height: 1090, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-        {blocos.map((b) => (
-          <div key={b.titulo} style={{ display: "flex", flexDirection: "column", marginBottom: 56 }}>
-            <Titulo texto={b.titulo} tam={64} cor={b.sinal === "+" ? COR.destaque : COR.alerta} />
-            {b.itens.map((t, k) => (
-              <div key={k} style={{ display: "flex", alignItems: "flex-start", marginTop: 26 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 52, height: 52, marginRight: 26, flexShrink: 0, backgroundColor: b.sinal === "+" ? COR.destaque : COR.alerta, color: COR.sobreDestaque, fontFamily: ANTON, fontSize: 44 }}>{b.sinal}</div>
-                <div style={{ display: "flex", flex: 1, fontWeight: 600, fontSize: 40, lineHeight: 1.3 }}>{cortar(t, 110)}</div>
-              </div>
-            ))}
-          </div>
-        ))}
       </div>
       <Rod />
     </Tela>
@@ -229,13 +175,8 @@ function CtaFinal({ ins, total }: { ins: InsumosCarrossel; total: number }) {
 export function slidesCarrossel(modelo: "C-artigo" | "C-review" | "C-guia", e: EntradaSocial, ins: InsumosCarrossel, pontos: Ponto[]): ReactElement[] {
   const out: ReactElement[] = [];
   if (modelo === "C-review" && e.review) {
-    const temLista = e.review.pros.length > 0 || e.review.cons.length > 0;
-    const total = 4 + (temLista ? 1 : 0); // capa, notas, [elogios e críticas], veredito, CTA
-    let n = 2;
+    const total = 3; // capa (nota + descrição), veredito, CTA: sem slides intermediários quase vazios
     out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo="REVIEW // CONSENSO DA CRÍTICA" chipFinal="O QUE A CRÍTICA ACHOU" />);
-    out.push(<NotasSlide key="n" e={e} total={total} ins={ins} />);
-    n++;
-    if (temLista) out.push(<ProsContrasSlide key="p" e={e} i={n++} total={total} ins={ins} />);
     out.push(<VereditoSlide key="v" e={e} total={total} ins={ins} />);
     out.push(<CtaFinal key="f" ins={ins} total={total} />);
     return out;
