@@ -88,6 +88,8 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 
 ## Próximos passos
 
+- Instagram: criar as imagens dos **Stories** (9:16) junto com os posts; combinado para 2026-11-24.
+
 Em ordem (atualizado em 2026-11-22):
 
 00. **Anúncios (`anuncios.md`, 2026-11-22) — antes de qualquer outra demanda:** executar a fase A (AN1 a AN13) na ordem: linha de base do PageSpeed, `ads.ts`/`ads.server.ts`, card "Anúncios" no `/admin/config`, componente `<AdSlot>` + CSS, selo do modo espaços, regra do "meio", matéria, home, listas, ficha/calendário/Arcade, banner x CMP Europa, revisão no modo espaços com capturas. Tudo fica inerte até haver IDs. Depois: fase B (pedido) e fase C (painel, dono) + AN14/AN15.
