@@ -70,8 +70,7 @@ export function montarLegenda(e: EntradaSocial, m: Modelo): string {
     partes = [gancho, "Mínimo e recomendado pra rodar no PC, direto da Steam. Salva pra conferir antes de comprar.", cta];
     tags = hashtags(e, m);
   } else if (m === "C-artigo") {
-    const n = e.pontos?.length ?? 0;
-    partes = [gancho, n ? `Arrasta pro lado: os ${n} pontos principais.` : contexto, escolher(SOCIAL.perguntas.artigo, e.postId), cta];
+    partes = [gancho, contexto, cta];
     tags = hashtags(e, m);
   } else {
     const rumor = /rumor|vazamento/i.test(`${e.titulo} ${e.tags.join(" ")}`);
