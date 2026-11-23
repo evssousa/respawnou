@@ -5,7 +5,7 @@
 export const FPS = 30;
 /** Duração de cada transição (s). */
 export const TRANSICAO = 0.35;
-const TRANSICOES = ["slideleft", "circleopen", "wipeup", "slideright", "zoomin", "radial", "wipeleft", "smoothleft"];
+const TRANSICOES = ["slideleft", "circleopen", "fadewhite", "wipeup", "zoomin", "slideright", "radial", "smoothleft", "fadewhite", "wipeleft"];
 
 export interface Clip {
   /** Arquivo da imagem (tela cheia, já enquadrada). */
@@ -15,6 +15,10 @@ export interface Clip {
   dur: number;
   /** Imagem inteira com fundo desfocado: zoom bem mais leve, para não cortar as bordas. */
   suave: boolean;
+  /** O dono alinhou o enquadramento à mão (ou por preset): só zoom centrado, sem panorâmica, para manter o que ele escolheu. */
+  fixo?: boolean;
+  /** Corte de aproximação (zoom forte e centrado) para dar ritmo quando a mesma imagem segue na tela. */
+  punch?: boolean;
 }
 
 export interface PlanoMontagem {
@@ -26,13 +30,21 @@ export interface PlanoMontagem {
   arq: { moldura: string; abertura: string; fechamento: string; audio: string; legenda: string; saida: string };
   /** Servidor compartilhado: preset mais rápido e 2 threads. */
   leve?: boolean;
+  /** Trilha pronta (música + whooshes, ver musica.ts) e o andamento dela, para a imagem pulsar no ritmo. */
+  trilha?: { arquivo: string; bpm: number };
 }
 
+/** Instantes (s) em que cada transição está no meio: serve para posicionar os "whooshes" da trilha. */
+export const instantesTransicao = (clips: Clip[], fechamentoIni: number): number[] => [...clips.slice(1).map((c) => c.ini), fechamentoIni];
+
 /** Movimentos em ordem de revezamento: zoom in, panorâmica →, zoom out, panorâmica ↓ (versão suave para imagem inteira). */
-export function movimento(i: number, quadros: number, suave = false): { z: string; x: string; y: string } {
+export function movimento(i: number, quadros: number, suave = false, modo: "livre" | "fixo" | "punch" = "livre"): { z: string; x: string; y: string } {
   const N = Math.max(1, quadros);
   const cx = "iw/2-(iw/zoom/2)";
   const cy = "ih/2-(ih/zoom/2)";
+  if (modo === "punch") return i % 2 ? { z: `1.34-0.08*on/${N}`, x: cx, y: cy } : { z: `1.22+0.12*on/${N}`, x: cx, y: cy };
+  // Enquadramento escolhido pelo dono: respiração leve no centro, o recorte dele continua aparecendo quase inteiro.
+  if (modo === "fixo") return i % 2 ? { z: `1.06-0.06*on/${N}`, x: cx, y: cy } : { z: `1+0.06*on/${N}`, x: cx, y: cy };
   const g = suave ? 0.05 : 0.1; // quanto o zoom varia
   const fixo = suave ? "1.05" : "1.12";
   switch (i % 4) {
@@ -60,14 +72,15 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   const rotulos: string[] = [];
   let idx = 0;
   clips.forEach((c, k) => {
-    const dur = c.dur + TRANSICAO; // sobra para a transição para o próximo clipe
+    // A transição fica centrada na fronteira da fala: o clipe começa T/2 antes do seu início e sobra T/2 depois do fim.
+    const dur = c.dur + TRANSICAO;
     args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(dur), "-i", c.img);
-    const m = movimento(k, Math.round(dur * FPS), c.suave);
+    const m = movimento(k, Math.round(dur * FPS), c.suave, c.punch ? "punch" : c.fixo ? "fixo" : "livre");
     partes.push(`[${idx}:v]zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=1:s=1080x1920:fps=${FPS},setsar=1,format=yuv420p,settb=AVTB[c${k}]`);
     rotulos.push(`[c${k}]`);
     idx++;
   });
-  args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(fechamento.dur), "-i", arq.fechamento);
+  args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(fechamento.dur + TRANSICAO / 2), "-i", arq.fechamento);
   partes.push(`[${idx}:v]scale=1080:1920,setsar=1,fps=${FPS},format=yuv420p,settb=AVTB[cf]`);
   rotulos.push("[cf]");
   idx++;
@@ -77,7 +90,7 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   for (let k = 1; k < rotulos.length; k++) {
     const saida = k === rotulos.length - 1 ? "[base]" : `[x${k}]`;
     const nome = k === rotulos.length - 1 ? "fade" : TRANSICOES[(k - 1) % TRANSICOES.length];
-    partes.push(`${atual}${rotulos[k]}xfade=transition=${nome}:duration=${s3(TRANSICAO)}:offset=${s3(inicios[k])}${saida}`);
+    partes.push(`${atual}${rotulos[k]}xfade=transition=${nome}:duration=${s3(TRANSICAO)}:offset=${s3(Math.max(0, inicios[k] - TRANSICAO / 2))}${saida}`);
     atual = saida;
   }
   if (rotulos.length === 1) partes.push(`${atual}null[base]`);
@@ -89,16 +102,28 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   args.push(...t1, "-f", "lavfi", "-t", s3(total), "-i", `color=c=0xc8ff2e:s=1080x8:r=${FPS}`);
   const iAudio = idx++;
   args.push(...t1, "-i", arq.audio);
+  const iTrilha = plano.trilha ? idx++ : -1;
+  if (plano.trilha) args.push(...t1, "-i", plano.trilha.arquivo);
 
   partes.push(`[${iMold}:v]format=rgba[mold]`);
   partes.push(`[${iAbert}:v]format=rgba,fade=t=out:st=${s3(Math.max(0, fimAbertura - 0.3))}:d=0.3:alpha=1[abert]`);
-  partes.push(`[base][mold]overlay=0:0:enable='lt(t,${s3(fechamento.ini)})'[v1]`);
+  // Cor mais viva, vinheta e um pulso de brilho a cada batida da trilha (só durante as cenas).
+  const B = plano.trilha ? 60 / plano.trilha.bpm : 0;
+  const pulso = plano.trilha ? `:brightness='0.035*exp(-7*mod(t,${s3(B)}))'` : "";
+  partes.push(`[base]eq=contrast=1.07:saturation=1.22${pulso}:eval=frame,vignette=angle=PI/5:eval=init[grade]`);
+  partes.push(`[grade][mold]overlay=0:0:enable='lt(t,${s3(fechamento.ini)})'[v1]`);
   // Cartão de abertura: entra deslizando pela esquerda (desacelerando) e some com fade no fim do gancho.
   partes.push(`[v1][abert]overlay=x='-1080*pow(1-min(t/0.45,1),2)':y=0:eval=frame:enable='lt(t,${s3(fimAbertura)})'[v2]`);
   // Barra de progresso (abaixo da zona do topo do app).
   partes.push(`[v2][${iBarra}:v]overlay=x='-w+w*t/${s3(total)}':y=226:eval=frame:enable='lt(t,${s3(fechamento.ini)})'[v3]`);
   partes.push(`[v3]subtitles=${arq.legenda}:fontsdir=fonts,format=yuv420p[vout]`);
-  partes.push(`[${iAudio}:a]loudnorm=I=-14:TP=-1.5:LRA=11,apad=pad_dur=2[aout]`);
+  if (plano.trilha) {
+    // Voz normalizada; a música fica baixa e abaixa mais ainda quando alguém fala (sidechain), depois soma e limita.
+    partes.push(`[${iAudio}:a]loudnorm=I=-14:TP=-1.5:LRA=11,apad=pad_dur=2,asplit=2[vz1][vz2]`);
+    partes.push(`[${iTrilha}:a]volume=0.30,apad=pad_dur=3[mus]`);
+    partes.push(`[mus][vz2]sidechaincompress=threshold=0.02:ratio=9:attack=15:release=450[duck]`);
+    partes.push(`[vz1][duck]amix=inputs=2:duration=first:dropout_transition=0,volume=2,alimiter=limit=0.95[aout]`);
+  } else partes.push(`[${iAudio}:a]loudnorm=I=-14:TP=-1.5:LRA=11,apad=pad_dur=2[aout]`);
   const filtro = partes.join(";\n");
   args.push(
     "-filter_complex_script", "filtro.txt",

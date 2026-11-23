@@ -964,3 +964,9 @@ ElevenLabs pode servir os sites (os créditos são da conta; dividir a cota no p
    (formulário em inglês; o Claude pode redigir as respostas)?
 8. **Fechamento falado:** "Matéria completa no Respawnou. O link está no perfil." serve, ou prefere outra frase?
 9. **Ordem:** pode ser Stories → imagens próprias → vídeos (recomendado), ou prefere vídeos antes das imagens próprias?
+
+## Vídeo: sincronia, trilha e dinamismo (2026-11-23)
+- Cada cena mostra sempre a imagem escolhida para ela; cena longa vira cortes na MESMA imagem alternando quadro aberto e aproximação (punch-in). A transição fica centrada no início da fala.
+- Enquadramento manual ou preset do dono: a câmera só respira no centro (sem panorâmica), para o recorte aparecer como foi ajustado.
+- Trilha sintetizada pelo ffmpeg (scripts/video/musica.ts; 3 estilos por id do vídeo, sem direitos autorais) + whoosh nas transições, com ducking sob a voz. Efeitos: cor/vinheta, pulso de brilho na batida, mais transições (incl. flash branco).
+- Monetização: roteiro e voz próprios + revisão do dono + música própria; risco restante são as imagens (usar material de imprensa/capturas de jogo e creditar a fonte), e marcar "conteúdo sintético" no YouTube/TikTok quando pedirem.

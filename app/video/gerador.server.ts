@@ -7,7 +7,8 @@ import { recortarComFoco } from "~/social/render/imagem.server";
 import { gerarQuadros } from "./render/quadros.server";
 import { gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/ass";
 import { alinhamentoFalso, sintetizar } from "../../scripts/video/elevenlabs";
-import { montar } from "../../scripts/video/ffmpeg";
+import { instantesTransicao, montar } from "../../scripts/video/ffmpeg";
+import { comandoTrilha, estiloDoVideo } from "../../scripts/video/musica";
 
 export interface PacoteVideo {
   id: number;
@@ -94,40 +95,31 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   await mkdir(join(dir, "fonts"), { recursive: true });
   await copyFile(join(process.cwd(), "app/video/fonts/Anton-Regular.ttf"), join(dir, "fonts/Anton-Regular.ttf"));
 
-  // 3) Plano de clipes. Abertura + cena 1 viram um clipe só (o cartão de título fica por cima do gancho). Cenas longas são
-  //    divididas em cortes de ~4 s, e as imagens variam: usa todas as da matéria antes de repetir uma.
+  // 3) Plano de clipes. Abertura + cena 1 viram um clipe só (o cartão de título fica por cima do gancho). Cada cena mostra SEMPRE a
+  //    imagem escolhida para ela (voz e imagem combinam). Cena longa vira cortes de ~4 s na mesma imagem, alternando o quadro
+  //    aberto com uma aproximação (punch-in) para dar ritmo sem trocar de assunto.
   const usaveis = p.imagens.map((x, i) => (x.url && !x.url.startsWith("arte:") ? i : -1)).filter((i) => i >= 0);
   if (!usaveis.length) throw new Error("nenhuma imagem utilizável");
   const cenasSeg = seg.segs.filter((x) => x.tipo === "cena").map((x) => ({ ...x }));
   if (cenasSeg.length) cenasSeg[0].ini = 0;
-  const uso = new Map<number, number>(usaveis.map((i) => [i, 0]));
-  let ultima = -1;
-  const escolher = (pref: number): number => {
-    const alvo = uso.has(pref) ? pref : usaveis[0];
-    let melhor = alvo;
-    if ((uso.get(alvo) ?? 0) > 0 || alvo === ultima) {
-      const cand = usaveis.filter((i) => i !== ultima).sort((a, b) => (uso.get(a)! - uso.get(b)!) || Math.abs(a - alvo) - Math.abs(b - alvo));
-      if (cand.length && (uso.get(cand[0])! < (uso.get(alvo) ?? 0) || alvo === ultima)) melhor = cand[0];
-    }
-    uso.set(melhor, (uso.get(melhor) ?? 0) + 1);
-    ultima = melhor;
-    return melhor;
-  };
-  const plano: { img: number; ini: number; dur: number }[] = [];
+  const plano: { img: number; ini: number; dur: number; punch: boolean }[] = [];
+  let anterior = -1;
   for (const c of cenasSeg) {
     const dur = c.fim - c.ini;
     const partes = Math.max(1, Math.min(3, Math.round(dur / 4.2)));
-    const pref = p.roteiro.cenas[c.cena]?.imagem ?? 0;
-    // A imagem escolhida para a capa vale para o primeiro clipe (abertura).
-    const primeiro = plano.length === 0 && p.capa != null && uso.has(p.capa) ? p.capa : null;
-    for (let k = 0; k < partes; k++) plano.push({ img: primeiro != null && k === 0 ? (uso.set(primeiro, (uso.get(primeiro) ?? 0) + 1), (ultima = primeiro), primeiro) : escolher(k === 0 ? pref : pref + k), ini: c.ini + (dur / partes) * k, dur: dur / partes });
+    let img = p.roteiro.cenas[c.cena]?.imagem ?? 0;
+    // A imagem escolhida para a capa vale para a abertura (1ª cena).
+    if (plano.length === 0 && p.capa != null) img = p.capa;
+    if (!usaveis.includes(img)) img = usaveis.find((i) => i !== anterior) ?? usaveis[0];
+    for (let k = 0; k < partes; k++) plano.push({ img, ini: c.ini + (dur / partes) * k, dur: dur / partes, punch: k % 2 === 1 || (k === 0 && img === anterior) });
+    anterior = img;
   }
 
   // 4) Imagens enquadradas para 9:16. Imagem larga (16:9): inteira no centro, sobre ela mesma desfocada (não corta personagem nas
   //    bordas); vertical/quadrada: recorte pelo foco (ou pela parte mais chamativa). Foco "inteira" força o primeiro modo.
   const LARG = leve ? 1620 : 2160;
   const ALT = leve ? 2880 : 3840;
-  const prep = new Map<number, { nome: string; suave: boolean }>();
+  const prep = new Map<number, { nome: string; suave: boolean; fixo: boolean }>();
   const preparar = async (indice: number) => {
     const feito = prep.get(indice);
     if (feito) return feito;
@@ -145,14 +137,15 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     } else {
       await sharp(await recortarComFoco(buf, LARG, ALT, foco)).jpeg({ quality: 90 }).toFile(join(dir, nome));
     }
-    const r = { nome, suave: inteira };
+    // Alinhamento manual ou recorte escolhido pelo dono: a câmera só respira no centro, para o enquadramento dele aparecer como ele deixou.
+    const r = { nome, suave: inteira, fixo: !inteira && foco !== "auto" };
     prep.set(indice, r);
     return r;
   };
   const clips = [];
   for (const c of plano) {
     const x = await preparar(c.img);
-    clips.push({ img: x.nome, ini: c.ini, dur: c.dur, suave: x.suave });
+    clips.push({ img: x.nome, ini: c.ini, dur: c.dur, suave: x.suave, fixo: x.fixo, punch: c.punch && !x.suave });
   }
 
   // 5) Quadros (marca, abertura, fechamento) e montagem
@@ -161,7 +154,12 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   await writeFile(join(dir, "abertura.png"), q.abertura);
   await writeFile(join(dir, "fechamento.png"), q.fechamento);
   const fimAbertura = seg.segs.find((x) => x.tipo === "abertura")?.fim ?? 3;
+  // Trilha: música sintetizada (sem direitos autorais) + whoosh em cada transição.
+  const estilo = estiloDoVideo(p.id);
+  const fechIni = seg.inicioFechamento;
+  await rodar(ff, comandoTrilha(estilo, seg.total, instantesTransicao(clips, fechIni), "trilha.wav", leve), dir);
   const { args, filtro } = montar({
+    trilha: { arquivo: "trilha.wav", bpm: estilo.bpm },
     leve,
     clips,
     fechamento: { ini: seg.inicioFechamento, dur: Math.max(0.5, seg.total - seg.inicioFechamento) },
