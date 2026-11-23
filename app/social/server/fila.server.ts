@@ -259,6 +259,18 @@ export async function postarAgora(id: number): Promise<string> {
   return "ok";
 }
 
+/** Coloca na fila as últimas matérias publicadas que ainda não estão (para ver as artes de matérias que já existiam). */
+export async function enfileirarRecentes(n = 10): Promise<number> {
+  const rows = await query<{ id: number }>(
+    `SELECT p.id FROM posts p WHERE p.status = 'published' AND p.published_at <= UTC_TIMESTAMP()
+       AND NOT EXISTS (SELECT 1 FROM social_posts s WHERE s.post_id = p.id AND s.network = 'instagram') ORDER BY p.published_at DESC LIMIT ?`,
+    [n],
+  );
+  let c = 0;
+  for (const r of rows) if (await enfileirar(r.id, undefined, "manual")) c++;
+  return c;
+}
+
 export const pular = (id: number) => exec("UPDATE social_posts SET status = 'skipped' WHERE id = ? AND status <> 'published'", [id]);
 export const gerarDeNovo = (id: number) => exec("UPDATE social_posts SET images = NULL, caption = NULL, rendered_at = NULL, status = 'pending', error = NULL, attempts = 0 WHERE id = ? AND status <> 'published'", [id]);
 export const repostar = (id: number) => exec("UPDATE social_posts SET status = 'pending', origin = 'manual', media_id = NULL, permalink = NULL, published_at = NULL, container_id = NULL, attempts = 0, error = NULL WHERE id = ? AND status = 'published'", [id]);

@@ -7,7 +7,7 @@ import { hasDatabase } from "~/lib/db.server";
 import { SOCIAL } from "~/social/config";
 import { conectar, desconectar, getConta, salvarConfig } from "~/social/server/conta.server";
 import { chaveOk } from "~/social/server/cripto.server";
-import { gerarDeNovo, imagensDe, listarFila, postarAgora, pular, repostar, resumo, tick } from "~/social/server/fila.server";
+import { enfileirarRecentes, gerarDeNovo, imagensDe, listarFila, postarAgora, pular, repostar, resumo, tick } from "~/social/server/fila.server";
 import { cota, perfil } from "~/social/server/instagram.server";
 import { getToken } from "~/social/server/conta.server";
 
@@ -68,8 +68,15 @@ export async function action({ request }: Route.ActionArgs) {
       return back("ok=salvo");
     }
     if (intent === "rodar") {
-      void tick().catch(() => undefined);
-      return back("ok=rodando");
+      // Espera até 25 s para dizer o que aconteceu (a CDN corta pedidos longos; o que passar disso segue em segundo plano).
+      const andamento = tick();
+      const r = await Promise.race([andamento, new Promise<{ acao: string }>((ok) => setTimeout(() => ok({ acao: "ainda trabalhando; recarregue em 1 minuto" }), 25_000))]);
+      andamento.catch(() => undefined);
+      return back(`ok=rodou-${encodeURIComponent(r.acao)}`);
+    }
+    if (intent === "recentes") {
+      const n = await enfileirarRecentes(10);
+      return back(`ok=recentes-${n}`);
     }
     if (intent === "postar") {
       // Em segundo plano (a CDN corta pedidos longos).
@@ -102,7 +109,15 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
   if (d.semBanco) return <><PageTitle>Instagram</PageTitle><Notice tone="warn">Precisa do banco de dados.</Notice></>;
   const { conta } = d;
   const estado = conta.token_status === "invalid" ? "TOKEN INVÁLIDO" : !conta.enabled && !conta.test_mode ? "DESLIGADO" : conta.test_mode ? "MODO DE TESTE" : "LIGADO";
-  const msg = d.msg ? (d.msg.startsWith("conectado-") ? `Conectado: @${decodeURIComponent(d.msg.slice(10))}.` : MSG[d.msg]) : null;
+  const msg = d.msg
+    ? d.msg.startsWith("conectado-")
+      ? `Conectado: @${decodeURIComponent(d.msg.slice(10))}.`
+      : d.msg.startsWith("rodou-")
+        ? `Fila rodou: ${decodeURIComponent(d.msg.slice(6))}.`
+        : d.msg.startsWith("recentes-")
+          ? `${d.msg.slice(9)} matéria(s) colocada(s) na fila. Clique em "Rodar a fila agora" para gerar as artes.`
+          : MSG[d.msg]
+    : null;
   return (
     <>
       <PageTitle aside={<span className="border border-line-soft px-3 py-1 font-mono text-xs font-bold text-acc">{estado}</span>}>Instagram</PageTitle>
@@ -170,10 +185,17 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
               <Button tone="primary" disabled={busy}>Salvar</Button>
             </div>
           </Form>
-          <Form method="post" className="mt-3">
-            <input type="hidden" name="intent" value="rodar" />
-            <Button disabled={busy}>Rodar a fila agora</Button>
-          </Form>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Form method="post">
+              <input type="hidden" name="intent" value="recentes" />
+              <Button disabled={busy}>Colocar as 10 últimas matérias na fila</Button>
+            </Form>
+            <Form method="post">
+              <input type="hidden" name="intent" value="rodar" />
+              <Button disabled={busy}>Rodar a fila agora</Button>
+            </Form>
+          </div>
+          <p className="mt-2 text-xs text-muted">A fila só recebe sozinha as matérias publicadas depois da conexão. O botão de cima traz as que já estão no site.</p>
         </Card>
       </div>
 
