@@ -70,15 +70,18 @@ function Capa({ e, ins, total, rotulo, chipFinal }: { e: EntradaSocial; ins: Ins
 }
 
 function PontoSlide({ p, i, total, ins, imagem, rotulo }: { p: Ponto; i: number; total: number; ins: InsumosCarrossel; imagem: string | null; rotulo: string }) {
+  const titulo = cortar(p.titulo, 70);
   return (
     <Tela grade={ins.grade}>
       <Topo logo={ins.logo} tam={48} y={40} direita={`${rotulo} · ${nn(i + 1, total)}`} />
-      <div style={{ position: "absolute", left: 64, top: 130, display: "flex", fontFamily: ANTON, fontSize: 260, lineHeight: 1, color: "rgba(0,0,0,0)", WebkitTextStroke: `3px ${COR.destaque}` } as never}>{String(i).padStart(2, "0")}</div>
-      <div style={{ position: "absolute", left: 64, top: imagem ? 420 : 400, display: "flex", flexDirection: "column", width: 952 }}>
-        <Titulo texto={cortar(p.titulo, 70)} tam={72} />
-        <div style={{ display: "flex", marginTop: 26, fontSize: imagem ? 36 : 40, lineHeight: 1.4, color: COR.corpo, width: 952 }}>{p.texto}</div>
+      {/* Imagem grande no topo (a do trecho ou um recorte da matéria) com o número do ponto em destaque sobre ela. */}
+      {imagem ? <img src={imagem} width={952} height={600} style={{ position: "absolute", left: 64, top: 128 }} /> : <div style={{ position: "absolute", left: 64, top: 128, width: 952, height: 600, backgroundColor: COR.painel }} />}
+      <div style={{ position: "absolute", left: 64, top: 128, width: 952, height: 600, backgroundImage: "linear-gradient(to bottom, rgba(6,8,7,0) 55%, rgba(6,8,7,0.75))" }} />
+      <div style={{ position: "absolute", left: 64, top: 628, display: "flex", alignItems: "center", justifyContent: "center", width: 150, height: 100, backgroundColor: COR.destaque, color: COR.sobreDestaque, fontFamily: ANTON, fontSize: 84 }}>{String(i).padStart(2, "0")}</div>
+      <div style={{ position: "absolute", left: 64, top: 760, display: "flex", flexDirection: "column", width: 952 }}>
+        <Titulo texto={titulo} tam={titulo.length > 38 ? 60 : 72} />
+        <div style={{ display: "flex", marginTop: 22, fontSize: 38, lineHeight: 1.36, color: COR.corpo, width: 952 }}>{p.texto}</div>
       </div>
-      {imagem && <img src={imagem} width={952} height={400} style={{ position: "absolute", left: 64, top: 820 }} />}
       <Rod />
     </Tela>
   );

@@ -57,8 +57,20 @@ export async function gerarSlides(modelo: Modelo, e: EntradaSocial): Promise<Sli
   if (modelo === "C-review" && !e.review) throw new Error("sem dados da review");
   if (modelo === "C-guia" && !e.requisitos) throw new Error("sem requisitos lidos");
   const capa = await imagemDataUri(e.capa?.src, 952, 536);
+  // Todo slide de ponto tem imagem grande: a do trecho, ou um recorte (zoom e enquadramento diferentes) das imagens da matéria e da capa.
+  const pool = [...e.corpo.flatMap((b) => (b.type === "img" ? [b.src] : [])), ...(e.capa ? [e.capa.src] : [])];
+  const variacoes: { zoom: number; ancora: "centre" | "west" | "east" | "north" | "south" }[] = [
+    { zoom: 1.5, ancora: "west" },
+    { zoom: 1.8, ancora: "east" },
+    { zoom: 1.4, ancora: "centre" },
+    { zoom: 2, ancora: "south" },
+    { zoom: 1.7, ancora: "west" },
+  ];
   const imagens: (string | null)[] = [];
-  for (const p of pontos) imagens.push(await imagemDataUri(p.imagem, 952, 400));
+  for (let i = 0; i < pontos.length; i++) {
+    const propria = pontos[i].imagem;
+    imagens.push(propria ? await imagemDataUri(propria, 952, 600) : pool.length ? await imagemDataUri(pool[i % pool.length], 952, 600, variacoes[i % variacoes.length]) : null);
+  }
   const slides = slidesCarrossel(modelo, e, { logo, logoGrande, grade, capa, imagens }, pontos);
   const jpegs: Buffer[] = [];
   for (const s of slides) jpegs.push(await renderizar(s));

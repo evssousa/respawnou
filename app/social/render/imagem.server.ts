@@ -22,12 +22,22 @@ async function bytes(src: string): Promise<Buffer | null> {
 }
 
 /** Recorta (cover) para w×h e devolve data URI JPEG. Falhou: null (o modelo desenha um quadro sem imagem). */
-export async function imagemDataUri(src: string | null | undefined, w: number, h: number, opts: { blur?: number; posicao?: string } = {}): Promise<string | null> {
+export async function imagemDataUri(src: string | null | undefined, w: number, h: number, opts: { blur?: number; posicao?: string; zoom?: number; ancora?: "centre" | "west" | "east" | "north" | "south" } = {}): Promise<string | null> {
   if (!src) return null;
   const b = await bytes(src);
   if (!b) return null;
   try {
-    let p = sharp(b).resize(w, h, { fit: "cover", position: opts.posicao ?? "centre" });
+    let p: ReturnType<typeof sharp>;
+    if (opts.zoom && opts.zoom > 1) {
+      // Zoom: amplia o recorte e pega a região escolhida (esquerda, direita, topo, base ou centro): cada slide mostra um pedaço diferente.
+      const W = Math.round(w * opts.zoom);
+      const H = Math.round(h * opts.zoom);
+      const grande = await sharp(b).resize(W, H, { fit: "cover" }).toBuffer();
+      const a = opts.ancora ?? "centre";
+      const left = a === "west" ? 0 : a === "east" ? W - w : Math.floor((W - w) / 2);
+      const top = a === "north" ? 0 : a === "south" ? H - h : Math.floor((H - h) / 2);
+      p = sharp(grande).extract({ left, top, width: w, height: h });
+    } else p = sharp(b).resize(w, h, { fit: "cover", position: opts.posicao ?? "centre" });
     if (opts.blur) p = p.blur(opts.blur);
     const out = await p.jpeg({ quality: 84 }).toBuffer();
     return `data:image/jpeg;base64,${out.toString("base64")}`;
