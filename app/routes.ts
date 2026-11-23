@@ -63,9 +63,6 @@ export default [
 
   // Robô de postagem (Cron Job da Hostinger), protegido por CRON_TOKEN.
   route("api/cron/:job", "routes/cron.ts"),
-  // Worker de vídeo (GitHub Actions): pega o próximo job aprovado e devolve o MP4 pronto. Só com VIDEO_WORKER_SECRET.
-  route("api/video/proximo", "routes/api-video-proximo.ts"),
-  route("api/video/:id/:acao", "routes/api-video-job.ts"),
   // Contador de visitas: o navegador avisa (POST) depois que cada página abre. /api/view é o endereço antigo (só responde 204).
   route("api/v", "routes/api.v.ts"),
   route("api/view", "routes/view.ts"),

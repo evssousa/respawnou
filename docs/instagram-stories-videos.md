@@ -12,6 +12,9 @@ passo, sem pular a verificação de cada passo. Base obrigatória: `docs/instagr
 3. **Imagens próprias nos slides (prioridade 3):** no `/admin/instagram`, trocar a imagem de um slide ou acrescentar
    imagens a um item da fila, ver o resultado e gerar de novo.
 
+## Decisão do dono (2026-11-24): sem GitHub Actions
+Os vídeos são montados só no servidor do site (ffmpeg-static). Se na Hostinger não der certo, tenta-se outro dia ou outra hora; não haverá GitHub Actions. (Trechos abaixo que falam de GitHub Actions, `VIDEO_WORKER_SECRET` e disparo de workflow ficaram sem uso.)
+
 ## Decisões do dono (2026-11-23)
 
 1. ElevenLabs: o dono já tem o plano pago.

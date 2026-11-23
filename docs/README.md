@@ -93,7 +93,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 
 ## Próximos passos
 
-- **Vídeos curtos, fase 1 pronta no código (2026-11-24):** `/admin/videos` (roteiro pelo Gemini → você revisa e aprova → o GitHub Actions gera voz + vídeo → você baixa o MP4 e copia as legendas de Instagram, YouTube e TikTok). Escolha automática de 1 matéria por dia (desligada até você ligar), voz por editoria, migration 015. Falta só o que é seu (veja "Pendências suas"). Reels automático, YouTube e TikTok são as fases 2 a 4.
+- **Vídeos curtos, fase 1 pronta no código (2026-11-24):** `/admin/videos` (roteiro pelo Gemini → você revisa e aprova → o próprio servidor gera voz + vídeo → você baixa o MP4 e copia as legendas de Instagram, YouTube e TikTok). Escolha automática de 1 matéria por dia (desligada até você ligar), voz por editoria, migration 015. Falta só o que é seu (veja "Pendências suas"). Reels automático, YouTube e TikTok são as fases 2 a 4.
 - **Imagens próprias nos slides (2026-11-24, frente C do plano `instagram-stories-videos.md`):** em `/admin/instagram`, cada item da fila do feed tem o bloco "Imagens dos slides": trocar a imagem de um slide (com foco do recorte), acrescentar slides de foto (até 10 no total) e "Gerar de novo com as minhas imagens". Migration 014 (`overrides`). Itens já publicados não aceitam troca.
 - **Regras da fila do Instagram (2026-11-23):** só sai sozinho o que entrou sozinho (matéria nova): notícia (vale 48 h desde a publicação), promoções e lançamentos. Carrossel (artigo, review, guia) e tudo que vem do botão "Colocar as 30 últimas" ficam na fila só para "Postar agora" (revisão manual). Stories seguem as mesmas regras (os de carrossel também são manuais).
 - **Robô só de games (2026-11-23):** filtro de cinema/TV/quadrinhos no título, no endereço da fonte e no redator. Matérias de filme já publicadas precisam ser despublicadas à mão em `/admin/posts`.
@@ -118,7 +118,7 @@ Em ordem (atualizado em 2026-11-22):
 
 ## Pendências suas
 
-- **Vídeos (fase 1, modo servidor — o padrão):** (1) cadastrar `ELEVENLABS_API_KEY` nas variáveis de ambiente do hPanel (reiniciar o app); (2) escolher uma voz por editoria na ElevenLabs e colar os códigos (`voice_id`) em `/admin/videos` → Configuração; (3) gerar o primeiro vídeo (abrir uma matéria → \"Fazer vídeo desta matéria\" → aprovar) e ver se a montagem funciona na Hostinger (se aparecer \"ffmpeg não encontrado\", me avisar: o plano B é `VIDEO_MODO=github`, que usa o GitHub Actions e exige `VIDEO_WORKER_SECRET`, `GITHUB_DISPATCH_TOKEN`, `GITHUB_REPO` e os segredos `SITE_URL`/`ELEVENLABS_API_KEY` no GitHub); (4) ligar \"Ligado\" quando quiser que o site escolha 1 matéria por dia. Nada disso vai no chat nem no código.
+- **Vídeos (fase 1):** a chave `ELEVENLABS_API_KEY` já está no hPanel. Falta: (1) escolher uma voz por editoria na ElevenLabs e colar os códigos (`voice_id`) em `/admin/videos` → Configuração; (2) gerar o primeiro vídeo (abrir uma matéria → "Fazer vídeo desta matéria" → aprovar) e ver se a montagem funciona na Hostinger (se não funcionar, tentamos outro dia; **sem GitHub Actions**, decisão do dono); (3) ligar "Ligado" quando quiser que o site escolha 1 matéria por dia.
 
 - **Stories e vídeos (2026-11-23, `instagram-stories-videos.md`):** responder as 9 perguntas do fim do plano. Para os
   vídeos começarem: assinar o ElevenLabs **Starter (US$ 5/mês)** e escolher a voz (perguntas 1 a 4). Para os Stories:

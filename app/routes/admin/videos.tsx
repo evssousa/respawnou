@@ -10,7 +10,7 @@ import { FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
 import type { Foco } from "~/social/tipos";
 import { SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
-import { aprovar, descartar, gerarRoteiroDoJob, listarJobs, modoServidor, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { aprovar, descartar, gerarRoteiroDoJob, listarJobs, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -25,9 +25,6 @@ export async function loader({ request }: Route.LoaderArgs) {
     jobs,
     resumo,
     cfg,
-    github: Boolean(process.env.GITHUB_DISPATCH_TOKEN && process.env.GITHUB_REPO),
-    segredo: Boolean(process.env.VIDEO_WORKER_SECRET),
-    servidor: modoServidor(),
     chaveVoz: Boolean(process.env.ELEVENLABS_API_KEY),
     msg: url.searchParams.get("ok"),
     aviso: url.searchParams.get("aviso"),
@@ -230,8 +227,7 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
       {msg && <Notice>{msg}</Notice>}
       {d.aviso && <Notice tone="warn">{decodeURIComponent(d.aviso)}</Notice>}
       {d.erro && <Notice tone="warn">{decodeURIComponent(d.erro)}</Notice>}
-      {d.servidor && !d.chaveVoz && <Notice tone="warn">Falta cadastrar ELEVENLABS_API_KEY nas variáveis de ambiente do hPanel: sem ela o servidor não consegue gerar a voz.</Notice>}
-      {!d.servidor && !d.segredo && <Notice tone="warn">Falta cadastrar VIDEO_WORKER_SECRET no hPanel (e no GitHub): sem ele o gerador de vídeo não consegue pegar os pedidos. Passo a passo em docs/instagram-stories-videos.md.</Notice>}
+      {!d.chaveVoz && <Notice tone="warn">Falta cadastrar ELEVENLABS_API_KEY nas variáveis de ambiente do hPanel: sem ela o servidor não consegue gerar a voz.</Notice>}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Stat label="Prontos este mês" value={d.resumo.prontos} />
@@ -273,7 +269,7 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
             ))}
           </div>
           <div><Button tone="primary" disabled={busy}>Salvar</Button></div>
-          <p className="text-xs text-muted">{d.servidor ? "O vídeo é montado aqui no próprio servidor (leva alguns minutos; a chave da ElevenLabs fica em ELEVENLABS_API_KEY no hPanel)." : `O vídeo é montado no GitHub Actions. O disparo ${d.github ? "está configurado" : "ainda não está configurado (GITHUB_DISPATCH_TOKEN e GITHUB_REPO); sem ele o vídeo sai na próxima rodada automática, a cada 3 horas"}.`}</p>
+          <p className="text-xs text-muted">O vídeo é montado aqui no próprio servidor (leva alguns minutos; a chave da ElevenLabs fica em ELEVENLABS_API_KEY no hPanel).</p>
         </Form>
       </details>
     </>

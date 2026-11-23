@@ -12,7 +12,6 @@ import type { Foco } from "~/social/tipos";
 import { VIDEO, vozDaSecao } from "./config";
 import { lerConfig } from "./config.server";
 import { exec, hasDatabase, query } from "./db";
-import { dispararWorkflow } from "./github.server";
 import { gerarVideo } from "./gerador.server";
 import { legendasDoVideo } from "./legendas";
 import { textoFalado, type Imagem, type Roteiro } from "./roteiro";
@@ -116,20 +115,13 @@ export async function salvarRoteiro(id: number, roteiro: unknown, focus: Record<
   return "ok";
 }
 
-/** Aprova e dispara o worker. Devolve um aviso se o disparo falhou (o vídeo sai na rodada automática). */
+/** Aprova e começa a gerar o vídeo aqui no servidor (em segundo plano). */
 export async function aprovar(id: number): Promise<{ ok: boolean; aviso?: string }> {
   const r = await exec("UPDATE video_jobs SET status = 'aprovado', approved_at = UTC_TIMESTAMP(), error = NULL, attempts = 0, locked_at = NULL WHERE id = ? AND status IN ('aguardando','falhou','pronto') AND script IS NOT NULL", [id]);
   if (!r.affected) return { ok: false, aviso: "Este vídeo não pode ser aprovado agora (sem roteiro ou já em geração)." };
-  if (modoServidor()) {
-    void processarFilaNoServidor();
-    return { ok: true };
-  }
-  const d = await dispararWorkflow();
-  return { ok: true, aviso: d.aviso };
+  void processarFilaNoServidor();
+  return { ok: true };
 }
-
-/** Onde o vídeo é montado: "servidor" (padrão: ffmpeg-static dentro do próprio site) ou "github" (Actions, VIDEO_MODO=github). */
-export const modoServidor = () => (process.env.VIDEO_MODO ?? "servidor") !== "github";
 
 let gerandoAgora = false;
 
@@ -147,7 +139,7 @@ export async function processarFilaNoServidor(): Promise<void> {
         await concluir(pacote.id, { video: await readFile(join(dir, "saida.mp4")), capa: out.capa, chars: out.chars, duracao: out.duracao });
       } catch (err) {
         let msg = String((err as Error)?.message ?? err);
-        if (/ENOENT/.test(msg) && /ffmpeg/i.test(msg)) msg = "ffmpeg não encontrado neste servidor. Use VIDEO_MODO=github (gerador no GitHub Actions) ou instale o ffmpeg-static.";
+        if (/ENOENT/.test(msg) && /ffmpeg/i.test(msg)) msg = "ffmpeg não encontrado neste servidor. Confira se o ffmpeg-static foi instalado no deploy.";
         console.error(`[video] #${pacote.id} falhou: ${msg.slice(0, 200)}`);
         await falhar(pacote.id, msg);
       } finally {
@@ -161,7 +153,7 @@ export async function processarFilaNoServidor(): Promise<void> {
 
 export const descartar = (id: number) => exec("UPDATE video_jobs SET status = 'descartado' WHERE id = ? AND status NOT IN ('gerando')", [id]);
 
-// ───────────── API do worker ─────────────
+// ───────────── Geração no servidor ─────────────
 
 export interface PacoteWorker {
   id: number;
@@ -179,7 +171,7 @@ export interface PacoteWorker {
   baseUrl: string;
 }
 
-/** Entrega ao worker o job aprovado mais antigo e o marca como `gerando`. */
+/** Pega o job aprovado mais antigo (ou o pedido) e o marca como `gerando`. */
 export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
   await recuperarPresos();
   const [j] = await query<Record<string, unknown>>(`SELECT * FROM video_jobs WHERE status = 'aprovado' ${idPedido ? "AND id = ?" : ""} ORDER BY approved_at LIMIT 1`, idPedido ? [idPedido] : []);
