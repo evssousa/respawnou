@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+import { AdSlot } from "~/components/AdSlot";
 import { Link } from "react-router";
 import type { Route } from "./+types/releases";
 import { AnticipatedTag, FilterLink, SectionTitle } from "~/components/ui";
@@ -57,8 +59,9 @@ export default function ReleasesPage({ loaderData }: Route.ComponentProps) {
 
       {groups.length === 0 && <p className="border-y border-line py-10 text-lg text-body">Nenhum lançamento previsto para este filtro.</p>}
 
-      {groups.map((g) => (
-        <section key={g.month} className="flex flex-col">
+      {groups.map((g, gi) => (
+        <Fragment key={g.month}>
+        <section className="flex flex-col">
           <h2 className="pb-3 font-mono text-xs font-bold text-acc">
             &gt; <span className="font-display text-4xl uppercase leading-none text-paper">{g.month}</span>
           </h2>
@@ -90,6 +93,8 @@ export default function ReleasesPage({ loaderData }: Route.ComponentProps) {
             ))}
           </ol>
         </section>
+        {!platform && (gi === 0 || gi === 2) && g.items.length >= 4 && <AdSlot kind="horizontal" place={`calendario-${gi === 0 ? 1 : 2}`} />}
+        </Fragment>
       ))}
       {groups.length > 0 && (
         <p className="font-mono text-[11px] text-muted">

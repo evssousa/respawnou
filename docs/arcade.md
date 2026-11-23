@@ -55,6 +55,8 @@ Todos são criações do Respawnou (estilos clássicos, sem nome, personagem ou 
 
 ## Anúncios (quando o AdSense entrar)
 
+- **Só blocos manuais; anúncios automáticos (inclusive âncora e vinheta) ficam desligados no painel do AdSense** (`anuncios.md`). Assim o script, mesmo carregado pela navegação por clique, não desenha nada sozinho em cima de um jogo. A lista `/arcade` tem 1 faixa depois da grade.
+
 - As páginas `/arcade/<jogo>` **não carregam o script do AdSense** (`gamePage` em `app/root.tsx`):
   com anúncios automáticos o Google poderia colar um anúncio em cima do jogo, e clique acidental em
   jogo é motivo de punição. A lista `/arcade` e o resto do site carregam normal.

@@ -1,5 +1,7 @@
+import { Fragment } from "react";
 import { data, Link } from "react-router";
 import type { Route } from "./+types/post";
+import { AdSlot } from "~/components/AdSlot";
 import { ArcadeThumb } from "~/components/ArcadeThumb";
 import { BodyBlock } from "~/components/BodyBlock";
 import { MostRead, PostCard, ScoreBadge } from "~/components/cards";
@@ -8,6 +10,7 @@ import { Art, Hud, Kicker, PlatformTags, SectionTitle } from "~/components/ui";
 import { isAdmin } from "~/lib/admin/auth.server";
 import { getGame, getMostRead, getPost, listPosts } from "~/lib/content.server";
 import { formatDate, formatDateTime, formatScore } from "~/lib/format";
+import { bodyWords, inArticleSlots } from "~/lib/ad-placement";
 import { arcadeGame, dailyArcade } from "~/lib/arcade";
 import { firstSegment } from "~/lib/route-path";
 import { seo } from "~/lib/seo";
@@ -79,6 +82,9 @@ const platformLabels = Object.fromEntries(PLATFORMS.map((p) => [p.slug, p.label]
 export default function PostPage({ loaderData }: Route.ComponentProps) {
   const { post, game, related, mostRead, section, preview, arcadeSlug } = loaderData;
   const arcade = arcadeGame(arcadeSlug);
+  // Anúncios (docs/anuncios.md): nada na prévia, nada em texto curto e sem "meio" em Promoções.
+  const adSlots = preview ? [] : inArticleSlots(post.body, post.section);
+  const adsOk = !preview && bodyWords(post.body) >= 350;
   // Conta a visita depois de abrir no navegador (bots e pré-carregamentos não contam).
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-14 px-4 pt-8 sm:px-6">
@@ -124,7 +130,10 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
           <div className="min-w-0 max-w-[720px] flex-[999_1_560px]">
             <div className="article-body">
               {post.body.map((b, i) => (
-                <BodyBlock key={i} block={b} />
+                <Fragment key={i}>
+                  <BodyBlock block={b} />
+                  {adSlots.includes(i) && <AdSlot kind="meio" place={`materia-meio-${adSlots.indexOf(i) + 1}`} />}
+                </Fragment>
               ))}
             </div>
 
@@ -230,6 +239,11 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
                 </div>
               </Link>
             )}
+            {adsOk && (
+              <div className="sticky top-[92px] hidden lg:block">
+                <AdSlot kind="lateral" place="materia-lateral" />
+              </div>
+            )}
           </aside>
         </div>
       </article>
@@ -244,6 +258,8 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
           </div>
         </section>
       )}
+
+      {adsOk && <AdSlot kind="multiplex" place="materia-fim" />}
     </main>
   );
 }

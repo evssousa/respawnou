@@ -89,7 +89,8 @@ anúncios, celular sem rolagem lateral.
 - No AdSense → Privacidade e mensagens, ativar a mensagem **"Regulamentos europeus"** (CMP do próprio
   Google, certificada e grátis). O Google exige CMP certificada para visitantes da Europa, Reino Unido e
   Suíça; ela só aparece para eles. O banner próprio cobre o Brasil (LGPD).
-- Anúncios automáticos ("Auto ads") ou blocos manuais: decidir depois de ver o layout com anúncios.
+- Anúncios automáticos ("Auto ads") ou blocos manuais: **decidido em 2026-11-22: só blocos manuais**, automáticos
+  desligados. Locais, componente `<AdSlot>` e passo a passo do painel em `anuncios.md` (fase C).
 - **Lembrar o dono:** mandar e-mail para **partner@igdb.com** pedindo a parceria comercial do IGDB
   (a API é grátis também para uso comercial, mas projetos com anúncios entram no programa de parceria,
   que pede crédito visível ao IGDB.com — o site já mostra). O Claude redige o e-mail; o dono envia.

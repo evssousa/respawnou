@@ -288,3 +288,25 @@ canvas:focus-visible {
   color: var(--color-paper);
   font-weight: 600;
 }
+
+/* Anúncios (AdSlot, docs/anuncios.md). Nada de clip-path aqui: o ícone AdChoices precisa ficar visível. */
+.ad-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+.ad-slot[data-state="off"],
+.ad-slot:has(ins[data-ad-status="unfilled"]) { display: none; }
+.ad-label { font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-muted); }
+.ad-box { position: relative; max-width: 100%; border: 1px solid var(--color-line); background-color: var(--color-ink-2); }
+/* Tamanhos fixos por largura de tela (a caixa e o <ins> usam a mesma classe). */
+.ad-size-h  { width: 300px; height: 250px; }
+.ad-size-bb { width: 300px; height: 250px; }
+.ad-size-v  { width: 300px; height: 600px; }
+@media (min-width: 768px)  { .ad-size-h, .ad-size-bb { width: 728px; height: 90px; } }
+@media (min-width: 1024px) { .ad-size-bb { width: 970px; height: 250px; } }
+.ad-size-meio { width: 100%; min-height: 280px; }
+.ad-size-mx   { width: 100%; min-height: 420px; }
+@media (min-width: 768px)  { .ad-size-mx { min-height: 320px; } }
+/* No corpo da matéria o espaço respira como uma figura. */
+.article-body .ad-slot { margin: 2.5rem 0; }
+/* Modo "ver espaços" (só o dono). */
+.ad-preview { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px; text-align: center;
+  border: 1px dashed var(--color-acc);
+  background: repeating-linear-gradient(45deg, rgba(200, 255, 46, 0.06) 0 8px, transparent 8px 16px), var(--color-ink-2); }

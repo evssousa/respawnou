@@ -31,6 +31,7 @@ Código: `app/routes/admin/*`, `app/lib/admin/*` (auth, dados, conversor do corp
 
 1. **Painel** (`/admin`): publicadas hoje/limite, 7 dias, total, pautas na fila; últimas execuções do
    robô; pendências (rascunhos, pautas reprovadas em 24 h, fontes com erro); aviso se o robô está desligado.
+1b. **Configurações > Anúncios** (`/admin/config`, 2026-11-22): interruptor "Anúncios ligados" e os 4 números dos blocos do AdSense (meio, faixa, lateral, multiplex), salvos na tabela `settings` (`ads_enabled`, `ads_slots`; valem em até 1 minuto). Mostra se `ADSENSE_CLIENT` existe (nunca o valor). Botões **Ver espaços no site** / **Desligar**: caixas tracejadas com o tamanho de cada anúncio, só neste navegador (`localStorage`), sem chamar o Google. Plano em `anuncios.md`.
 2. **Visitas** (`/admin/visitas`, 2026-11-19): cartões Hoje/Ontem/7 dias/30 dias/Total, gráfico de 30 dias, páginas mais vistas
    (com título e filtro por tipo), origem do tráfego, aparelho, navegador e sistema. Contagem própria, sem cookie e sem
    guardar IP: `<VisitBeacon />` (no `App` do `root.tsx`) avisa `POST /api/v` depois que a página abre; o servidor soma

@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router";
+import { AdSlot } from "~/components/AdSlot";
 import { ArcadeCard, useArcadeRecords } from "~/components/ArcadeCard";
 import { FilterLink, SectionTitle } from "~/components/ui";
 import { ARCADE_CATEGORIES, ARCADE_GAMES, type ArcadeCategory } from "~/lib/arcade";
@@ -64,6 +65,8 @@ export default function ArcadePage() {
           </li>
         ))}
       </ul>
+
+      {games.length >= 3 && <AdSlot kind="horizontal" place="arcade-lista" />}
 
       <p className="max-w-2xl text-body">
         Todos os jogos do Arcade são criações do {SITE.name}: rodam direto no navegador, sem baixar nada e sem cadastro, no PC, no celular ou no tablet. Os recordes ficam salvos só no seu aparelho. Tem jogo de lógica, como sudoku, paciência, campo minado, jogo da memória e caça-palavras, e jogo de reflexo e ação, como pinball, corredor infinito, nave e quebrar blocos.

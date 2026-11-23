@@ -9,7 +9,34 @@ export const OPEN_CONSENT_EVENT = "respawnou:cookies";
 declare global {
   interface Window {
     gtag?: (...args: unknown[]) => void;
+    /** API do aviso europeu do Google (CMP certificada), presente só depois de ativada no painel do AdSense. */
+    __tcfapi?: (command: string, version: number, callback: (data: { gdprApplies?: boolean }, ok: boolean) => void) => void;
+    googlefc?: { showRevocationMessage?: () => void };
   }
+}
+
+/**
+ * O aviso europeu do Google atende este visitante (GDPR)? Espera até 1,5 s o __tcfapi existir; sem ele, responde false
+ * e o banner próprio segue como sempre (Brasil, LGPD). Assim o visitante europeu não vê dois avisos.
+ */
+function googleCmpApplies(): Promise<boolean> {
+  return new Promise((resolve) => {
+    let waited = 0;
+    const tick = () => {
+      if (typeof window.__tcfapi === "function") {
+        try {
+          window.__tcfapi("addEventListener", 2, (tc, ok) => resolve(Boolean(ok && tc?.gdprApplies === true)));
+        } catch {
+          resolve(false);
+        }
+        return;
+      }
+      waited += 100;
+      if (waited >= 1500) resolve(false);
+      else setTimeout(tick, 100);
+    };
+    tick();
+  });
 }
 
 function readChoice(): ConsentChoice | null {
@@ -35,10 +62,24 @@ export function CookieConsent() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!readChoice()) setOpen(true);
-    const reopen = () => setOpen(true);
+    let cancelled = false;
+    let google = false;
+    // Decide uma vez por visita quem atende: o aviso do Google (Europa) ou o banner próprio (Brasil).
+    const decided = googleCmpApplies().then((applies) => {
+      google = applies;
+      if (!cancelled && !applies && !readChoice()) setOpen(true);
+    });
+    void decided;
+    const reopen = () => {
+      // Visitante da Europa: quem cuida das preferências é o aviso do Google.
+      if (google && typeof window.googlefc?.showRevocationMessage === "function") window.googlefc.showRevocationMessage();
+      else setOpen(true);
+    };
     window.addEventListener(OPEN_CONSENT_EVENT, reopen);
-    return () => window.removeEventListener(OPEN_CONSENT_EVENT, reopen);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(OPEN_CONSENT_EVENT, reopen);
+    };
   }, []);
 
   if (!open) return null;

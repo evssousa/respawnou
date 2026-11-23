@@ -1,5 +1,6 @@
 import { data, Link, useLocation } from "react-router";
 import type { Route } from "./+types/platform";
+import { AdSlot } from "~/components/AdSlot";
 import { Pagination, PostGrid } from "~/components/cards";
 import { AnticipatedTag, GameCover, SectionTitle } from "~/components/ui";
 import { getReleases, listPosts } from "~/lib/content.server";
@@ -62,6 +63,11 @@ export default function PlatformPage({ loaderData }: Route.ComponentProps) {
       <section className="flex flex-col gap-6">
         <SectionTitle>Últimas</SectionTitle>
         {posts.items.length ? <PostGrid posts={posts.items} /> : <p className="text-body">Nenhuma matéria para esta plataforma ainda.</p>}
+        {posts.items.length >= 6 && (
+          <div className="my-4">
+            <AdSlot kind="horizontal" place="lista-1" />
+          </div>
+        )}
         <Pagination page={posts.page} totalPages={posts.totalPages} pathname={location.pathname} search={location.search} />
       </section>
     </main>

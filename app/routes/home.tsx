@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { Route } from "./+types/home";
 import { MostRead } from "~/components/cards";
 import {
@@ -13,6 +14,7 @@ import {
   ReviewBoard,
 } from "~/components/home-modules";
 import { getFeatured, getFreeGames, getMostRead, getReleases, getSectionStats, listPosts } from "~/lib/content.server";
+import { AdSlot } from "~/components/AdSlot";
 import { ArcadeCard, useArcadeRecords } from "~/components/ArcadeCard";
 import { platformsFor, useAvailability } from "~/lib/availability";
 import { ARCADE_GAMES, dailyArcade } from "~/lib/arcade";
@@ -156,6 +158,11 @@ export default function Home({ loaderData: d }: Route.ComponentProps) {
     ] satisfies HomeModule[]
   ).filter((m) => m.show);
 
+  // Anúncios (docs/anuncios.md): depois do 1º módulo e, se não for colar em Loot/Arcade, depois do 4º. Nunca no topo.
+  const adAfter: number[] = [];
+  if (modules.length > 1) adAfter.push(0);
+  if (modules[3] && modules[4] && ![modules[3], modules[4]].some((m) => /LOOT|ARCADE/.test(m.code))) adAfter.push(3);
+
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-16 px-4 pt-6 sm:px-6">
       <div className="flex flex-col gap-5">
@@ -168,10 +175,13 @@ export default function Home({ loaderData: d }: Route.ComponentProps) {
       </div>
 
       {modules.map((m, i) => (
-        <section key={m.code} className="flex flex-col gap-6">
-          <ModuleHeader n={i + 1} code={m.code} title={m.title} accent={m.accent} action={m.action} />
-          {m.body}
-        </section>
+        <Fragment key={m.code}>
+          <section className="flex flex-col gap-6">
+            <ModuleHeader n={i + 1} code={m.code} title={m.title} accent={m.accent} action={m.action} />
+            {m.body}
+          </section>
+          {d.featured && adAfter.includes(i) && <AdSlot kind="billboard" place={`home-${adAfter.indexOf(i) + 1}`} />}
+        </Fragment>
       ))}
 
       {(d.mostRead.length > 0 || platforms.length > 0) && (

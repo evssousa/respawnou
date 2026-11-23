@@ -27,3 +27,36 @@ export function consentBootstrap() {
 gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',wait_for_update:500});
 try{var c=JSON.parse(localStorage.getItem('${CONSENT_KEY}')||'null');if(c&&c.v===${CONSENT_VERSION}&&c.choice==='all')gtag('consent','update',{ad_storage:'granted',ad_user_data:'granted',ad_personalization:'granted',analytics_storage:'granted'});}catch(e){}`;
 }
+
+// ───────────── Espaços de anúncio (docs/anuncios.md) ─────────────
+// Só blocos manuais: o Google não desenha nada sozinho (anúncios automáticos ficam desligados no painel do AdSense).
+
+export type AdKind = "meio" | "horizontal" | "billboard" | "lateral" | "multiplex";
+/** Os 4 blocos criados no AdSense. */
+export type AdUnit = "meio" | "faixa" | "lateral" | "multiplex";
+export const KIND_UNIT: Record<AdKind, AdUnit> = { meio: "meio", horizontal: "faixa", billboard: "faixa", lateral: "lateral", multiplex: "multiplex" };
+/** Chave do localStorage que liga o modo "ver espaços" (só no navegador do dono). */
+export const AD_PREVIEW_KEY = "respawnou:ads-preview";
+
+export type AdsConfig = { enabled: boolean; slots: Partial<Record<AdUnit, string>> };
+
+const NO_ADS = /^\/(admin|busca|sobre|contato|privacidade|termos|cookies|politica-editorial|como-avaliamos|anuncie|faq|acessibilidade|mapa-do-site)(\/|$)/;
+
+/** A página pode ter anúncio? (cada página ainda aplica as próprias condições do plano) */
+export function adsPathAllowed(pathname: string, search: string) {
+  if (NO_ADS.test(pathname)) return false;
+  if (/^\/arcade\/[^/]+/.test(pathname)) return false; // jogos: nunca
+  if (new URLSearchParams(search).get("previa") === "1") return false;
+  return true;
+}
+
+/** Garante o script do AdSense no documento (a página anterior pode ter sido um jogo, que não carrega o script). Só no navegador. */
+export function ensureAdsScript(client: string) {
+  if (typeof document === "undefined") return;
+  if (document.querySelector('script[src*="adsbygoogle.js"]')) return;
+  const s = document.createElement("script");
+  s.async = true;
+  s.crossOrigin = "anonymous";
+  s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`;
+  document.head.appendChild(s);
+}

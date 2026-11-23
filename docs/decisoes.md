@@ -2,6 +2,19 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+## 2026-11-22 — Anúncios: blocos manuais, locais fixos e modo "ver espaços" (plano em `anuncios.md`)
+
+- **O quê:** só blocos manuais; anúncios automáticos desligados no painel (inclusive âncora e vinheta). 4 unidades
+  (meio In-article, faixa display, lateral display, Multiplex), com tamanhos fixos por largura de tela onde possível.
+  Mapa de locais por página (tabela D3); nada em `/arcade/<jogo>`, busca, institucionais, 404, prévias, páginas
+  `noindex` e `/admin`; matérias de Promoções sem anúncio no meio do texto.
+- **Por quê:** o site é SPA; com só blocos manuais, o script carregado não desenha nada sozinho, então um jogo aberto
+  por clique continua protegido. Tamanho reservado evita CLS. Página que não queremos no Google também não recebe anúncio.
+- **IDs dos blocos no `/admin/config`** (tabela `settings`, sem migration), com interruptor de desligar na hora;
+  `ADSENSE_CLIENT` continua no hPanel. Por quê: o dono cola os números sem reiniciar o app e pode desligar tudo em 1 clique.
+- **Modo "ver espaços"** pelo `localStorage` (botão no painel): caixas tracejadas sem chamar o Google, para aprovar o
+  layout antes da aprovação. Por quê: o HTML não varia por usuário (sem risco de cache) e não há hidratação diferente.
+
 ## 2026-11-20 — Plano de crescimento orgânico (custo zero)
 
 - **O quê:** o dono aprovou 4 frentes, nesta ordem: SEO do Arcade, fichas de jogos úteis, evergreen consistente,

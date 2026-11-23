@@ -1,5 +1,7 @@
+import { Fragment } from "react";
 import { data, Link, useLocation } from "react-router";
 import type { Route } from "./+types/section";
+import { AdSlot } from "~/components/AdSlot";
 import { MostRead, Pagination, PostRow } from "~/components/cards";
 import { FilterLink, SectionTitle } from "~/components/ui";
 import { FreeGamesBoard } from "~/components/free-games";
@@ -44,6 +46,8 @@ export default function SectionPage({ loaderData }: Route.ComponentProps) {
   const { section, posts, mostRead, platform, free, upcoming } = loaderData;
   const location = useLocation();
   const base = `/${section.slug}`;
+  // Anúncio na lista (docs/anuncios.md): sem filtro de plataforma, com 6+ matérias; em Promoções (quadro de grátis na página 1) só depois da 6ª linha.
+  const adIndex = platform || posts.items.length < 6 ? -1 : free.length > 0 ? (posts.items.length >= 8 ? 5 : -1) : 3;
 
   return (
     <main id="conteudo" className="mx-auto flex max-w-[1280px] flex-col gap-10 px-4 pt-10 sm:px-6">
@@ -71,7 +75,16 @@ export default function SectionPage({ loaderData }: Route.ComponentProps) {
           {posts.items.length === 0 ? (
             !free.length && <p className="border-y border-line py-10 text-lg text-body">Nenhuma matéria por aqui ainda. Volte em breve!</p>
           ) : (
-            posts.items.map((p) => <PostRow key={p.url} post={p} />)
+            posts.items.map((p, i) => (
+              <Fragment key={p.url}>
+                <PostRow post={p} />
+                {i === adIndex && (
+                  <div className="my-8">
+                    <AdSlot kind="horizontal" place="lista-1" />
+                  </div>
+                )}
+              </Fragment>
+            ))
           )}
           <div className="mt-6">
             <Pagination page={posts.page} totalPages={posts.totalPages} pathname={location.pathname} search={location.search} />
@@ -79,6 +92,11 @@ export default function SectionPage({ loaderData }: Route.ComponentProps) {
         </div>
         <aside className="flex-[1_1_300px]">
           <MostRead posts={mostRead} />
+          {!platform && posts.items.length >= 3 && (
+            <div className="sticky top-[92px] mt-8 hidden lg:block">
+              <AdSlot kind="lateral" place="lista-lateral" />
+            </div>
+          )}
         </aside>
       </div>
     </main>

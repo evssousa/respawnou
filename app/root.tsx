@@ -5,7 +5,9 @@ import "./app.css";
 import { Footer } from "./components/Footer";
 import { Header, PlatformBar, StatusBar } from "./components/Header";
 import { CookieConsent } from "./components/CookieConsent";
+import { AdPreviewBadge } from "./components/AdSlot";
 import { adsenseClient, consentBootstrap } from "./lib/ads";
+import { getAdsConfig } from "./lib/ads.server";
 import { getAvailability, getStatus } from "./lib/content.server";
 import { formatDate } from "./lib/format";
 import { SITE } from "./lib/site";
@@ -24,8 +26,8 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export async function loader() {
-  const [status, available] = await Promise.all([getStatus(), getAvailability()]);
-  return { status: { ...status, today: formatDate(new Date().toISOString()).toUpperCase() }, available, adsClient: adsenseClient() };
+  const [status, available, ads] = await Promise.all([getStatus(), getAvailability(), getAdsConfig()]);
+  return { status: { ...status, today: formatDate(new Date().toISOString()).toUpperCase() }, available, adsClient: adsenseClient(), ads };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -63,6 +65,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         {!admin && <Footer />}
         {adsClient && <CookieConsent />}
+        {!admin && <AdPreviewBadge />}
         <ScrollRestoration />
         <Scripts />
       </body>

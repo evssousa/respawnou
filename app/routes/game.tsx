@@ -1,5 +1,6 @@
 import { data, Link } from "react-router";
 import type { Route } from "./+types/game";
+import { AdSlot } from "~/components/AdSlot";
 import { PostGrid, ScoreBadge } from "~/components/cards";
 import { Gallery } from "~/components/Gallery";
 import { Art, Hud, Kicker, PlatformTags, SectionTitle } from "~/components/ui";
@@ -348,6 +349,8 @@ export default function GamePage({ loaderData }: Route.ComponentProps) {
           </ul>
         </section>
       )}
+
+      {(posts.length > 0 || game.indexFrom) && <AdSlot kind="horizontal" place="ficha-1" />}
 
       <section className="flex flex-col gap-6">
         <SectionTitle code="ARQUIVOS DO JOGO" accent={`sobre ${game.name}`}>Tudo</SectionTitle>
