@@ -64,6 +64,8 @@ async function baixar(url: string): Promise<Buffer> {
 export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador = {}): Promise<{ mp4: string; capa: Buffer; chars: number; duracao: number }> {
   const ff = o.ffmpeg ?? (await caminhoFfmpeg());
   const leve = o.qualidade === "leve";
+  // libvips (sharp) cria uma thread por núcleo: no servidor compartilhado limita a 1 para sobrar espaço no limite da conta.
+  if (leve) sharp.concurrency(1);
   // 1) Voz (ou voz falsa de teste)
   let alin;
   let audio = "voz.mp3";
@@ -164,7 +166,14 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     arq: { moldura: "moldura.png", abertura: "abertura.png", fechamento: "fechamento.png", audio, legenda: "legenda.ass", saida: "saida.mp4" },
   });
   await writeFile(join(dir, "filtro.txt"), filtro);
-  await rodar(ff, args, dir);
+  try {
+    await rodar(ff, args, dir);
+  } catch (err) {
+    // Limite de processos/threads da hospedagem estourou no meio: espera um pouco e tenta uma vez de novo.
+    if (!/pthread_create|Resource temporarily unavailable/i.test(String((err as Error)?.message ?? err))) throw err;
+    await new Promise((ok) => setTimeout(ok, 20_000));
+    await rodar(ff, args, dir);
+  }
 
   // 6) Capa: 1º quadro com moldura e cartão de abertura por cima
   const base = await sharp(join(dir, clips[0].img)).resize(1080, 1920, { fit: "cover" }).toBuffer();

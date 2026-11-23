@@ -113,7 +113,9 @@ ${textoDaMateria(e)}
 
 IMAGENS DISPONÍVEIS (use o número em "imagem")
 ${imagens.map((x, i) => `${i}: ${x.alt}`).join("\n")}`;
-  const { data } = await generateJson<unknown>({ system: SYSTEM, prompt, schema: SCHEMA, temperature: 0.6 });
+  // Modelos próprios do vídeo (o robô de matérias usa o gemini-3.5-flash e esgota a cota dele). GEMINI_MODEL_VIDEO sobrescreve o primeiro.
+  const modelos = [process.env.GEMINI_MODEL_VIDEO, "gemini-3.5-flash-lite", "gemini-3.8-flash"].filter(Boolean) as string[];
+  const { data } = await generateJson<unknown>({ system: SYSTEM, prompt, schema: SCHEMA, temperature: 0.6, modelos });
   const v = validarRoteiro(data, imagens.length);
   if (!v.ok) throw new Error(`roteiro inválido: ${v.erro}`);
   return v.roteiro;

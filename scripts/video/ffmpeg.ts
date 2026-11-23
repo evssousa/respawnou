@@ -52,19 +52,22 @@ const s3 = (n: number) => n.toFixed(3);
 /** Argumentos do ffmpeg (a pasta de trabalho é o cwd; o filtergraph vai em arquivo para fugir de aspas). */
 export function montar(plano: PlanoMontagem): { args: string[]; filtro: string } {
   const { clips, fechamento, total, fimAbertura, arq } = plano;
-  const args: string[] = ["-y", "-hide_banner", "-loglevel", "warning"];
+  // Servidor compartilhado: o limite de processos/threads da conta é baixo ("pthread_create failed"). Cada entrada e cada filtro
+  // usam 1 thread só (o padrão do ffmpeg é 1 por núcleo, por entrada).
+  const t1 = plano.leve ? ["-threads", "1"] : [];
+  const args: string[] = ["-y", "-hide_banner", "-loglevel", "warning", ...(plano.leve ? ["-filter_threads", "1", "-filter_complex_threads", "1"] : [])];
   const partes: string[] = [];
   const rotulos: string[] = [];
   let idx = 0;
   clips.forEach((c, k) => {
     const dur = c.dur + TRANSICAO; // sobra para a transição para o próximo clipe
-    args.push("-loop", "1", "-framerate", String(FPS), "-t", s3(dur), "-i", c.img);
+    args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(dur), "-i", c.img);
     const m = movimento(k, Math.round(dur * FPS), c.suave);
     partes.push(`[${idx}:v]zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=1:s=1080x1920:fps=${FPS},setsar=1,format=yuv420p,settb=AVTB[c${k}]`);
     rotulos.push(`[c${k}]`);
     idx++;
   });
-  args.push("-loop", "1", "-framerate", String(FPS), "-t", s3(fechamento.dur), "-i", arq.fechamento);
+  args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(fechamento.dur), "-i", arq.fechamento);
   partes.push(`[${idx}:v]scale=1080:1920,setsar=1,fps=${FPS},format=yuv420p,settb=AVTB[cf]`);
   rotulos.push("[cf]");
   idx++;
@@ -79,13 +82,13 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   }
   if (rotulos.length === 1) partes.push(`${atual}null[base]`);
   const iMold = idx++;
-  args.push("-loop", "1", "-framerate", String(FPS), "-t", s3(total), "-i", arq.moldura);
+  args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(total), "-i", arq.moldura);
   const iAbert = idx++;
-  args.push("-loop", "1", "-framerate", String(FPS), "-t", s3(total), "-i", arq.abertura);
+  args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(total), "-i", arq.abertura);
   const iBarra = idx++;
-  args.push("-f", "lavfi", "-t", s3(total), "-i", `color=c=0xc8ff2e:s=1080x8:r=${FPS}`);
+  args.push(...t1, "-f", "lavfi", "-t", s3(total), "-i", `color=c=0xc8ff2e:s=1080x8:r=${FPS}`);
   const iAudio = idx++;
-  args.push("-i", arq.audio);
+  args.push(...t1, "-i", arq.audio);
 
   partes.push(`[${iMold}:v]format=rgba[mold]`);
   partes.push(`[${iAbert}:v]format=rgba,fade=t=out:st=${s3(Math.max(0, fimAbertura - 0.3))}:d=0.3:alpha=1[abert]`);
@@ -101,7 +104,7 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
     "-filter_complex_script", "filtro.txt",
     "-map", "[vout]", "-map", "[aout]",
     "-t", s3(total),
-    "-c:v", "libx264", "-preset", plano.leve ? "veryfast" : "medium", ...(plano.leve ? ["-threads", "2"] : []), "-crf", "21", "-profile:v", "high", "-pix_fmt", "yuv420p", "-r", String(FPS),
+    "-c:v", "libx264", "-preset", plano.leve ? "veryfast" : "medium", ...(plano.leve ? ["-threads", "1", "-x264-params", "threads=1:lookahead-threads=1:sliced-threads=0"] : []), "-crf", "21", "-profile:v", "high", "-pix_fmt", "yuv420p", "-r", String(FPS),
     "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
     "-movflags", "+faststart",
     arq.saida,

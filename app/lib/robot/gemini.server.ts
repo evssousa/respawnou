@@ -86,7 +86,11 @@ function suggestedModel(err: GeminiError) {
   return /use models\/([\w.-]+)/.exec(err.message)?.[1];
 }
 
-export async function generateJson<T>(opts: { system: string; prompt: string; schema: object; temperature?: number }): Promise<{ data: T; model: string }> {
+/**
+ * `modelos` (opcional): ordem própria de modelos para esta chamada (ex.: o vídeo usa outros modelos que o robô de matérias, que
+ * costuma esgotar a cota do primeiro). Nesse caso o modelo "escolhido" do robô não é alterado.
+ */
+export async function generateJson<T>(opts: { system: string; prompt: string; schema: object; temperature?: number; modelos?: string[] }): Promise<{ data: T; model: string }> {
   const bodyFor = (model: string) =>
     JSON.stringify({
       systemInstruction: { parts: [{ text: opts.system }] },
@@ -101,8 +105,8 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
   // Pior caso: 3 modelos × 150 s = 7,5 min, abaixo da trava de 10 min do robô.
   const GEN_TIMEOUT = 150_000;
 
-  const first = process.env.GEMINI_MODEL || chosenModel;
-  const queue = [...new Set([...(first ? [first] : []), ...PREFERRED])];
+  const first = opts.modelos?.length ? undefined : process.env.GEMINI_MODEL || chosenModel;
+  const queue = [...new Set([...(opts.modelos ?? []), ...(first ? [first] : []), ...PREFERRED])];
   const attempts: string[] = [];
   let lastError: unknown;
   let onlyMissing = true;
@@ -113,7 +117,7 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const data = await call(`models/${model}:generateContent`, { method: "POST", body: bodyFor(model) }, GEN_TIMEOUT);
-        if (attempts.length) chosenModel = model; // o preferido falhou: começa por este nas próximas
+        if (attempts.length && !opts.modelos) chosenModel = model; // o preferido falhou: começa por este nas próximas
         return { data: parse<T>(data), model };
       } catch (err) {
         lastError = err;
@@ -135,7 +139,7 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
   if (onlyMissing && lastError instanceof GeminiError) {
     const model = await discoverModel(queue);
     const data = await call(`models/${model}:generateContent`, { method: "POST", body: bodyFor(model) }, GEN_TIMEOUT);
-    chosenModel = model;
+    if (!opts.modelos) chosenModel = model;
     return { data: parse<T>(data), model };
   }
   if (lastError instanceof GeminiError && attempts.length > 1) throw new GeminiError(attempts.join(" | "), lastError.status);
