@@ -1,5 +1,6 @@
 // Robô de postagem do Respawnou. Chamado pelas rotas /api/cron/* (Cron Job da Hostinger).
 // Regras de qualidade: docs/adsense.md. Arquitetura: docs/automacao.md.
+import { atualizarPecas } from "./atualizacoes.server.ts";
 import { enrichGamesFromSteam, liberarFichas } from "./fichas.server.ts";
 import { diaBrasilia } from "../../visitas/core/dia.ts";
 import { limparVisitas } from "../../visitas/server/limpeza.server.ts";
@@ -179,7 +180,18 @@ export async function collect(): Promise<JobResult> {
   const result = await collectFeeds();
   if (!(await retryAfterGeminiOutage())) await catchUpMissedPublish();
   await limparVisitasDoDia();
+  await atualizarPecasDaSemana();
   return result;
+}
+
+/** Sábado: guias com dado novo na ficha ganham uma nota de atualização (sem Gemini). Falha não derruba a coleta. */
+async function atualizarPecasDaSemana() {
+  try {
+    const r = await atualizarPecas();
+    if (r.updated > 0) console.log(`[evergreen] ${r.updated} peça(s) atualizada(s)`);
+  } catch (e) {
+    console.error(`[evergreen] atualização falhou: ${String((e as Error)?.message ?? e).slice(0, 120)}`);
+  }
 }
 
 let visitasLimpasEm = "";
@@ -632,7 +644,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
           sections: [comp.section],
           minWords: cfg.minWords,
           recentTitles,
-          related: comp.kind === "resumo" ? [] : await relatedPosts([comp.tag, comp.kind === "ofertas" ? "promoção Steam desconto" : "jogos grátis"]),
+          related: comp.kind === "resumo" ? [] : await relatedPosts([comp.tag, comp.kind === "ofertas" ? "promoção Steam desconto" : comp.kind === "gratis-mes" ? "jogos grátis" : "lançamentos jogos"]),
         });
       } catch (err) {
         const fail = geminiFailure(err);
@@ -643,11 +655,13 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
         const a = { ...result.article, section: comp.section, platforms: comp.kind === "ofertas" ? ["pc"] : result.article.platforms };
         const slug = await uniqueSlug(a.section, slugify(a.title));
         if (opts.dry) return { status: "ok", message: `Teste: compilação "${comp.kind}" gerada (${a.words} palavras), nada foi gravado.`, post: summary(a, slug), stats: { tried } };
-        const postId = await insertPost(a, slug, { ...comp.source, art: "abcd"[a.words % 4] }, { tag: comp.tag });
+        const postId = await insertPost(a, slug, { ...comp.source, art: "abcd"[a.words % 4] }, { tag: comp.tag, draft: comp.draft });
         await markCompilation(comp.kind, comp.period);
         return {
           status: "ok",
-          message: `Publicado: /${a.section}/${slug} (compilação ${comp.kind}, ${comp.period}; ${a.words} palavras)`,
+          message: comp.draft
+            ? `Rascunho para revisar: /${a.section}/${slug} (peça da semana ${comp.period}; ${a.words} palavras). Revise em /admin/materias e publique.`
+            : `Publicado: /${a.section}/${slug} (compilação ${comp.kind}, ${comp.period}; ${a.words} palavras)`,
           stats: { postId, words: a.words, model: a.model, attempts: a.attempts, fixes: a.fixes, tried },
         };
       }
@@ -746,18 +760,22 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
 }
 
 /** Grava a matéria (imagens já baixadas para /media) e devolve o id. */
-async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, extra: { review?: Review; tag?: string; gameId?: number } = {}) {
+async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, extra: { review?: Review; tag?: string; gameId?: number; draft?: boolean } = {}) {
   const { review, tag } = extra;
+  // Peça para revisão: rascunho sem data (não conta no limite diário nem aparece no site até o dono publicar).
+  const status = extra.draft ? "draft" : "published";
+  const publishedAt = extra.draft ? "NULL" : "UTC_TIMESTAMP()";
   const local = await localizeImages(a, slug);
   // Ficha do jogo (/jogos/:slug): liga quando a palavra-chave é o nome de um jogo do IGDB.
   const gameId = extra.gameId ?? (await gameIdFor(a.focusKeyword, gameKey).catch(() => null));
   const [res] = await db().query<ResultSetHeader>(
     `INSERT INTO posts (section, slug, status, origin, title, excerpt, meta_description, focus_keyword, tags, platforms, author, read_minutes, art,
        image_url, image_alt, image_credit, body, source_name, source_url, review, tag, game_id, published_at)
-     VALUES (?, ?, 'published', 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+     VALUES (?, ?, ?, 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${publishedAt})`,
     [
       a.section,
       slug,
+      status,
       a.title,
       a.excerpt,
       a.metaDescription,

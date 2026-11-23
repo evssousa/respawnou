@@ -229,9 +229,14 @@ compilação". Pela rota: `/api/cron/publicar?compilacao=<tipo>&force=1`.
 | `resumo` | Artigos (tag Resumo) | domingo | As matérias do próprio site nos últimos 7 dias (mínimo 5), com link interno para cada uma. |
 | `lancamentos` | Artigos (tag Lista) | dias 1 a 3 | Os até 12 lançamentos mais aguardados do mês que começa (IGDB), em ordem de data, com link para a ficha de cada jogo. Mínimo 5. |
 | `gratis-mes` | Artigos (tag Lista) | dias 1 a 3 | `free_games` do mês anterior, só se o registro cobre o mês inteiro (o primeiro sai em 1º/1/2027, sobre dezembro). Link para a nossa matéria do jogo quando existe. |
+| `lancamentos-semana` | Artigos (tag Lista) | segunda | Jogos com data na semana (IGDB), de 4 a 12, um h2 por dia, link para a ficha de cada um. |
+| `lista` | Artigos (tag Lista) | quarta | Semana ímpar: lançamentos que rodam em PC fraco (requisitos mínimos de até 8 GB de memória e placa de entrada, da Steam; precisa de 5). Semana par: os mais aguardados de um gênero em rodízio (RPG, Tiro, Aventura, Estratégia, Corrida, Luta, Plataforma, Simulação; precisa de 6). Sem dados suficientes, cai para o outro tipo ou não sai. |
+| `pauta-semana` | Artigos (tag Lista) | quinta | **Peça para o dono revisar (C7):** nasce como **rascunho** (`status = 'draft'`, sem data, não conta no limite diário). Semana par: "o que jogar agora" (lançamentos dos últimos 45 dias com nota da imprensa); semana ímpar: jogos com legendas em português. Revisar e publicar em `/admin/materias`. |
+
+**Atualização de peças antigas (C4, sem Gemini):** no sábado, dentro da coleta (`app/lib/robot/atualizacoes.server.ts`), os guias de requisitos com mais de 14 dias são comparados com a ficha atual (data, preço na Steam, requisitos). Se algo mudou, entra no fim do texto "Atualização em dd/mm/aaaa: …" e o `updated_at` muda; sem mudança, nada é gravado. A primeira passagem só guarda a "foto" dos dados (`settings.post_snapshots`). No máximo 3 por semana. Guias: no máximo `settings.guides_per_week` (padrão 4) por semana.
 
 Se a geração falhar, o período fica marcado (não insiste a cada hora). Teste sem gravar:
-`/api/cron/publicar?dry=1&compilacao=ofertas|resumo|gratis-mes|lancamentos`.
+`/api/cron/publicar?dry=1&compilacao=ofertas|resumo|gratis-mes|lancamentos|lancamentos-semana|lista|pauta-semana`.
 
 ## Consenso da crítica (Reviews)
 

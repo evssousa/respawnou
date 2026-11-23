@@ -32,6 +32,9 @@ const COMPILATIONS: { kind: CompilationKind; label: string; auto: string }[] = [
   { kind: "resumo", label: "Resumo da semana", auto: "domingo" },
   { kind: "gratis-mes", label: "Jogos grátis do mês passado", auto: "dias 1 a 3" },
   { kind: "lancamentos", label: "Lançamentos do mês", auto: "dias 1 a 3" },
+  { kind: "lancamentos-semana", label: "Lançamentos da semana", auto: "segunda" },
+  { kind: "lista", label: "Lista de dados (gênero ou PC fraco)", auto: "quarta" },
+  { kind: "pauta-semana", label: "Peça da semana (vira rascunho para revisar)", auto: "quinta" },
 ];
 
 export async function action({ request }: Route.ActionArgs) {

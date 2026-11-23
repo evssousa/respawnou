@@ -50,6 +50,7 @@ Essas páginas são geradas a partir de dados (RAWG/IGDB, lojas) e não reescrev
 
 - [ ] Domínio próprio no ar há algumas semanas, com HTTPS
 - [ ] Pelo menos ~30–40 posts publicados, de várias editorias, todos com 350+ palavras
+- [ ] Pelo menos 1 peça por semana revisada por pessoa (a quinta-feira cria o rascunho `pauta-semana`; o dono revisa e publica em `/admin/materias`), para mostrar que há editor (`crescimento.md`, C7)
 - [ ] Imagens de capa com crédito (sem imagens "quebradas" ou placeholders)
 - [ ] Search Console configurado, sitemap enviado, páginas indexadas
 - [x] Banner de consentimento de cookies (próprio, LGPD + Modo de Consentimento v2) — 2026-11-11

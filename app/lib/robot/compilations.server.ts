@@ -3,6 +3,9 @@
 //   resumo       Artigos   · domingo  as matérias da semana do próprio site, com link para cada uma
 //   gratis-mes   Artigos   · dia 1º   jogos grátis do mês anterior (só com o mês inteiro registrado)
 //   lancamentos  Artigos   · dia 1º   os lançamentos mais aguardados do mês que começa (IGDB)
+//   lancamentos-semana  Artigos · segunda  jogos com data na semana (IGDB), com link para a ficha de cada um
+//   lista        Artigos   · quarta   lista de dados: semana par = jogos de um gênero; ímpar = lançamentos que rodam em PC fraco
+//   pauta-semana Artigos   · quinta   peça semanal para o dono REVISAR: nasce como rascunho (docs/crescimento.md, C7)
 // Agenda no fuso de Brasília; cada uma sai no máximo uma vez por período (settings.compilations).
 // Passam pelo mesmo writeFromSources das outras matérias (checagem e até 3 tentativas).
 import { db, iso, json, query } from "../db.server.ts";
@@ -14,7 +17,7 @@ import type { PreparedSources, Source } from "./writer.server.ts";
 
 const TZ = "America/Sao_Paulo";
 
-export type CompilationKind = "ofertas" | "resumo" | "gratis-mes" | "lancamentos";
+export type CompilationKind = "ofertas" | "resumo" | "gratis-mes" | "lancamentos" | "lancamentos-semana" | "lista" | "pauta-semana";
 
 export interface Compilation {
   kind: CompilationKind;
@@ -25,6 +28,8 @@ export interface Compilation {
   prepared: PreparedSources;
   /** Fonte exibida no post. */
   source: { name: string; url: string };
+  /** Peça que o dono revisa antes de publicar: grava como rascunho e não conta no limite diário. */
+  draft?: boolean;
 }
 
 // ───────────── Agenda ─────────────
@@ -76,6 +81,10 @@ export async function dueCompilation(force?: CompilationKind): Promise<Compilati
   if (want("gratis-mes", prevMonth, now.day <= 3)) return monthFree(prevMonth, prev);
   const thisMonth = `${now.year}-${String(now.month).padStart(2, "0")}`;
   if (want("lancamentos", thisMonth, now.day <= 3)) return monthReleases(thisMonth, new Date(Date.UTC(now.year, now.month - 1, 1)));
+  // Evergreen da semana (docs/crescimento.md): segunda = lançamentos da semana, quarta = lista de dados, quinta = peça para revisão.
+  if (want("lancamentos-semana", week, now.weekday === 1)) return weekReleases(week, now.date);
+  if (want("lista", week, now.weekday === 3)) return dataList(week, now.date);
+  if (want("pauta-semana", week, now.weekday === 4)) return weeklyPick(week, now.date);
   return null;
 }
 
@@ -338,6 +347,201 @@ PAUTA: os lançamentos mais aguardados de ${monthName}, em ordem de data. Editor
 - focusKeyword: "lançamentos de ${monthName}"; title com ela.
 - Um h2 por jogo com o nome e a data (ex.: "Nome do jogo — 14 de ${MONTHS[start.getUTCMonth()]}"), 1 parágrafo: o que é, quem faz e em que plataformas sai. Link interno para a ficha do jogo (endereço da fonte).
 - Diga no lide que as datas podem mudar e cite o calendário de lançamentos do site (link /lancamentos).`,
+    },
+  };
+}
+
+// ───────────── Evergreen da semana (docs/crescimento.md, C2, C3 e C7) ─────────────
+
+const PLATFORM_LABELS: Record<string, string> = { pc: "PC", playstation: "PlayStation", xbox: "Xbox", switch: "Nintendo Switch", mobile: "celular" };
+const fmtDay = (d: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", day: "numeric", month: "long" }).format(new Date(`${String(d).slice(0, 10)}T12:00:00Z`));
+const ymdOf = (d: Date) => d.toISOString().slice(0, 10);
+const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400_000);
+
+interface GameRow {
+  name: string;
+  slug: string;
+  release_date: string | null;
+  release_label: string | null;
+  platforms: unknown;
+  genres: unknown;
+  developer: string;
+  publisher: string;
+  description: string;
+  summary_en: string | null;
+  image_url: string | null;
+  critic_score: string | number | null;
+  critic_count: number | null;
+  pc_min: string | null;
+  pc_rec: string | null;
+  price_brl: string | null;
+  languages: unknown;
+}
+
+const GAME_COLS = "name, slug, release_date, release_label, platforms, genres, developer, publisher, description, summary_en, image_url, critic_score, critic_count, pc_min, pc_rec, price_brl, languages";
+
+/** Uma fonte por jogo: só dados do banco (IGDB e Steam), com link para a ficha. */
+function gameSource(g: GameRow, extra = ""): Source {
+  const genres = json<string[]>(g.genres, []);
+  const plats = json<string[]>(g.platforms, []).map((p) => PLATFORM_LABELS[p] ?? p).join(", ");
+  const lang = json<{ interface?: boolean; legendas?: boolean; audio?: boolean } | null>(g.languages, null);
+  return {
+    name: "IGDB",
+    title: g.name,
+    url: `/jogos/${g.slug}`,
+    date: new Date().toISOString(),
+    text: [
+      g.release_date ? `${g.name}: lançamento em ${fmtDay(g.release_date)} de ${String(g.release_date).slice(0, 4)}.` : g.release_label ? `${g.name}: lançamento previsto para ${g.release_label}.` : `${g.name}.`,
+      plats ? `Plataformas: ${plats}.` : "",
+      genres.length ? `Gêneros: ${genres.join(", ")}.` : "",
+      g.developer ? `Desenvolvimento: ${g.developer}.` : "",
+      g.publisher ? `Distribuição: ${g.publisher}.` : "",
+      g.critic_count && Number(g.critic_count) >= 3 && g.critic_score != null ? `Nota agregada da imprensa (IGDB): ${Math.round(Number(g.critic_score)) / 10} de 10, em ${g.critic_count} análises.` : "",
+      lang ? (lang.interface || lang.legendas ? `Português do Brasil: ${[lang.interface ? "interface" : "", lang.legendas ? "legendas" : "", lang.audio ? "áudio dublado" : ""].filter(Boolean).join(", ")}.` : "Sem português do Brasil na loja.") : "",
+      g.price_brl ? `Preço na Steam Brasil: ${g.price_brl}.` : "",
+      g.description ? `Sobre o jogo: ${g.description}` : g.summary_en ? `Resumo (em inglês, traduza): ${g.summary_en.slice(0, 600)}` : "",
+      extra,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
+const mediaOf = (games: GameRow[]) => {
+  const media = emptyMedia();
+  for (const g of games) if (g.image_url) media.images.push({ url: g.image_url, source: "IGDB" });
+  return media;
+};
+
+// C2: lançamentos da semana (segunda a domingo)
+async function weekReleases(week: string, monday: Date): Promise<Compilation | null> {
+  const from = ymdOf(monday);
+  const to = ymdOf(addDays(monday, 6));
+  const games = await query<GameRow>(`SELECT ${GAME_COLS} FROM games WHERE igdb_id IS NOT NULL AND release_date BETWEEN ? AND ? ORDER BY release_date, hypes DESC LIMIT 12`, [from, to]);
+  if (games.length < 4) return null;
+  const end = addDays(monday, 6);
+  const range = `${monday.getUTCDate()} a ${end.getUTCDate()} de ${MONTHS[end.getUTCMonth()]}`;
+  const sources = games.map((g) => gameSource(g));
+  sources.unshift({
+    name: "Respawnou",
+    title: `Lançamentos da semana (${range})`,
+    url: absoluteUrl("/lancamentos"),
+    date: new Date().toISOString(),
+    text: `Seleção do Respawnou com os ${games.length} jogos com data de lançamento entre ${fmtDay(from)} e ${fmtDay(to)}, em PC, PlayStation, Xbox, Nintendo Switch e celular, segundo o IGDB. As datas são as divulgadas até agora e podem mudar. O calendário completo está na página de lançamentos do Respawnou.`,
+  });
+  return {
+    kind: "lancamentos-semana",
+    period: week,
+    section: "artigos",
+    tag: "Lista",
+    source: { name: "IGDB.com", url: "https://www.igdb.com" },
+    prepared: {
+      sources,
+      media: mediaOf(games),
+      brief: `${COMMON_BRIEF}
+PAUTA: os jogos que chegam nesta semana, em ordem de data. Editoria: artigos.
+- focusKeyword: "lançamentos da semana"; title no padrão "Lançamentos de jogos da semana: ${range}".
+- Um h2 por dia de lançamento (ou por jogo quando houver só um no dia), com 1 parágrafo por jogo: o que é, quem faz e em que plataformas sai. Link interno para a ficha do jogo (o endereço da fonte), uma vez por jogo.
+- Diga no lide que as datas podem mudar e cite o calendário completo (link /lancamentos).`,
+    },
+  };
+}
+
+const GENRES_ROTATION = ["RPG", "Tiro", "Aventura", "Estratégia", "Corrida", "Luta", "Plataforma", "Simulação"];
+
+/** Memória mínima (GB) e placa de vídeo de entrada, a partir do texto da Steam ("Memória: 8 GB; Placa de vídeo: GTX 960"). */
+function weakPc(pcMin: string | null) {
+  if (!pcMin) return false;
+  const ram = pcMin.match(/mem[oó]ria[^;]*?(\d+)\s*GB/i);
+  const gpu = pcMin.match(/(?:placa|gr[aá]fic|video|vídeo)[^;]*/i)?.[0] ?? "";
+  const lowRam = ram ? Number(ram[1]) <= 8 : false;
+  const entryGpu = /GTX\s*(7\d\d|9[0-6]0|10[0-6]0)|GT\s*\d|RX\s*(4|5)\d\d|HD\s*Graphics|UHD|Vega|integrad|Intel/i.test(gpu);
+  return lowRam && entryGpu;
+}
+
+// C3: lista de dados (quarta): gênero (semana par) ou lançamentos que rodam em PC fraco (semana ímpar)
+async function dataList(week: string, d: Date): Promise<Compilation | null> {
+  const weekNo = Number(week.split("-W")[1]);
+  const today = ymdOf(d);
+  if (weekNo % 2 === 1) {
+    const rows = await query<GameRow>(
+      `SELECT ${GAME_COLS} FROM games WHERE igdb_id IS NOT NULL AND JSON_CONTAINS(platforms, '"pc"') AND pc_min IS NOT NULL AND pc_rec IS NOT NULL
+         AND release_date >= DATE_SUB(?, INTERVAL 30 DAY) ORDER BY hypes DESC LIMIT 60`,
+      [today],
+    );
+    const weak = rows.filter((g) => weakPc(g.pc_min)).slice(0, 10);
+    if (weak.length >= 5) return listCompilation(week, weak, "jogos para PC fraco", "Jogos que rodam em PC fraco: lançamentos com requisitos baixos", (g) => `Requisitos mínimos na Steam: ${g.pc_min}`, "Seleção do Respawnou entre os lançamentos recentes e próximos com requisitos mínimos de até 8 GB de memória e placa de vídeo de entrada, segundo a página do jogo na Steam. Os requisitos podem mudar até o lançamento.");
+  }
+  // Gênero em rodízio (determinístico pela semana): tenta o da vez e os seguintes até achar 6 jogos.
+  for (let k = 0; k < GENRES_ROTATION.length; k++) {
+    const genre = GENRES_ROTATION[(Math.floor(weekNo / 2) + k) % GENRES_ROTATION.length];
+    const games = await query<GameRow>(
+      `SELECT ${GAME_COLS} FROM games WHERE igdb_id IS NOT NULL AND release_date >= ? AND JSON_CONTAINS(genres, ?) ORDER BY hypes DESC LIMIT 10`,
+      [today, JSON.stringify(genre)],
+    );
+    if (games.length >= 6) {
+      const label = genre.toLowerCase();
+      return listCompilation(week, games, `jogos de ${label} mais aguardados`, `Jogos de ${label} mais aguardados que ainda vão sair`, () => "", `Seleção do Respawnou com os ${games.length} jogos de ${label} mais aguardados que ainda não saíram, em ordem de interesse dos jogadores no IGDB. As datas podem mudar.`);
+    }
+  }
+  return null;
+}
+
+function listCompilation(week: string, games: GameRow[], keyword: string, title: string, extra: (g: GameRow) => string, intro: string): Compilation {
+  const sources = games.map((g) => gameSource(g, extra(g)));
+  sources.unshift({ name: "Respawnou", title: "Como a lista foi feita", url: absoluteUrl("/lancamentos"), date: new Date().toISOString(), text: intro });
+  return {
+    kind: "lista",
+    period: week,
+    section: "artigos",
+    tag: "Lista",
+    source: { name: "IGDB.com e Steam", url: "https://www.igdb.com" },
+    prepared: {
+      sources,
+      media: mediaOf(games),
+      brief: `${COMMON_BRIEF}
+PAUTA: lista de dados "${title}". Editoria: artigos.
+- focusKeyword: "${keyword}"; title com ela (pode usar "${title}" ou variação direta).
+- Mantenha a ORDEM das fontes (é a ordem do critério explicado em "Como a lista foi feita"). Um h2 por jogo (posição e nome), com 1 parágrafo: o que é, data, plataformas e, se a fonte trouxer, requisitos, preço e idiomas. Link interno para a ficha (endereço da fonte), uma vez por jogo.
+- Explique o critério da lista no lide e lembre que datas e requisitos podem mudar. Nada de opinião pessoal ou adjetivo promocional.`,
+    },
+  };
+}
+
+// C7: peça da semana em rascunho para o dono revisar (quinta)
+async function weeklyPick(week: string, d: Date): Promise<Compilation | null> {
+  const weekNo = Number(week.split("-W")[1]);
+  const today = ymdOf(d);
+  if (weekNo % 2 === 0) {
+    const games = await query<GameRow>(
+      `SELECT ${GAME_COLS} FROM games WHERE igdb_id IS NOT NULL AND release_date BETWEEN DATE_SUB(?, INTERVAL 45 DAY) AND ? AND critic_count >= 3 AND critic_score IS NOT NULL ORDER BY critic_score DESC LIMIT 8`,
+      [today, today],
+    );
+    if (games.length >= 4) return pickCompilation(week, games, "o que jogar agora", "O que jogar agora: lançamentos recentes mais bem avaliados pela imprensa", "Seleção do Respawnou com os lançamentos dos últimos 45 dias que têm nota agregada da imprensa (IGDB, 3 ou mais análises), da maior para a menor nota. A nota é a média dos veículos, não uma avaliação do Respawnou.");
+  } else {
+    const games = await query<GameRow>(
+      `SELECT ${GAME_COLS} FROM games WHERE igdb_id IS NOT NULL AND release_date >= DATE_SUB(?, INTERVAL 30 DAY) AND JSON_UNQUOTE(JSON_EXTRACT(languages, '$.legendas')) = 'true' ORDER BY hypes DESC LIMIT 10`,
+      [today],
+    );
+    if (games.length >= 5) return pickCompilation(week, games, "jogos com legendas em português", "Jogos com legendas em português do Brasil: o que já está confirmado", "Seleção do Respawnou com lançamentos recentes e próximos que têm legendas em português do Brasil confirmadas na loja (Steam) ou no IGDB, em ordem de interesse dos jogadores. O idioma pode mudar até o lançamento.");
+  }
+  return null;
+}
+
+function pickCompilation(week: string, games: GameRow[], keyword: string, title: string, intro: string): Compilation {
+  const c = listCompilation(week, games, keyword, title, () => "", intro);
+  return {
+    ...c,
+    kind: "pauta-semana",
+    draft: true,
+    source: { name: "IGDB.com e Steam", url: "https://www.igdb.com" },
+    prepared: {
+      ...c.prepared,
+      brief: `${COMMON_BRIEF}
+PAUTA: peça semanal "${title}", que será REVISADA por uma pessoa antes de publicar. Editoria: artigos.
+- focusKeyword: "${keyword}"; title com ela.
+- Lista comentada: um h2 por jogo, 1 a 2 parágrafos com o que a fonte diz (data, plataformas, nota da imprensa, preço, idiomas, requisitos). Link interno para a ficha (endereço da fonte), uma vez por jogo.
+- Escreva um parágrafo final "Como escolher" com uma orientação prática baseada SÓ nos dados (ex.: quem tem PC mais fraco, quem quer legendas em português). Sem opinião inventada, sem comparar com jogos que não estão nas fontes.`,
     },
   };
 }

@@ -442,4 +442,5 @@ Ritual semanal (segunda, ~10 min), anotar aqui embaixo numa tabela "Semana · in
 | C1 teto de guias (4 por semana, `settings.guides_per_week`) e h2 "Roda no seu PC?" | ✅ 2026-11-20 |
 | B1 a B6 (fichas: migration 010, dados extras do IGDB, Steam, critério `index_from`, página nova, sitemap) | ✅ 2026-11-22 (testado local; falta ver com dados reais depois do deploy) |
 | B7 docs das fichas | ⏳ |
-| C2–C7, D2, D4–D7, D9 | ⏳ (pausados: prioridade é preparar o site para o AdSense) |
+| C2 lançamentos da semana, C3 lista de dados, C4 atualização sem Gemini, C5 prioridade, C6 docs, C7 peça semanal em rascunho | ✅ 2026-11-22 (testados local com MySQL; o texto do Gemini só dá para ver depois do deploy) |
+| D2, D4–D7, D9 (resto do Discover) | ⏳ |
