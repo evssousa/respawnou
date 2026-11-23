@@ -17,12 +17,9 @@ export const links: Route.LinksFunction = () => [
   { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
   { rel: "alternate", type: "application/rss+xml", title: `${SITE.name} — RSS`, href: "/rss.xml" },
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap",
-  },
+  // Fontes locais (public/fonts): Anton (títulos) e Inter (texto) são pedidas já, sem passar pelo Google Fonts.
+  { rel: "preload", href: "/fonts/anton-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+  { rel: "preload", href: "/fonts/inter-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
 ];
 
 export async function loader() {

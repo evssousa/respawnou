@@ -23,6 +23,7 @@ export default [
   route("termos", "routes/terms.tsx"),
   route("cookies", "routes/cookies.tsx"),
   route("politica-editorial", "routes/editorial.tsx"),
+  route("redacao", "routes/team.tsx"),
   route("como-avaliamos", "routes/review-policy.tsx"),
   route("anuncie", "routes/advertise.tsx"),
   route("faq", "routes/faq.tsx"),
@@ -36,6 +37,8 @@ export default [
   route("ads.txt", "routes/ads-txt.ts"),
   // Imagem de compartilhamento dos jogos do Arcade (fora de /arcade/ de propósito: sem anúncios ali).
   route("og/arcade/:file", "routes/og-arcade.ts"),
+  // Recortes 4:3 e 1:1 da capa das matérias (Discover): /media-crop/4x3/2026/11/arquivo.webp
+  route("media-crop/:ratio/*", "routes/media-crop.ts"),
 
   // Painel administrativo (só o dono; fora dos menus, noindex, Disallow no robots.txt).
   route("admin/login", "routes/admin/login.tsx"),

@@ -14,7 +14,7 @@ import { bodyWords, inArticleSlots } from "~/lib/ad-placement";
 import { arcadeGame, dailyArcade } from "~/lib/arcade";
 import { firstSegment } from "~/lib/route-path";
 import { seo } from "~/lib/seo";
-import { absoluteUrl, PLATFORMS, SITE, sectionBySlug } from "~/lib/site";
+import { absoluteUrl, authorByName, PLATFORMS, SITE, sectionBySlug } from "~/lib/site";
 
 // Pré-visualização: ?previa=1 com o admin logado mostra rascunho/arquivada com o visual do site.
 // Sem sessão, o parâmetro é ignorado (rascunho continua 404). Nunca indexa nem entra em cache.
@@ -35,6 +35,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
 export function headers({ loaderHeaders }: Route.HeadersArgs) {
   return loaderHeaders;
+}
+
+/** Capa em 16:9 (original) e, quando é nossa (/media/...), também em 4:3 e 1:1: o Discover aceita as três proporções. */
+function coverImages(src: string) {
+  const m = src.match(/^\/media\/(\d{4}\/\d{2}\/[a-z0-9-]+\.webp)$/);
+  const list = [absoluteUrl(src)];
+  if (m) list.push(absoluteUrl(`/media-crop/4x3/${m[1]}`), absoluteUrl(`/media-crop/1x1/${m[1]}`));
+  return list;
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -66,11 +74,13 @@ export function meta({ loaderData }: Route.MetaArgs) {
         ...(post.tags?.length ? { keywords: post.tags.join(", ") } : {}),
         datePublished: post.publishedAt,
         dateModified: post.updatedAt ?? post.publishedAt,
-        author: { "@type": "Organization", name: post.author },
+        author: authorByName(post.author)
+          ? { "@type": "Person", name: post.author, url: absoluteUrl(`/redacao#${authorByName(post.author)!.slug}`), description: "Autor de IA da redação do Respawnou" }
+          : { "@type": "Organization", name: post.author, url: absoluteUrl("/redacao") },
         publisher: { "@type": "Organization", name: SITE.name, url: SITE.url, logo: { "@type": "ImageObject", url: absoluteUrl("/logo-512.png"), width: 512, height: 512 } },
         mainEntityOfPage: url,
         inLanguage: "pt-BR",
-        ...(post.image ? { image: [absoluteUrl(post.image.src)] } : {}),
+        ...(post.image ? { image: coverImages(post.image.src) } : {}),
         ...(loaderData.game ? { about: { "@type": "VideoGame", name: loaderData.game.name } } : {}),
       },
     },
@@ -113,7 +123,13 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
           <h1 className="font-display text-5xl uppercase leading-[0.9] sm:text-[84px]">{post.title}</h1>
           <p className="max-w-3xl text-xl leading-relaxed text-body">{post.excerpt}</p>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-dashed border-line-soft py-3 font-mono text-xs text-muted">
-            <span>POR {post.author.toUpperCase()}</span>
+            <span>
+              POR{" "}
+              <Link to={`/redacao${authorByName(post.author) ? `#${authorByName(post.author)!.slug}` : ""}`} className="text-paper underline decoration-acc underline-offset-4 hover:text-acc">
+                {post.author.toUpperCase()}
+              </Link>
+              {authorByName(post.author) && " · AUTOR DE IA"}
+            </span>
             <time dateTime={post.publishedAt}>{formatDateTime(post.publishedAt)}</time>
             <span>{post.readMinutes} MIN DE LEITURA</span>
           </div>

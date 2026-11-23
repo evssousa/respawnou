@@ -2,6 +2,7 @@
 // Regras de qualidade: docs/adsense.md. Arquitetura: docs/automacao.md.
 import { atualizarPecas } from "./atualizacoes.server.ts";
 import { enrichGamesFromSteam, liberarFichas } from "./fichas.server.ts";
+import { authorForSection } from "../site.ts";
 import { diaBrasilia } from "../../visitas/core/dia.ts";
 import { limparVisitas } from "../../visitas/server/limpeza.server.ts";
 import { createHash } from "node:crypto";
@@ -771,7 +772,7 @@ async function insertPost(a: BuiltArticle, slug: string, source: { name: string;
   const [res] = await db().query<ResultSetHeader>(
     `INSERT INTO posts (section, slug, status, origin, title, excerpt, meta_description, focus_keyword, tags, platforms, author, read_minutes, art,
        image_url, image_alt, image_credit, body, source_name, source_url, review, tag, game_id, published_at)
-     VALUES (?, ?, ?, 'auto', ?, ?, ?, ?, ?, ?, 'Redação Respawnou', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${publishedAt})`,
+     VALUES (?, ?, ?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${publishedAt})`,
     [
       a.section,
       slug,
@@ -782,6 +783,7 @@ async function insertPost(a: BuiltArticle, slug: string, source: { name: string;
       a.focusKeyword,
       JSON.stringify(a.tags),
       JSON.stringify(a.platforms),
+      authorForSection(a.section)?.name ?? "Redação Respawnou",
       a.readMinutes,
       source.art,
       local.cover.src,

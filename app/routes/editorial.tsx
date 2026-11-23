@@ -46,6 +46,20 @@ const sections: DocSection[] = [
     ),
   },
   {
+    id: "quem-revisa",
+    title: "Quem revisa",
+    body: (
+      <>
+        <p>
+          As matérias são escritas por <TextLink to="/redacao">autores de IA da redação</TextLink>, um por tipo de conteúdo. Uma pessoa define as regras, revisa a
+          peça semanal (que só é publicada depois de lida), atende pedidos de correção e pode tirar do ar qualquer matéria. A checagem de código confere números,
+          datas e nomes contra as fontes antes de publicar.
+        </p>
+        <p>Para pedir uma correção, use o canal de correções abaixo; costumamos responder em até 3 dias úteis.</p>
+      </>
+    ),
+  },
+  {
     id: "rumores",
     title: "Rumores e vazamentos",
     body: (

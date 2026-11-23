@@ -97,7 +97,8 @@ export const DOC_PAGES: DocPage[] = [
   { to: "/sobre", label: "Sobre", group: "site", updated: "2026-11-14" },
   { to: "/contato", label: "Contato", group: "site", updated: "2026-11-10" },
   { to: "/faq", label: "Perguntas frequentes", group: "site", updated: "2026-11-14" },
-  { to: "/politica-editorial", label: "Política editorial", group: "site", updated: "2026-11-10" },
+  { to: "/politica-editorial", label: "Política editorial", group: "site", updated: "2026-11-22" },
+  { to: "/redacao", label: "Redação", group: "site", updated: "2026-11-22" },
   { to: "/como-avaliamos", label: "Como avaliamos", group: "site", updated: "2026-11-11" },
   { to: "/anuncie", label: "Anuncie", group: "site", updated: "2026-11-10" },
   { to: "/termos", label: "Termos de uso", group: "legal", updated: "2026-11-11" },
@@ -106,6 +107,28 @@ export const DOC_PAGES: DocPage[] = [
   { to: "/acessibilidade", label: "Acessibilidade", group: "legal", updated: "2026-11-10" },
   { to: "/mapa-do-site", label: "Mapa do site", group: "legal", updated: "2026-11-10" },
 ];
+
+/**
+ * Autores de IA da redação: um por tipo de conteúdo (como no Anime Profile). A página /redacao explica que são autores
+ * de IA, revisados por pessoa; nada de currículo ou história inventada. O nome fica em posts.author (migration 011).
+ */
+export interface Author {
+  slug: string;
+  name: string;
+  sections: SectionSlug[];
+  bio: string;
+}
+
+export const AUTHORS: Author[] = [
+  { slug: "nox", name: "Nox", sections: ["noticias"], bio: "Acompanha anúncios, atualizações e bastidores da indústria a partir de canais oficiais e da imprensa especializada, e sempre linka a fonte original." },
+  { slug: "lume", name: "Lume", sections: ["artigos"], bio: "Escreve artigos, listas e resumos feitos a partir de dados: lançamentos da semana, jogos de um gênero, jogos que rodam em PC fraco e o resumo de domingo." },
+  { slug: "vero", name: "Vero", sections: ["reviews"], bio: "Reúne o consenso da crítica: calcula a média das notas publicadas pelos veículos e resume o que foi mais elogiado e mais criticado, atribuindo cada opinião a quem a escreveu." },
+  { slug: "atlas", name: "Atlas", sections: ["guias"], bio: "Faz guias práticos, como requisitos de PC, com os números da loja e comparação entre o mínimo e o recomendado, sem inventar desempenho." },
+  { slug: "loot", name: "Loot", sections: ["promocoes"], bio: "Acompanha jogos grátis e promoções com prazo, com preço em reais conferido na loja e a data da conferência no texto." },
+];
+
+export const authorByName = (name?: string | null) => AUTHORS.find((a) => a.name === name);
+export const authorForSection = (section: string) => AUTHORS.find((a) => a.sections.includes(section as SectionSlug));
 
 export const docPage = (to: string) => DOC_PAGES.find((d) => d.to === to);
 
