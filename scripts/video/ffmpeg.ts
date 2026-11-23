@@ -13,6 +13,8 @@ export interface PlanoMontagem {
   inicioFechamento: number;
   /** Nomes dos arquivos na pasta de trabalho. */
   arq: { moldura: string; abertura: string; fechamento: string; audio: string; legenda: string; saida: string };
+  /** Servidor compartilhado: preset mais rápido e 2 threads. */
+  leve?: boolean;
 }
 
 /** Movimentos em ordem de revezamento: zoom in, panorâmica →, zoom out, panorâmica ↓. */
@@ -77,7 +79,7 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
     "-filter_complex_script", "filtro.txt",
     "-map", "[vout]", "-map", "[aout]",
     "-t", seg3(total),
-    "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-profile:v", "high", "-pix_fmt", "yuv420p", "-r", String(FPS),
+    "-c:v", "libx264", "-preset", plano.leve ? "veryfast" : "medium", ...(plano.leve ? ["-threads", "2"] : []), "-crf", "21", "-profile:v", "high", "-pix_fmt", "yuv420p", "-r", String(FPS),
     "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
     "-movflags", "+faststart",
     arq.saida,

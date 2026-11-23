@@ -1,5 +1,6 @@
 // Fila dos vídeos (tabela video_jobs): escolha do dia, roteiro, aprovação, entrega ao worker, resultado e limpeza.
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { mediaDir } from "../../server-paths.mjs";
@@ -12,6 +13,7 @@ import { VIDEO, vozDaSecao } from "./config";
 import { lerConfig } from "./config.server";
 import { exec, hasDatabase, query } from "./db";
 import { dispararWorkflow } from "./github.server";
+import { gerarVideo } from "./gerador.server";
 import { legendasDoVideo } from "./legendas";
 import { textoFalado, type Imagem, type Roteiro } from "./roteiro";
 import { gerarRoteiro, imagensDisponiveis, validarRoteiro } from "./roteiro.server";
@@ -118,8 +120,43 @@ export async function salvarRoteiro(id: number, roteiro: unknown, focus: Record<
 export async function aprovar(id: number): Promise<{ ok: boolean; aviso?: string }> {
   const r = await exec("UPDATE video_jobs SET status = 'aprovado', approved_at = UTC_TIMESTAMP(), error = NULL, attempts = 0, locked_at = NULL WHERE id = ? AND status IN ('aguardando','falhou','pronto') AND script IS NOT NULL", [id]);
   if (!r.affected) return { ok: false, aviso: "Este vídeo não pode ser aprovado agora (sem roteiro ou já em geração)." };
+  if (modoServidor()) {
+    void processarFilaNoServidor();
+    return { ok: true };
+  }
   const d = await dispararWorkflow();
   return { ok: true, aviso: d.aviso };
+}
+
+/** Onde o vídeo é montado: "servidor" (padrão: ffmpeg-static dentro do próprio site) ou "github" (Actions, VIDEO_MODO=github). */
+export const modoServidor = () => (process.env.VIDEO_MODO ?? "servidor") !== "github";
+
+let gerandoAgora = false;
+
+/** Gera, aqui no servidor, o próximo vídeo aprovado (um por vez; em segundo plano). O que sobrar fica `aprovado` e sai na próxima chamada. */
+export async function processarFilaNoServidor(): Promise<void> {
+  if (gerandoAgora || !hasDatabase()) return;
+  gerandoAgora = true;
+  try {
+    for (let n = 0; n < 5; n++) {
+      const pacote = await proximo();
+      if (!pacote) break;
+      const dir = await mkdtemp(join(tmpdir(), "video-"));
+      try {
+        const out = await gerarVideo(pacote, dir, { qualidade: "leve" });
+        await concluir(pacote.id, { video: await readFile(join(dir, "saida.mp4")), capa: out.capa, chars: out.chars, duracao: out.duracao });
+      } catch (err) {
+        let msg = String((err as Error)?.message ?? err);
+        if (/ENOENT/.test(msg) && /ffmpeg/i.test(msg)) msg = "ffmpeg não encontrado neste servidor. Use VIDEO_MODO=github (gerador no GitHub Actions) ou instale o ffmpeg-static.";
+        console.error(`[video] #${pacote.id} falhou: ${msg.slice(0, 200)}`);
+        await falhar(pacote.id, msg);
+      } finally {
+        await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+      }
+    }
+  } finally {
+    gerandoAgora = false;
+  }
 }
 
 export const descartar = (id: number) => exec("UPDATE video_jobs SET status = 'descartado' WHERE id = ? AND status NOT IN ('gerando')", [id]);
@@ -143,9 +180,9 @@ export interface PacoteWorker {
 }
 
 /** Entrega ao worker o job aprovado mais antigo e o marca como `gerando`. */
-export async function proximo(): Promise<PacoteWorker | null> {
+export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
   await recuperarPresos();
-  const [j] = await query<Record<string, unknown>>("SELECT * FROM video_jobs WHERE status = 'aprovado' ORDER BY approved_at LIMIT 1");
+  const [j] = await query<Record<string, unknown>>(`SELECT * FROM video_jobs WHERE status = 'aprovado' ${idPedido ? "AND id = ?" : ""} ORDER BY approved_at LIMIT 1`, idPedido ? [idPedido] : []);
   if (!j) return null;
   const r = await exec("UPDATE video_jobs SET status = 'gerando', locked_at = UTC_TIMESTAMP(), attempts = attempts + 1 WHERE id = ? AND status = 'aprovado'", [j.id]);
   if (!r.affected) return null;
