@@ -1,9 +1,11 @@
 // GET /admin/instagram/previa/:id?s=1&modelo=N — gera na hora (sem gravar) o slide pedido da matéria. Só admin.
 // ?info=1 devolve { slides, modelo, legenda } em JSON. As artes ficam 5 min em memória, para passar os slides sem gerar tudo de novo.
+import { createHash } from "node:crypto";
 import type { Route } from "./+types/instagram-previa";
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { montarLegenda } from "~/social/core/legenda";
 import { gerarSlides, gerarStory } from "~/social/render/slides.server";
+import { overridesDoPost } from "~/social/server/fila.server";
 import { escolherModelo, lerEntrada } from "~/social/site.server";
 import type { Modelo } from "~/social/tipos";
 
@@ -16,7 +18,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const id = Number(params.id);
   const pedido = url.searchParams.get("modelo") as Modelo | null;
   const story = url.searchParams.get("formato") === "story";
-  const chave = `${id}:${pedido ?? ""}:${story ? "st" : "f"}`;
+  const ov = await overridesDoPost(id);
+  const chave = `${id}:${pedido ?? ""}:${story ? "st" : "f"}:${createHash("sha1").update(JSON.stringify(ov)).digest("hex").slice(0, 8)}`;
   let item = cache.get(chave);
   if (!item || Date.now() - item.at > 5 * 60_000) {
     const e = await lerEntrada(id);
@@ -24,10 +27,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     const modelo = pedido && MODELOS.includes(pedido) ? pedido : escolherModelo(e);
     try {
       if (story) {
+        if (ov.trocas?.["1"]) e.capa = { src: ov.trocas["1"].src, credito: null };
         const jpeg = await gerarStory(modelo, e, { noFeed: false });
         item = { at: Date.now(), jpegs: [jpeg], legenda: "", modelo };
       } else {
-        const { jpegs, pontos } = await gerarSlides(modelo, e);
+        const { jpegs, pontos } = await gerarSlides(modelo, e, ov);
         if (pontos) e.pontos = pontos;
         item = { at: Date.now(), jpegs, legenda: montarLegenda(e, modelo), modelo };
       }

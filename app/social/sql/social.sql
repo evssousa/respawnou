@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS social_posts (
   origin        ENUM('auto','manual') NOT NULL DEFAULT 'auto',
   priority      TINYINT UNSIGNED NOT NULL DEFAULT 10,
   payload       JSON         NULL,                                 -- dados extras (semana, ofertas)
+  overrides     JSON         NULL,                                 -- imagens próprias do dono (014)
   caption       TEXT         NULL,
   images        JSON         NULL,                                 -- ["/media/social/2026/11/s12-1-ab12cd34.jpg", ...]
   container_id  VARCHAR(40)  NULL,

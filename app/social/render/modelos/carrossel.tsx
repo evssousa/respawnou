@@ -29,10 +29,14 @@ function Rod({ dir = "ARRASTA" }: { dir?: string }) {
   return (
     <div style={{ position: "absolute", left: 64, top: 1262, width: 952, display: "flex", justifyContent: "space-between", fontFamily: MONO, fontWeight: 700, fontSize: 22 }}>
       <div style={{ display: "flex", color: COR.apagado }}>{SOCIAL.dominio}</div>
-      <div style={{ display: "flex", alignItems: "center", color: COR.destaque }}>
-        {dir}
-        <Seta cor={COR.destaque} tam={24} />
-      </div>
+      {dir ? (
+        <div style={{ display: "flex", alignItems: "center", color: COR.destaque }}>
+          {dir}
+          <Seta cor={COR.destaque} tam={24} />
+        </div>
+      ) : (
+        <div style={{ display: "flex" }} />
+      )}
     </div>
   );
 }
@@ -100,10 +104,10 @@ function PontoSlide({ p, i, total, ins, imagem, rotulo }: { p: Ponto; i: number;
   );
 }
 
-function VereditoSlide({ e, total, ins }: { e: EntradaSocial; total: number; ins: InsumosCarrossel }) {
+function VereditoSlide({ e, i, total, ins }: { e: EntradaSocial; i: number; total: number; ins: InsumosCarrossel }) {
   return (
     <Tela grade={ins.grade}>
-      <Topo logo={ins.logo} tam={48} y={40} direita={`REVIEW · ${nn(total - 1, total)}`} />
+      <Topo logo={ins.logo} tam={48} y={40} direita={`REVIEW · ${nn(i, total)}`} />
       <div style={{ position: "absolute", left: 64, top: 110, display: "flex", fontFamily: ANTON, fontSize: 300, lineHeight: 1, color: COR.destaque }}>“</div>
       <div style={{ position: "absolute", left: 64, top: 430, width: 952, display: "flex", fontWeight: 800, fontSize: 52, lineHeight: 1.28 }}>{cortar(e.review!.verdict, 230)}</div>
       <div style={{ position: "absolute", left: 64, top: 1100, display: "flex" }}>
@@ -194,6 +198,25 @@ function GuiaUnico({ e, ins }: { e: EntradaSocial; ins: InsumosCarrossel }) {
   );
 }
 
+/** Slide de foto (imagem própria do dono, tela cheia) com legenda curta opcional. */
+export function SlideFoto({ ins, foto, legenda, i, total }: { ins: { logo: string; grade: string }; foto: string; legenda?: string; i: number; total: number }) {
+  return (
+    <Tela grade={ins.grade}>
+      <img src={foto} width={1080} height={1350} style={{ position: "absolute", left: 0, top: 0 }} />
+      <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 220, backgroundImage: "linear-gradient(to bottom, rgba(6,8,7,0.85), rgba(6,8,7,0))" }} />
+      <div style={{ position: "absolute", left: 0, top: 860, width: 1080, height: 490, backgroundImage: "linear-gradient(to bottom, rgba(6,8,7,0), rgba(6,8,7,0.95))" }} />
+      <Topo logo={ins.logo} tam={48} y={40} direita={nn(i, total)} />
+      {legenda && (
+        <div style={{ position: "absolute", left: 64, top: 1000, width: 952, height: 232, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ display: "flex", fontWeight: 600, fontSize: 40, lineHeight: 1.35, color: COR.texto, width: 952 }}>{legenda}</div>
+        </div>
+      )}
+      <Rod dir={i >= total ? "" : "ARRASTA"} />
+      <Faixa />
+    </Tela>
+  );
+}
+
 function CtaFinal({ ins, total }: { ins: InsumosCarrossel; total: number }) {
   return (
     <Tela grade={ins.grade}>
@@ -217,20 +240,28 @@ function CtaFinal({ ins, total }: { ins: InsumosCarrossel; total: number }) {
   );
 }
 
-/** Monta os slides do carrossel (elementos React) de acordo com o modelo. Poucos slides, cheios: nada de slide quase vazio. */
-export function slidesCarrossel(modelo: "C-artigo" | "C-review" | "C-guia", e: EntradaSocial, ins: InsumosCarrossel, pontos: Ponto[]): ReactElement[] {
+export interface ExtraSlide {
+  foto: string;
+  legenda?: string;
+}
+
+/** Monta os slides do carrossel (elementos React) de acordo com o modelo. Poucos slides, cheios: nada de slide quase vazio. Os extras (fotos do dono) entram antes do slide final. */
+export function slidesCarrossel(modelo: "C-artigo" | "C-review" | "C-guia", e: EntradaSocial, ins: InsumosCarrossel, pontos: Ponto[], extras: ExtraSlide[] = []): ReactElement[] {
   const out: ReactElement[] = [];
+  const fotos = (inicio: number, total: number) => extras.map((x, k) => <SlideFoto key={`x${k}`} ins={ins} foto={x.foto} legenda={x.legenda} i={inicio + k} total={total} />);
   if (modelo === "C-review" && e.review) {
-    const total = 3; // capa (nota + descrição), veredito, CTA: sem slides intermediários quase vazios
+    const total = 3 + extras.length; // capa (nota + descrição), veredito, fotos do dono, CTA: sem slides intermediários quase vazios
     out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo="REVIEW // CONSENSO DA CRÍTICA" chipFinal="O QUE A CRÍTICA ACHOU" />);
-    out.push(<VereditoSlide key="v" e={e} total={total} ins={ins} />);
+    out.push(<VereditoSlide key="v" e={e} i={2} total={total} ins={ins} />);
+    out.push(...fotos(3, total));
     out.push(<CtaFinal key="f" ins={ins} total={total} />);
     return out;
   }
   if (modelo === "C-guia" && e.requisitos) return [<GuiaUnico key="g" e={e} ins={ins} />];
-  const total = pontos.length + 2;
+  const total = pontos.length + 2 + extras.length;
   out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo={`${SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} // ${e.tag ? caixa(e.tag) : "DESTAQUES"}`} chipFinal="" />);
   pontos.forEach((p, i) => out.push(<PontoSlide key={`p${i}`} p={p} i={i + 1} total={total} ins={ins} imagem={ins.imagens[i] ?? null} rotulo={SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} />));
+  out.push(...fotos(pontos.length + 2, total));
   out.push(<CtaFinal key="f" ins={ins} total={total} />);
   return out;
 }

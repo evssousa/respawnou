@@ -63,3 +63,7 @@ Dados de exemplo para desenvolvimento: `npm run db:seed-dev` (apaga posts/jogos;
 { "score": 8.5, "verdict": "...", "pros": ["..."], "cons": ["..."],
   "critics": [{ "outlet": "Veículo", "score": 9, "url": "https://..." }] }
 ```
+
+## Migrations 013 e 014 (Instagram)
+- `013_stories`: `social_posts.kind` (feed|story|reel), índice único `(post_id, network, kind)`, colunas `story_*` em `social_accounts`.
+- `014_social_uploads`: `social_posts.overrides` (JSON com as imagens próprias do dono: `trocas` por slide e `extras`).

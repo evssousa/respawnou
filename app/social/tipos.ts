@@ -78,3 +78,17 @@ export interface ConfigLimites {
   inicioHora: number;
   fimHora: number;
 }
+
+/** Foco do recorte de uma imagem própria: "auto" deixa o sharp achar a parte mais chamativa. */
+export type Foco = "auto" | "centre" | "north" | "south" | "west" | "east";
+export interface ImagemPropria {
+  src: string;
+  foco?: Foco;
+}
+/** Escolhas do dono para um item da fila (frente C). */
+export interface Overrides {
+  /** Troca por número do slide (1 = capa do post). */
+  trocas?: Record<string, ImagemPropria>;
+  /** Slides de foto acrescentados, na ordem. */
+  extras?: (ImagemPropria & { legenda?: string })[];
+}

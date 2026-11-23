@@ -1,10 +1,10 @@
 // Gera os JPEGs (1 slide ou o carrossel inteiro) de uma entrada social, um slide por vez.
 import { createElement } from "react";
 import { extrairPontos } from "../core/pontos";
-import type { EntradaSocial, Modelo, Ponto } from "../tipos";
+import type { EntradaSocial, Modelo, Overrides, Ponto } from "../tipos";
 import { bufferDataUri, gradeDataUri, imagemDataUri, logoDataUri } from "./imagem.server";
 import { ModeloNoticia } from "./modelos/noticia";
-import { slidesCarrossel } from "./modelos/carrossel";
+import { SlideFoto, slidesCarrossel, type ExtraSlide } from "./modelos/carrossel";
 import { ModeloGratis, ModeloOfertas } from "./modelos/promo";
 import { ModeloSemana } from "./modelos/semana";
 import { ModeloStoryMoldura, ModeloStoryNoticia } from "./modelos/story";
@@ -16,20 +16,43 @@ export interface Slides {
   pontos?: Ponto[];
 }
 
-/** Gera os slides do modelo. Lança erro se faltar dado (o chamador marca o post como `skipped`/`failed`). */
-export async function gerarSlides(modelo: Modelo, e: EntradaSocial): Promise<Slides> {
+/**
+ * Gera os slides do modelo, já com as imagens próprias do dono (`ov`: troca de imagem por slide e slides de foto extras).
+ * Lança erro se faltar dado (o chamador marca o post como `skipped`/`failed`).
+ */
+export async function gerarSlides(modelo: Modelo, e: EntradaSocial, ov: Overrides = {}): Promise<Slides> {
+  const extras: ExtraSlide[] = [];
+  for (const x of ov.extras ?? []) {
+    const foto = await imagemDataUri(x.src, 1080, 1350, { foco: x.foco ?? "auto" });
+    if (foto) extras.push({ foto, legenda: x.legenda });
+  }
+  const r = await gerarBase(modelo, e, ov, extras);
+  // Modelos de imagem única + fotos extras viram carrossel: [arte, foto, foto...]. (Artigo e review já levam os extras antes do slide final.)
+  if (extras.length && modelo !== "C-artigo" && modelo !== "C-review") {
+    const [logo, grade] = await Promise.all([logoDataUri(128), gradeDataUri()]);
+    const total = 1 + extras.length;
+    for (let k = 0; k < extras.length; k++) r.jpegs.push(await renderizar(createElement(SlideFoto, { ins: { logo, grade }, foto: extras[k].foto, legenda: extras[k].legenda, i: 2 + k, total })));
+  }
+  return r;
+}
+
+async function gerarBase(modelo: Modelo, e: EntradaSocial, ov: Overrides, extras: ExtraSlide[]): Promise<Slides> {
   const [logo, grade] = await Promise.all([logoDataUri(128), gradeDataUri()]);
+  // Troca do slide 1 = nova capa do post inteiro (capa, fundo desfocado, arte do jogo grátis).
+  const t1 = ov.trocas?.["1"];
+  const capaSrc = t1?.src ?? e.capa?.src;
+  const capaOpts = t1 ? { foco: t1.foco ?? "auto" } : {};
 
   if (modelo === "N") {
-    const capa = await imagemDataUri(e.capa?.src, 1080, 760);
+    const capa = await imagemDataUri(capaSrc, 1080, 760, capaOpts);
     if (!capa) throw new Error("sem capa utilizável");
     return { jpegs: [await renderizar(createElement(ModeloNoticia, { e, ins: { logo, grade, capa } }))] };
   }
 
   if (modelo === "P1") {
     if (!e.gratis) throw new Error("sem dados do jogo grátis");
-    const arteSrc = e.gratis.arte ?? e.capa?.src ?? null;
-    const [arte, fundo] = await Promise.all([imagemDataUri(arteSrc, 948, 476), imagemDataUri(arteSrc, 1080, 1350, { blur: 30 })]);
+    const arteSrc = t1?.src ?? e.gratis.arte ?? e.capa?.src ?? null;
+    const [arte, fundo] = await Promise.all([imagemDataUri(arteSrc, 948, 476, capaOpts), imagemDataUri(arteSrc, 1080, 1350, { blur: 30 })]);
     return { jpegs: [await renderizar(createElement(ModeloGratis, { e, ins: { logo, grade, arte, fundo, imagens: [] } }))] };
   }
 
@@ -57,7 +80,7 @@ export async function gerarSlides(modelo: Modelo, e: EntradaSocial): Promise<Sli
   if (modelo === "C-artigo" && pontos.length < 3) throw new Error("menos de 3 pontos para o carrossel");
   if (modelo === "C-review" && !e.review) throw new Error("sem dados da review");
   if (modelo === "C-guia" && !e.requisitos) throw new Error("sem requisitos lidos");
-  const capa = await imagemDataUri(e.capa?.src, 952, 536);
+  const capa = await imagemDataUri(capaSrc, 952, 536, capaOpts);
   // Todo slide de ponto tem imagem grande: a do trecho, ou um recorte (zoom e enquadramento diferentes) das imagens da matéria e da capa.
   const pool = [...e.corpo.flatMap((b) => (b.type === "img" ? [b.src] : [])), ...(e.capa ? [e.capa.src] : [])];
   const variacoes: { zoom: number; ancora: "centre" | "west" | "east" | "north" | "south" }[] = [
@@ -69,12 +92,18 @@ export async function gerarSlides(modelo: Modelo, e: EntradaSocial): Promise<Sli
   ];
   const imagens: (string | null)[] = [];
   for (let i = 0; i < pontos.length; i++) {
-    const propria = pontos[i].imagem;
+    const troca = ov.trocas?.[String(i + 2)];
+    // Imagem do dono entra inteira (só recortada pelo foco), sem zoom; senão a do trecho ou um recorte da matéria.
+    const propria = troca ? troca.src : pontos[i].imagem;
+    if (troca) {
+      imagens.push(await imagemDataUri(troca.src, 952, 600, { foco: troca.foco ?? "auto" }));
+      continue;
+    }
     imagens.push(propria ? await imagemDataUri(propria, 952, 600) : pool.length ? await imagemDataUri(pool[i % pool.length], 952, 600, variacoes[i % variacoes.length]) : null);
   }
   // Review e guia: slides de dados ganham a capa desfocada e escurecida de fundo (mais chamativo que só texto).
-  const fundo = modelo === "C-artigo" ? null : await imagemDataUri(e.capa?.src, 1080, 1350, { blur: 26 });
-  const slides = slidesCarrossel(modelo, e, { logo, logoGrande, grade, capa, fundo, imagens }, pontos);
+  const fundo = modelo === "C-artigo" ? null : await imagemDataUri(capaSrc, 1080, 1350, { blur: 26 });
+  const slides = slidesCarrossel(modelo, e, { logo, logoGrande, grade, capa, fundo, imagens }, pontos, extras);
   const jpegs: Buffer[] = [];
   for (const s of slides) jpegs.push(await renderizar(s));
   return { jpegs, pontos: modelo === "C-artigo" ? pontos : undefined };

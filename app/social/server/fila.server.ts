@@ -4,13 +4,16 @@ import { join } from "node:path";
 import { mediaDir } from "../../../server-paths.mjs";
 import { SOCIAL } from "../config";
 import { horaBR, podeEnviar } from "../core/agenda";
+import { lerOverrides } from "../core/overrides";
+import { extrairPontos } from "../core/pontos";
 import { montarLegenda } from "../core/legenda";
 import { db, exec, hasDatabase, query } from "../db";
 import { gerarSlides, gerarStory } from "../render/slides.server";
 import { salvar } from "../render/render.server";
 import { escolherModelo, lerEntrada, modeloAtivo, type DicaSocial } from "../site.server";
-import type { Modelo } from "../tipos";
+import type { Modelo, Overrides } from "../tipos";
 import { getConta, getToken, marcarTokenInvalido, pausar, renovarSePreciso, type Conta } from "./conta.server";
+import { limparUploads } from "./uploads.server";
 import { classificar, containerStatus, cota, publicar, publicarStory, ultimasMidias } from "./instagram.server";
 
 export interface LinhaFila {
@@ -22,6 +25,7 @@ export interface LinhaFila {
   origin: "auto" | "manual";
   priority: number;
   payload: unknown;
+  overrides?: unknown;
   caption: string | null;
   images: unknown;
   container_id: string | null;
@@ -31,6 +35,7 @@ export interface LinhaFila {
   attempts: number;
   next_try_at: string | null;
   expires_at?: string | null;
+  rendered_at?: string | null;
   created_at: string;
   published_at: string | null;
   title?: string;
@@ -110,14 +115,18 @@ async function gerar(l: LinhaFila): Promise<void> {
   if (!e) throw new Error("matéria não existe mais");
   if (l.kind === "story") {
     // Story: ST-N (capa) para notícia; os outros usam o slide 1 do feed (se o feed já gerou a arte, reaproveita o arquivo).
-    const [feed] = await query<{ images: unknown; status: string }>("SELECT images, status FROM social_posts WHERE post_id = ? AND network = 'instagram' AND kind = 'feed'", [l.post_id]);
+    const [feed] = await query<{ images: unknown; status: string; overrides: unknown }>("SELECT images, status, overrides FROM social_posts WHERE post_id = ? AND network = 'instagram' AND kind = 'feed'", [l.post_id]);
     const slide1 = feed ? imagensDe(feed.images)[0] ?? null : null;
+    // Se o dono trocou a capa do post, o Story usa a mesma.
+    const capaPropria = lerOverrides(feed?.overrides, l.model, l.model === "C-artigo" ? extrairPontos(e.corpo) : []).trocas?.["1"];
+    if (capaPropria) e.capa = { src: capaPropria.src, credito: null };
     const jpeg = await gerarStory(l.model, e, { slide1Src: slide1, noFeed: feed?.status === "published" });
     const img = await salvar(jpeg, l.id, 1, "st");
     await exec("UPDATE social_posts SET images = ?, caption = NULL, rendered_at = UTC_TIMESTAMP(), error = NULL WHERE id = ?", [JSON.stringify([img]), l.id]);
     return;
   }
-  const slides = await gerarSlides(l.model, e);
+  const ov = lerOverrides(l.overrides, l.model, l.model === "C-artigo" ? extrairPontos(e.corpo) : []);
+  const slides = await gerarSlides(l.model, e, ov);
   if (slides.pontos) e.pontos = slides.pontos;
   const imgs: string[] = [];
   for (let i = 0; i < slides.jpegs.length; i++) imgs.push(await salvar(slides.jpegs[i], l.id, i + 1));
@@ -291,6 +300,7 @@ export async function tick(): Promise<ResultadoTick> {
       if (ultimaLimpeza !== hoje) {
         ultimaLimpeza = hoje;
         await limparArquivos();
+        await limparUploads();
       }
       const conta = await getConta();
       if (!conta.enabled && !conta.test_mode) return { acao: "desligado" };
@@ -349,6 +359,52 @@ export async function enfileirarRecentes(n = 30): Promise<number> {
 export async function zerarFila(kind: "feed" | "story" = "feed"): Promise<number> {
   const r = await exec("DELETE FROM social_posts WHERE network = 'instagram' AND kind = ? AND status <> 'published' AND status <> 'sending'", [kind]);
   return r.affected;
+}
+
+/** Regenera na hora a arte (com as imagens próprias) sem mudar o estado. Item pulado por "sem capa" volta à fila. */
+export async function gerarAgora(id: number): Promise<string> {
+  const l = await carregar(id);
+  if (!l) return "Item não encontrado.";
+  if (l.status === "published" || l.status === "sending") return "Este item já foi ao ar ou está sendo enviado.";
+  try {
+    await gerar(l);
+  } catch (err) {
+    const msg = `não gerou a arte: ${String((err as Error)?.message ?? err).slice(0, 300)}`;
+    await exec("UPDATE social_posts SET error = ? WHERE id = ?", [msg, id]);
+    return msg;
+  }
+  const conta = await getConta();
+  const novo = l.status === "skipped" ? (conta.test_mode ? "preview" : "pending") : l.status;
+  await exec("UPDATE social_posts SET status = ?, error = NULL, attempts = 0 WHERE id = ?", [novo, id]);
+  return "ok";
+}
+
+/** Imagens próprias do item de feed da matéria (a prévia e o Story usam). */
+export async function overridesDoPost(postId: number): Promise<Overrides> {
+  const [r] = await query<{ overrides: unknown }>("SELECT overrides FROM social_posts WHERE post_id = ? AND network = 'instagram' AND kind = 'feed'", [postId]);
+  return lerOverrides(r?.overrides);
+}
+
+/**
+ * Edita as imagens próprias de um item de feed (só enquanto não foi ao ar): `fn` mexe no objeto, o resultado é limpo e gravado.
+ * Mexer no slide 1 (capa) invalida a arte do Story da mesma matéria. Devolve o resultado limpo.
+ */
+export async function editarOverrides(id: number, fn: (ov: Overrides, ctx: { maxExtras: number }) => void): Promise<Overrides> {
+  const l = await carregar(id);
+  if (!l || l.kind !== "feed") throw new Error("Item não encontrado.");
+  if (l.status === "published" || l.status === "sending") throw new Error("Este item já foi ao ar: o Instagram não troca a imagem de um post publicado.");
+  const e = await lerEntrada(l.post_id, payloadDe(l.payload));
+  const pontos = l.model === "C-artigo" && e ? extrairPontos(e.corpo) : [];
+  const { maxExtras } = await import("../core/overrides");
+  const ov = lerOverrides(l.overrides, l.model, pontos);
+  const antes = JSON.stringify(ov.trocas?.["1"] ?? null);
+  fn(ov, { maxExtras: maxExtras(l.model, pontos.length) });
+  const limpo = lerOverrides(ov, l.model, pontos);
+  await exec("UPDATE social_posts SET overrides = ? WHERE id = ?", [Object.keys(limpo).length ? JSON.stringify(limpo) : null, id]);
+  if (JSON.stringify(limpo.trocas?.["1"] ?? null) !== antes) {
+    await exec("UPDATE social_posts SET images = NULL, rendered_at = NULL WHERE post_id = ? AND network = 'instagram' AND kind = 'story' AND status <> 'published' AND status <> 'sending'", [l.post_id]);
+  }
+  return limpo;
 }
 
 export const pular = (id: number) => exec("UPDATE social_posts SET status = 'skipped' WHERE id = ? AND status <> 'published'", [id]);

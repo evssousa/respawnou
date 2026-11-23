@@ -6,13 +6,16 @@ import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { hasDatabase } from "~/lib/db.server";
 import { SOCIAL } from "~/social/config";
+import { ErroUpload, salvarUpload } from "~/social/server/uploads.server";
+import type { Foco } from "~/social/tipos";
 import { conectar, desconectar, getConta, salvarConfig, salvarConfigStory } from "~/social/server/conta.server";
 import { chaveOk } from "~/social/server/cripto.server";
+import { FOCOS, lerOverrides, resumoOverrides, ROTULO_FOCO, slotsDoModelo, maxExtras as maxExtrasDoModelo, MAX_LEGENDA } from "~/social/core/overrides";
 import { extrairPontos } from "~/social/core/pontos";
 import { montarLegenda } from "~/social/core/legenda";
 import { lerEntrada, urlDaMateria } from "~/social/site.server";
 import type { Modelo } from "~/social/tipos";
-import { enfileirarRecentes, gerarDeNovo, imagensDe, listarFila, listarPostados, marcarPostadoAMao, postarAgora, pular, repostar, resumo, tick, tirarDosPostados, zerarFila } from "~/social/server/fila.server";
+import { enfileirarRecentes, gerarDeNovo, imagensDe, editarOverrides, gerarAgora, listarFila, listarPostados, marcarPostadoAMao, postarAgora, pular, repostar, resumo, tick, tirarDosPostados, zerarFila } from "~/social/server/fila.server";
 import { cota, perfil } from "~/social/server/instagram.server";
 import { getToken } from "~/social/server/conta.server";
 
@@ -31,9 +34,11 @@ export async function loader({ request }: Route.LoaderArgs) {
       let categoria = "";
       let slides = imagensDe(l.images).length;
       let link = "";
+      let pontos: { titulo: string }[] = [];
       try {
         const e = await lerEntrada(l.post_id);
         if (e) {
+          if (l.model === "C-artigo") pontos = extrairPontos(e.corpo);
           link = `${urlDaMateria(e)}?${SOCIAL.utm.replace("social", "story")}`;
           if (!caption && kind === "feed") caption = montarLegenda(e, l.model as Modelo);
           categoria = [SOCIAL.rotuloSecao[e.section] ?? e.section, e.tag].filter(Boolean).join(" · ");
@@ -42,7 +47,9 @@ export async function loader({ request }: Route.LoaderArgs) {
       } catch {
         /* sem os extras: o item continua aparecendo */
       }
-      return { ...l, caption, categoria, slides, link };
+      const ov = lerOverrides(l.overrides, l.model, pontos);
+      const podeEditar = kind === "feed" && l.status !== "published" && l.status !== "sending";
+      return { ...l, caption, categoria, slides, link, ov, slots: slotsDoModelo(l.model, pontos), maxExtras: maxExtrasDoModelo(l.model, pontos.length), podeEditar, resumoOv: resumoOverrides(ov), ovHash: JSON.stringify(ov).length.toString(36) + (l.rendered_at ?? "").slice(-5).replace(/\D/g, "") };
     }),
   );
   let usoApi: string | null = null;
@@ -67,8 +74,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     usoApi,
     msg: url.searchParams.get("ok"),
     erro: url.searchParams.get("erro"),
+    aviso: url.searchParams.get("aviso"),
     postados: postados.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, published_at: l.published_at, permalink: l.permalink, imagem: imagensDe(l.images)[0] ?? null })),
-    fila: fila.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, status: l.status, origin: l.origin, created_at: l.created_at, published_at: l.published_at, permalink: l.permalink, error: l.error, attempts: l.attempts, caption: l.caption, categoria: l.categoria, slides: l.slides, link: l.link, expires_at: l.expires_at ?? null, imagens: imagensDe(l.images) })),
+    fila: fila.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, status: l.status, origin: l.origin, created_at: l.created_at, published_at: l.published_at, permalink: l.permalink, error: l.error, attempts: l.attempts, caption: l.caption, categoria: l.categoria, slides: l.slides, link: l.link, ov: l.ov, slots: l.slots, maxExtras: l.maxExtras, podeEditar: l.podeEditar, resumoOv: l.resumoOv, ovHash: l.ovHash, expires_at: l.expires_at ?? null, imagens: imagensDe(l.images) })),
   };
 }
 
@@ -96,6 +104,39 @@ export async function action({ request }: Route.ActionArgs) {
         models: { N: f.get("m_N") === "on", C: f.get("m_C") === "on", P: f.get("m_P") === "on", S: f.get("m_S") === "on" },
       });
       return back("ok=salvo");
+    }
+    if (intent.startsWith("img_")) {
+      const foco = (v: FormDataEntryValue | null): Foco => (FOCOS.includes(v as Foco) ? (v as Foco) : "auto");
+      const slide = String(Number(f.get("slide")) || 1);
+      const idx = Number(f.get("idx"));
+      if (intent === "img_trocar" || intent === "img_extra") {
+        const file = f.get("file");
+        if (!(file instanceof File)) throw new ErroUpload("Nenhum arquivo enviado.");
+        const up = await salvarUpload(id, file);
+        await editarOverrides(id, (ov, ctx) => {
+          if (intent === "img_trocar") {
+            ov.trocas = { ...(ov.trocas ?? {}), [slide]: { src: up.src, foco: foco(f.get("foco")) } };
+          } else {
+            if ((ov.extras?.length ?? 0) >= ctx.maxExtras) throw new Error(`Este post já está no máximo de slides (10). Remova um extra antes.`);
+            ov.extras = [...(ov.extras ?? []), { src: up.src, foco: foco(f.get("foco")) }];
+          }
+        });
+        return back(`ok=imagem${up.aviso ? `&aviso=${encodeURIComponent(up.aviso)}` : ""}`);
+      }
+      await editarOverrides(id, (ov) => {
+        if (intent === "img_foco" && ov.trocas?.[slide]) ov.trocas[slide] = { ...ov.trocas[slide], foco: foco(f.get("foco")) };
+        if (intent === "img_remover" && ov.trocas) delete ov.trocas[slide];
+        if (ov.extras?.[idx]) {
+          if (intent === "img_extra_foco") ov.extras[idx] = { ...ov.extras[idx], foco: foco(f.get("foco")) };
+          if (intent === "img_extra_legenda") ov.extras[idx] = { ...ov.extras[idx], legenda: String(f.get("legenda") ?? "").trim().slice(0, MAX_LEGENDA) };
+          if (intent === "img_extra_remover") ov.extras = ov.extras.filter((_, k) => k !== idx);
+        }
+      });
+      if (intent === "img_aplicar") {
+        const r = await Promise.race([gerarAgora(id), new Promise<string>((ok) => setTimeout(() => ok("ainda gerando; recarregue em 1 minuto"), 25_000))]);
+        return back(r === "ok" ? "ok=aplicado" : `erro=${encodeURIComponent(r)}`);
+      }
+      return back("ok=imagem-salva");
     }
     if (intent === "salvar_story") {
       const num = (n: string, min: number, max: number, pad: number) => Math.max(min, Math.min(max, Math.round(Number(f.get(n)) || pad)));
@@ -141,6 +182,9 @@ const MSG: Record<string, string> = {
   pulado: "Post pulado.",
   novo: "Vai gerar a arte de novo no próximo ciclo.",
   manual: "Marcado como postado à mão.",
+  imagem: "Imagem enviada. Clique em \"Gerar de novo com as minhas imagens\" para ver o resultado.",
+  "imagem-salva": "Alteração salva. Clique em \"Gerar de novo com as minhas imagens\" para ver o resultado.",
+  aplicado: "Arte gerada de novo com as suas imagens.",
   tirado: "Tirado da lista de postados (continua no Instagram).",
   repostar: "Voltou para a fila (cuidado: vai criar outro post no Instagram).",
 };
@@ -172,6 +216,101 @@ function Visualizador({ imgs, inicio, onFechar }: { imgs: string[]; inicio: numb
 }
 
 const ESTADO: Record<string, string> = { pending: "na fila", preview: "prévia", sending: "enviando", published: "publicado", failed: "falhou", skipped: "pulado", expired: "expirou" };
+
+type LinhaPainel = Extract<Route.ComponentProps["loaderData"], { semBanco: false }>["fila"][number];
+
+/** Imagens próprias dos slides: trocar a imagem de um slide, escolher o foco, acrescentar slides de foto e gerar de novo. */
+function BlocoImagens({ l, busy }: { l: LinhaPainel; busy: boolean }) {
+  const auto = (e: React.ChangeEvent<HTMLElement>) => (e.currentTarget as HTMLInputElement).form?.requestSubmit();
+  const extras = l.ov.extras ?? [];
+  const Foco = ({ nome, valor, desabilitado, semAuto }: { nome?: string; valor?: string; desabilitado?: boolean; semAuto?: boolean }) => (
+    <select name="foco" defaultValue={valor ?? "auto"} onChange={semAuto ? undefined : auto} disabled={busy || desabilitado} aria-label="Foco do recorte" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper" data-n={nome}>
+      {FOCOS.map((x) => <option key={x} value={x}>{ROTULO_FOCO[x]}</option>)}
+    </select>
+  );
+  return (
+    <details className="border border-line p-3">
+      <summary className="cursor-pointer font-mono text-xs font-bold text-acc">
+        IMAGENS DOS SLIDES{l.resumoOv ? ` · ${l.resumoOv.toUpperCase()}` : ""}
+      </summary>
+      <div className="mt-3 flex flex-col gap-4">
+        {l.slots.length === 0 ? (
+          <p className="text-sm text-muted">Este modelo usa várias miniaturas; dá para acrescentar slides de foto.</p>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {l.slots.map((s) => {
+              const troca = l.ov.trocas?.[String(s.slide)];
+              return (
+                <div key={s.slide} className="flex w-[216px] shrink-0 flex-col gap-2">
+                  <img src={l.imagens[s.slide - 1] ?? `/admin/instagram/previa/${l.post_id}?s=${s.slide}&v=${l.ovHash}`} alt="" width={216} height={270} loading="lazy" className="h-[270px] w-[216px] border border-line object-cover" />
+                  <p className="font-mono text-[11px] leading-tight text-muted">{s.rotulo}</p>
+                  <span className={`self-start px-2 py-0.5 font-mono text-[10px] font-bold ${troca ? "bg-acc text-ink" : "border border-line-soft text-muted"}`}>{troca ? "SUA IMAGEM" : "ORIGINAL"}</span>
+                  <Form method="post" encType="multipart/form-data" className="flex flex-col gap-2">
+                    <input type="hidden" name="intent" value="img_trocar" /><input type="hidden" name="id" value={l.id} /><input type="hidden" name="slide" value={s.slide} />
+                    <label className="inline-flex min-h-10 cursor-pointer items-center justify-center border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc">
+                      {busy ? "Enviando…" : troca ? "Trocar de novo" : "Trocar imagem"}
+                      <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/avif" className="sr-only" disabled={busy} onChange={auto} />
+                    </label>
+                    <Foco valor={troca?.foco} semAuto />
+                  </Form>
+                  {troca && (
+                    <Form method="post" className="flex flex-col gap-1">
+                      <input type="hidden" name="intent" value="img_foco" /><input type="hidden" name="id" value={l.id} /><input type="hidden" name="slide" value={s.slide} />
+                      <Foco valor={troca.foco} />
+                    </Form>
+                  )}
+                  {troca && (
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="img_remover" /><input type="hidden" name="id" value={l.id} /><input type="hidden" name="slide" value={s.slide} />
+                      <button type="submit" disabled={busy} className="font-mono text-xs text-muted underline hover:text-warn">Voltar à original</button>
+                    </Form>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div>
+          <p className="mb-2 font-mono text-xs font-bold text-body">SLIDES EXTRAS ({extras.length}/{l.maxExtras})</p>
+          <div className="flex flex-wrap gap-3">
+            {extras.map((x, k) => (
+              <div key={x.src} className="flex w-[216px] flex-col gap-2 border border-line p-2">
+                <img src={x.src} alt="" width={108} height={135} loading="lazy" className="h-[135px] w-[108px] border border-line object-cover" />
+                <Form method="post" className="flex flex-col gap-1">
+                  <input type="hidden" name="intent" value="img_extra_legenda" /><input type="hidden" name="id" value={l.id} /><input type="hidden" name="idx" value={k} />
+                  <input name="legenda" defaultValue={x.legenda ?? ""} maxLength={MAX_LEGENDA} placeholder="Legenda (opcional)" onBlur={(e) => e.currentTarget.form?.requestSubmit()} className="min-h-9 border border-line bg-ink px-2 text-xs text-paper" />
+                  <span className="font-mono text-[10px] text-muted">até {MAX_LEGENDA} caracteres</span>
+                </Form>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="img_extra_foco" /><input type="hidden" name="id" value={l.id} /><input type="hidden" name="idx" value={k} />
+                  <Foco valor={x.foco} />
+                </Form>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="img_extra_remover" /><input type="hidden" name="id" value={l.id} /><input type="hidden" name="idx" value={k} />
+                  <button type="submit" disabled={busy} className="font-mono text-xs text-muted underline hover:text-warn">Remover</button>
+                </Form>
+              </div>
+            ))}
+            <Form method="post" encType="multipart/form-data" className="self-start">
+              <input type="hidden" name="intent" value="img_extra" /><input type="hidden" name="id" value={l.id} />
+              <label
+                title={extras.length >= l.maxExtras ? "Este post já está no máximo de 10 slides." : "Acrescentar um slide de foto"}
+                className={`inline-flex min-h-10 items-center border border-line-soft px-3 font-mono text-xs font-bold ${extras.length >= l.maxExtras ? "cursor-not-allowed opacity-40" : "cursor-pointer text-paper hover:border-acc"}`}
+              >
+                + Acrescentar imagem
+                <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/avif" className="sr-only" disabled={busy || extras.length >= l.maxExtras} onChange={auto} />
+              </label>
+            </Form>
+          </div>
+        </div>
+        <Form method="post">
+          <input type="hidden" name="intent" value="img_aplicar" /><input type="hidden" name="id" value={l.id} />
+          <Button tone="primary" disabled={busy}>Gerar de novo com as minhas imagens</Button>
+        </Form>
+      </div>
+    </details>
+  );
+}
 
 export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) {
   const busy = useNavigation().state !== "idle";
@@ -212,6 +351,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
       <PageTitle aside={<span className="border border-line-soft px-3 py-1 font-mono text-xs font-bold text-acc">{estado}</span>}>Instagram</PageTitle>
       {msg && <Notice>{msg}</Notice>}
       {d.erro && <Notice tone="warn">{decodeURIComponent(d.erro)}</Notice>}
+      {d.aviso && <Notice tone="warn">{decodeURIComponent(d.aviso)}</Notice>}
       {d.usoApi && <Notice>{d.usoApi}</Notice>}
       {conta.token_status === "invalid" && <Notice tone="warn">O token do Instagram não vale mais. Gere outro e cole abaixo (passo a passo em docs/instagram.md).</Notice>}
       {conta.note && <Notice tone="warn">{conta.note}</Notice>}
@@ -328,7 +468,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                     aria-label="Ver a arte grande"
                     onClick={() => void abrir(l)}
                   >
-                    <img src={l.imagens[0] ?? `/admin/instagram/previa/${l.post_id}?s=1${d.aba === "stories" ? "&formato=story" : ""}`} alt="" width={d.aba === "stories" ? 108 : 120} height={d.aba === "stories" ? 192 : 150} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    <img src={l.imagens[0] ?? `/admin/instagram/previa/${l.post_id}?s=1${d.aba === "stories" ? "&formato=story" : ""}&v=${l.ovHash}`} alt="" width={d.aba === "stories" ? 108 : 120} height={d.aba === "stories" ? 192 : 150} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     {carregando === l.id && <span className="block bg-acc px-1 font-mono text-[10px] font-bold text-ink">CARREGANDO…</span>}
                   </button>
                   <div className="min-w-0 flex-1">
@@ -384,6 +524,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                     ))}
                   </div>
                 )}
+                {d.aba === "feed" && l.podeEditar && <BlocoImagens l={l} busy={busy} />}
                 {d.aba === "feed" && l.caption && <pre className="whitespace-pre-wrap border border-line bg-ink p-3 text-xs text-body">{l.caption}</pre>}
               </li>
             ))}
