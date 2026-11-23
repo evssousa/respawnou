@@ -44,7 +44,7 @@ export const SOCIAL = {
     "C-review": { prioridade: 30, validadeH: 48 },
     "C-guia": { prioridade: 20, validadeH: 48 },
     "C-artigo": { prioridade: 20, validadeH: 48 },
-    N: { prioridade: 10, validadeH: 12 },
+    N: { prioridade: 10, validadeH: 48 },
   } as Record<Modelo, { prioridade: number; validadeH: number }>,
   /** Stories (docs/instagram-stories-videos.md): padrões, fila e texto do botão por modelo do feed. */
   story: {

@@ -279,7 +279,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
             </div>
             <fieldset className="flex flex-wrap gap-4">
               <legend className="mb-1 font-mono text-xs font-bold uppercase text-body">Modelos ligados</legend>
-              {([["N", "Notícia (1 imagem)"], ["C", "Carrossel (artigos, reviews, guias)"], ["P", "Promoções"], ["S", "Lançamentos da semana"]] as const).map(([k, rot]) => (
+              {([["N", "Notícia (1 imagem)"], ["C", "Carrossel (entra na fila para você revisar e postar; nunca sai sozinho)"], ["P", "Promoções"], ["S", "Lançamentos da semana"]] as const).map(([k, rot]) => (
                 <label key={k} className="flex items-center gap-2 text-sm">
                   <input type="checkbox" name={`m_${k}`} defaultChecked={conta.models[k] !== false} className="accent-[var(--color-acc)]" />
                   {rot}

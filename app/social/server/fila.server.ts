@@ -66,10 +66,20 @@ export async function enfileirar(postId: number, dica?: DicaSocial, origem: "aut
     modelo = escolherModelo(e);
     if (origem === "manual" || modeloAtivo(modelo, conta.models)) {
       const cfg = SOCIAL.fila[modelo];
+      // Carrossel (artigo, review, guia) nunca sai sozinho: entra na fila para o dono revisar os slides e as fotos e postar à mão.
+      const origemFinal = origem === "manual" || modelo.startsWith("C-") ? "manual" : "auto";
+      // Notícia: some da fila 48 h depois de publicada (passou a hora dela). Itens manuais ficam 7 dias.
+      let horas = origemFinal === "manual" ? 168 : cfg.validadeH;
+      if (modelo === "N" && origemFinal === "auto") {
+        const [h] = await query<{ h: number }>("SELECT TIMESTAMPDIFF(HOUR, published_at, UTC_TIMESTAMP()) AS h FROM posts WHERE id = ?", [postId]);
+        const restante = 48 - Number(h?.h ?? 0);
+        if (restante <= 0) return null;
+        horas = Math.min(horas, restante);
+      }
       const r = await exec(
         `INSERT IGNORE INTO social_posts (post_id, network, kind, model, status, origin, priority, payload, expires_at)
          VALUES (?, 'instagram', 'feed', ?, 'pending', ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? HOUR))`,
-        [postId, modelo, origem, cfg.prioridade, dica ? JSON.stringify(dica) : null, cfg.validadeH],
+        [postId, modelo, origemFinal, cfg.prioridade, dica ? JSON.stringify(dica) : null, horas],
       );
       idFeed = r.affected ? r.insertId : null;
     }
@@ -80,10 +90,12 @@ export async function enfileirar(postId: number, dica?: DicaSocial, origem: "aut
   if (conta && modelo && (conta.story_enabled || conta.test_mode)) {
     try {
       const cfg = SOCIAL.story.fila[modelo];
+      // Story de carrossel usa o slide 1 do feed (ainda não revisado): também só sai à mão.
+      const manual = origem === "manual" || modelo.startsWith("C-");
       await exec(
         `INSERT IGNORE INTO social_posts (post_id, network, kind, model, status, origin, priority, payload, expires_at)
          VALUES (?, 'instagram', 'story', ?, 'pending', ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? HOUR))`,
-        [postId, modelo, origem, cfg.prioridade, dica ? JSON.stringify(dica) : null, origem === "manual" ? 168 : cfg.validadeH],
+        [postId, modelo, manual ? "manual" : "auto", cfg.prioridade, dica ? JSON.stringify(dica) : null, manual ? 168 : cfg.validadeH],
       );
     } catch (err) {
       console.error(`[social] enfileirar story falhou (post ${postId}): ${String((err as Error)?.message ?? err).slice(0, 120)}`);
@@ -245,12 +257,13 @@ async function passo(kind: "feed" | "story", conta: Conta, token: string | null)
   );
   if (!decisao.pode) return { acao: decisao.motivo };
 
-  // Feed: só os modelos marcados em "Modelos ligados" saem sozinhos (o resto fica na fila para "Postar agora"). Story não depende disso.
-  const GRUPOS: Record<string, Modelo[]> = { N: ["N"], C: ["C-artigo", "C-review", "C-guia"], P: ["P1", "P2"], S: ["S"] };
+  // Só sai sozinho o que entrou sozinho (origin auto): notícia de até 48 h, promoção e lançamentos. O que veio do botão "últimas 30" e os carrosséis ficam para "Postar agora".
+  const GRUPOS: Record<string, Modelo[]> = { N: ["N"], P: ["P1", "P2"], S: ["S"] }; // carrossel (C) nunca é automático
   const modelos = kind === "feed" ? Object.entries(GRUPOS).filter(([g]) => conta.models[g] !== false).flatMap(([, m]) => m) : null;
   if (modelos && !modelos.length) return { acao: "nenhum modelo ligado" };
   const [l] = await query<LinhaFila>(
-    `SELECT * FROM social_posts WHERE network = 'instagram' AND kind = ? ${modelos ? `AND model IN (${modelos.map(() => "?").join(",")})` : ""}
+    `SELECT * FROM social_posts WHERE network = 'instagram' AND kind = ? AND origin = 'auto' ${modelos ? `AND model IN (${modelos.map(() => "?").join(",")})` : ""}
+       ${kind === "feed" ? "AND (model <> 'N' OR EXISTS (SELECT 1 FROM posts p WHERE p.id = social_posts.post_id AND p.published_at > UTC_TIMESTAMP() - INTERVAL 48 HOUR))" : ""}
        AND (status = 'pending' OR (status = 'failed' AND attempts < 3 AND next_try_at <= UTC_TIMESTAMP()))
      ORDER BY priority DESC, created_at DESC LIMIT 1`,
     [kind, ...(modelos ?? [])],
