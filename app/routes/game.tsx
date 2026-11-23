@@ -244,7 +244,7 @@ export default function GamePage({ loaderData }: Route.ComponentProps) {
 
       {lang && game.languages && (
         <section className="flex flex-col gap-6">
-          <SectionTitle code="IDIOMA" accent="em português">
+          <SectionTitle code="IDIOMA" accent="do jogo">
             Português
           </SectionTitle>
           <div className="flex flex-wrap gap-2">
