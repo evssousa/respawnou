@@ -134,6 +134,21 @@ const ESTADO: Record<string, string> = { pending: "na fila", preview: "prévia",
 export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) {
   const busy = useNavigation().state !== "idle";
   const [aberto, setAberto] = useState<{ imgs: string[]; i: number } | null>(null);
+  const [carregando, setCarregando] = useState<number | null>(null);
+  /** Abre o visualizador. Sem arte gerada ainda: pergunta quantos slides a matéria terá e mostra todos (gerados na hora). */
+  const abrir = async (l: { id: number; post_id: number; imagens: string[] }, i = 0) => {
+    if (l.imagens.length) return setAberto({ imgs: l.imagens, i });
+    setCarregando(l.id);
+    try {
+      const r = await fetch(`/admin/instagram/previa/${l.post_id}?info=1`);
+      const j = r.ok ? ((await r.json()) as { slides: number }) : { slides: 1 };
+      setAberto({ imgs: Array.from({ length: j.slides }, (_, k) => `/admin/instagram/previa/${l.post_id}?s=${k + 1}`), i });
+    } catch {
+      setAberto({ imgs: [`/admin/instagram/previa/${l.post_id}?s=1`], i: 0 });
+    } finally {
+      setCarregando(null);
+    }
+  };
   if (d.semBanco) return <><PageTitle>Instagram</PageTitle><Notice tone="warn">Precisa do banco de dados.</Notice></>;
   const { conta } = d;
   const estado = conta.token_status === "invalid" ? "TOKEN INVÁLIDO" : !conta.enabled && !conta.test_mode ? "DESLIGADO" : conta.test_mode ? "MODO DE TESTE" : "LIGADO";
@@ -240,9 +255,10 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                     type="button"
                     className="h-[150px] w-[120px] shrink-0 overflow-hidden border border-line bg-ink hover:border-acc"
                     aria-label="Ver a arte grande"
-                    onClick={() => setAberto({ imgs: l.imagens.length ? l.imagens : [`/admin/instagram/previa/${l.post_id}?s=1`], i: 0 })}
+                    onClick={() => void abrir(l)}
                   >
                     <img src={l.imagens[0] ?? `/admin/instagram/previa/${l.post_id}?s=1`} alt="" width={120} height={150} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    {carregando === l.id && <span className="block bg-acc px-1 font-mono text-[10px] font-bold text-ink">CARREGANDO…</span>}
                   </button>
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-2 font-bold text-paper">{l.title}</p>

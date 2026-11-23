@@ -71,7 +71,9 @@ export async function gerarSlides(modelo: Modelo, e: EntradaSocial): Promise<Sli
     const propria = pontos[i].imagem;
     imagens.push(propria ? await imagemDataUri(propria, 952, 600) : pool.length ? await imagemDataUri(pool[i % pool.length], 952, 600, variacoes[i % variacoes.length]) : null);
   }
-  const slides = slidesCarrossel(modelo, e, { logo, logoGrande, grade, capa, imagens }, pontos);
+  // Review e guia: slides de dados ganham a capa desfocada e escurecida de fundo (mais chamativo que só texto).
+  const fundo = modelo === "C-artigo" ? null : await imagemDataUri(e.capa?.src, 1080, 1350, { blur: 26 });
+  const slides = slidesCarrossel(modelo, e, { logo, logoGrande, grade, capa, fundo, imagens }, pontos);
   const jpegs: Buffer[] = [];
   for (const s of slides) jpegs.push(await renderizar(s));
   return { jpegs, pontos: modelo === "C-artigo" ? pontos : undefined };

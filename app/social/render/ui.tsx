@@ -22,10 +22,10 @@ export function Play({ cor = COR.texto, tam = 22 }: { cor?: string; tam?: number
 export const ANTON = "Anton";
 
 /** Tela base 1080×1350 com a grade fina e o conteúdo posicionado de forma absoluta. */
-export function Tela({ grade, children, fundo }: { grade: string; children: ReactNode; fundo?: string }) {
+export function Tela({ grade, children, fundo, escuro = 0.78 }: { grade: string; children: ReactNode; fundo?: string; escuro?: number }) {
   return (
     <div style={{ display: "flex", position: "relative", width: 1080, height: 1350, backgroundColor: COR.fundo, ...(fundo ? { backgroundImage: `url(${fundo})` } : {}), fontFamily: "Inter", color: COR.texto }}>
-      {fundo && <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 1350, backgroundColor: COR.fundo, opacity: 0.78 }} />}
+      {fundo && <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 1350, backgroundColor: COR.fundo, opacity: escuro }} />}
       <img src={grade} width={1080} height={1350} style={{ position: "absolute", left: 0, top: 0 }} />
       {children}
     </div>

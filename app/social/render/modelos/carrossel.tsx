@@ -1,10 +1,10 @@
 // Modelo C: carrossel (artigos, reviews e guias), 5 a 7 slides: capa, pontos/notas/requisitos e CTA final.
 import type { ReactElement } from "react";
 import { COR, SOCIAL } from "../../config";
-import { cortar, maiusculasBR } from "../../core/texto";
+import { cortar, frasesInteiras, maiusculasBR } from "../../core/texto";
 import { ordenarNotas } from "../../core/pontos";
 import type { EntradaSocial, Ponto } from "../../tipos";
-import { ajustarTitulo, ANTON, Chip, Faixa, MONO, Seta, Tela, Topo } from "../ui";
+import { ajustarTitulo, ANTON, Chip, Faixa, linhasDoTitulo, MONO, Seta, Tela, Topo } from "../ui";
 
 export interface InsumosCarrossel {
   logo: string;
@@ -12,7 +12,9 @@ export interface InsumosCarrossel {
   grade: string;
   /** Capa 952×536. */
   capa: string | null;
-  /** Imagens dos pontos (952×400), na ordem dos pontos. */
+  /** Capa desfocada em 1080×1350 (fundo dos slides de dados de review e guia). */
+  fundo?: string | null;
+  /** Imagens dos pontos (952×600), na ordem dos pontos. */
   imagens: (string | null)[];
 }
 
@@ -37,7 +39,18 @@ function Rod({ dir = "ARRASTA" }: { dir?: string }) {
 }
 
 function Capa({ e, ins, total, rotulo, chipFinal }: { e: EntradaSocial; ins: InsumosCarrossel; total: number; rotulo: string; chipFinal: string }) {
-  const aj = ajustarTitulo(cortar(e.titulo, 110), 952, 3, [88, 76, 68, 60]);
+  // Descrição de 1 a 2 linhas embaixo do título (frase inteira); o título diminui o necessário para ela caber antes do rodapé (y 1196).
+  const desc = frasesInteiras(e.excerpt || e.metaDescription || "", 104);
+  const linhasDesc = Math.max(1, Math.ceil(desc.length / 49));
+  const tituloBase = cortar(e.titulo, 110);
+  let aj = ajustarTitulo(tituloBase, 952, 3, [88, 76, 68, 60]);
+  for (const tam of [88, 76, 68, 60]) {
+    const l = linhasDoTitulo(tituloBase, tam);
+    if (l <= 3 && Math.ceil(l * tam * 1.04) + 20 + linhasDesc * 46 <= 1196 - 812 - 24) {
+      aj = { texto: tituloBase, tam, linhas: l };
+      break;
+    }
+  }
   const titulo = aj.texto;
   const tam = aj.tam;
   return (
@@ -56,6 +69,7 @@ function Capa({ e, ins, total, rotulo, chipFinal }: { e: EntradaSocial; ins: Ins
       </div>
       <div style={{ position: "absolute", left: 64, top: 812, display: "flex", flexDirection: "column", width: 952 }}>
         <Titulo texto={titulo} tam={tam} />
+        {desc && <div style={{ display: "flex", marginTop: 20, fontSize: 34, lineHeight: 1.35, color: COR.corpo, width: 952 }}>{desc}</div>}
       </div>
       <div style={{ position: "absolute", left: 64, top: 1196, width: 952, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Chip texto={chipFinal} tipo="contorno" />
@@ -91,7 +105,7 @@ function NotasSlide({ e, total, ins }: { e: EntradaSocial; total: number; ins: I
   const notas = ordenarNotas(e.review!.critics);
   const mostra = notas.slice(0, 6);
   return (
-    <Tela grade={ins.grade}>
+    <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
       <Topo logo={ins.logo} tam={48} y={40} direita={`REVIEW · ${nn(2, total)}`} />
       <div style={{ position: "absolute", left: 64, top: 150, display: "flex" }}>
         <Titulo texto="O que cada veículo deu" tam={72} />
@@ -115,7 +129,7 @@ function NotasSlide({ e, total, ins }: { e: EntradaSocial; total: number; ins: I
 
 function ListaSlide({ titulo, itens, sinal, i, total, ins, rotulo }: { titulo: string; itens: string[]; sinal: "+" | "−"; i: number; total: number; ins: InsumosCarrossel; rotulo: string }) {
   return (
-    <Tela grade={ins.grade}>
+    <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
       <Topo logo={ins.logo} tam={48} y={40} direita={`${rotulo} · ${nn(i, total)}`} />
       <div style={{ position: "absolute", left: 64, top: 150, display: "flex" }}>
         <Titulo texto={titulo} tam={72} />
@@ -135,7 +149,7 @@ function ListaSlide({ titulo, itens, sinal, i, total, ins, rotulo }: { titulo: s
 
 function VereditoSlide({ e, total, ins }: { e: EntradaSocial; total: number; ins: InsumosCarrossel }) {
   return (
-    <Tela grade={ins.grade}>
+    <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
       <Topo logo={ins.logo} tam={48} y={40} direita={`REVIEW · ${nn(total - 1, total)}`} />
       <div style={{ position: "absolute", left: 64, top: 110, display: "flex", fontFamily: ANTON, fontSize: 300, lineHeight: 1, color: COR.destaque }}>“</div>
       <div style={{ position: "absolute", left: 64, top: 430, width: 952, display: "flex", fontWeight: 800, fontSize: 52, lineHeight: 1.28 }}>{cortar(e.review!.verdict, 230)}</div>
@@ -152,7 +166,7 @@ function RequisitosSlide({ e, ins, ladoALado, total, i, minimo }: { e: EntradaSo
   if (ladoALado) {
     const pega = linhas.filter((l) => l.rotulo === "PLACA DE VÍDEO" || l.rotulo === "MEMÓRIA");
     return (
-      <Tela grade={ins.grade}>
+      <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
         <Topo logo={ins.logo} tam={48} y={40} direita={`GUIA · ${nn(i, total)}`} />
         <div style={{ position: "absolute", left: 64, top: 150, display: "flex" }}>
           <Titulo texto="Mínimo x recomendado" tam={72} />
@@ -180,7 +194,7 @@ function RequisitosSlide({ e, ins, ladoALado, total, i, minimo }: { e: EntradaSo
     );
   }
   return (
-    <Tela grade={ins.grade}>
+    <Tela grade={ins.grade} fundo={ins.fundo ?? undefined} escuro={0.58}>
       <Topo logo={ins.logo} tam={48} y={40} direita={`GUIA · ${nn(i, total)}`} />
       <div style={{ position: "absolute", left: 64, top: 150, display: "flex", alignItems: "center" }}>
         <Titulo texto={minimo ? "Mínimo" : "Recomendado"} tam={96} largura={560} />

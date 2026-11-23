@@ -43,8 +43,7 @@ export function montarLegenda(e: EntradaSocial, m: Modelo): string {
   if (m === "P1" && e.gratis) {
     const g = e.gratis;
     partes = [
-      `GRÁTIS: ${g.nome} de graça na ${g.loja} até ${g.ate}.`,
-      g.precoNormal ? `Depois volta a custar ${g.precoNormal}.` : "",
+      `GRÁTIS: ${g.nome} de graça na ${g.loja} até ${g.ate}.${g.precoNormal ? ` Depois volta a custar ${g.precoNormal}.` : ""}`,
       `Como resgatar: link na bio. Siga @${SOCIAL.handle} que a gente avisa todo jogo grátis.`,
     ];
     tags = hashtags(e, m, ["jogosgratis", paraHashtag(g.loja), paraHashtag(g.nome)]);
@@ -80,11 +79,12 @@ export function montarLegenda(e: EntradaSocial, m: Modelo): string {
     tags = hashtags(e, m);
   }
 
-  let texto = partes.filter(Boolean).join("\n");
-  if (tags.length) texto += `\n${tags.join(" ")}`;
+  // Uma linha em branco entre os blocos (gancho, contexto, pergunta, chamada e hashtags): no Instagram, só "\n" cola tudo.
+  const juntar = (blocos: (string | undefined)[]) => blocos.filter(Boolean).join("\n\n");
+  let texto = juntar([...partes, tags.join(" ")]);
   if (texto.length > 700) {
     // Estourou: tira a pergunta e encurta o contexto.
-    texto = [partes[0], partes.at(-1), tags.join(" ")].filter(Boolean).join("\n");
+    texto = juntar([partes[0], partes.at(-1), tags.join(" ")]);
   }
   return texto;
 }
