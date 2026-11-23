@@ -8,6 +8,7 @@ import { hasDatabase } from "~/lib/db.server";
 import { SOCIAL } from "~/social/config";
 import { conectar, desconectar, getConta, salvarConfig } from "~/social/server/conta.server";
 import { chaveOk } from "~/social/server/cripto.server";
+import { extrairPontos } from "~/social/core/pontos";
 import { montarLegenda } from "~/social/core/legenda";
 import { lerEntrada } from "~/social/site.server";
 import type { Modelo } from "~/social/tipos";
@@ -21,16 +22,23 @@ export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request);
   if (!hasDatabase()) return { semBanco: true as const };
   const [conta, fila0, postados, r] = await Promise.all([getConta(), listarFila(30), listarPostados(50), resumo()]);
-  // Quem ainda não tem legenda gravada (arte não gerada) ganha a legenda calculada na hora, para ela aparecer sempre.
+  // Para cada item: legenda (calculada na hora se a arte ainda não foi gerada), categoria da matéria e quantos slides terá.
   const fila = await Promise.all(
     fila0.map(async (l) => {
-      if (l.caption) return l;
+      let caption = l.caption;
+      let categoria = "";
+      let slides = imagensDe(l.images).length;
       try {
         const e = await lerEntrada(l.post_id);
-        return e ? { ...l, caption: montarLegenda(e, l.model as Modelo) } : l;
+        if (e) {
+          if (!caption) caption = montarLegenda(e, l.model as Modelo);
+          categoria = [SOCIAL.rotuloSecao[e.section] ?? e.section, e.tag].filter(Boolean).join(" · ");
+          if (!slides) slides = l.model === "C-artigo" ? extrairPontos(e.corpo).length + 2 : l.model === "C-review" ? 3 : 1;
+        }
       } catch {
-        return l;
+        /* sem os extras: o item continua aparecendo */
       }
+      return { ...l, caption, categoria, slides };
     }),
   );
   let usoApi: string | null = null;
@@ -55,7 +63,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     msg: url.searchParams.get("ok"),
     erro: url.searchParams.get("erro"),
     postados: postados.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, published_at: l.published_at, permalink: l.permalink, imagem: imagensDe(l.images)[0] ?? null })),
-    fila: fila.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, status: l.status, origin: l.origin, created_at: l.created_at, published_at: l.published_at, permalink: l.permalink, error: l.error, attempts: l.attempts, caption: l.caption, imagens: imagensDe(l.images) })),
+    fila: fila.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, status: l.status, origin: l.origin, created_at: l.created_at, published_at: l.published_at, permalink: l.permalink, error: l.error, attempts: l.attempts, caption: l.caption, categoria: l.categoria, slides: l.slides, imagens: imagensDe(l.images) })),
   };
 }
 
@@ -294,8 +302,12 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                       <Pill status={l.status === "published" ? "ok" : l.status === "failed" ? "failed" : l.status === "preview" ? "draft" : "new"} />
                       <span>{ESTADO[l.status] ?? l.status}</span>
                       <span>· {l.model}</span>
+                      {l.categoria && <span className="font-bold text-paper">· {l.categoria}</span>}
                       <span>· {when(l.published_at ?? l.created_at)}</span>
                       {l.attempts > 0 && <span>· {l.attempts} tentativa(s)</span>}
+                    </p>
+                    <p className="mt-1 font-mono text-xs font-bold text-acc">
+                      {l.slides > 1 ? `CARROSSEL · ${l.slides} SLIDES (ARRASTE PARA O LADO)` : "IMAGEM ÚNICA"}
                     </p>
                     {l.error && <p className="mt-1 line-clamp-1 text-xs text-warn" title={l.error}>{l.error}</p>}
                   </div>

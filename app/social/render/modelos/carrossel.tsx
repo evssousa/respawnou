@@ -71,7 +71,7 @@ function Capa({ e, ins, total, rotulo, chipFinal }: { e: EntradaSocial; ins: Ins
         {desc && <div style={{ display: "flex", marginTop: 20, fontSize: 34, lineHeight: 1.35, color: COR.corpo, width: 952 }}>{desc}</div>}
       </div>
       <div style={{ position: "absolute", left: 64, top: 1196, width: 952, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Chip texto={chipFinal} tipo="contorno" />
+        {chipFinal ? <Chip texto={chipFinal} tipo="contorno" /> : <div style={{ display: "flex" }} />}
         <div style={{ display: "flex", alignItems: "center", fontFamily: MONO, fontWeight: 700, fontSize: 26, color: COR.destaque }}>
           ARRASTA PRO LADO
           <Seta cor={COR.destaque} tam={28} />
@@ -229,7 +229,7 @@ export function slidesCarrossel(modelo: "C-artigo" | "C-review" | "C-guia", e: E
   }
   if (modelo === "C-guia" && e.requisitos) return [<GuiaUnico key="g" e={e} ins={ins} />];
   const total = pontos.length + 2;
-  out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo={`${SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} // ${e.tag ? caixa(e.tag) : "DESTAQUES"}`} chipFinal={`${pontos.length} PONTOS NESTE POST`} />);
+  out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo={`${SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} // ${e.tag ? caixa(e.tag) : "DESTAQUES"}`} chipFinal="" />);
   pontos.forEach((p, i) => out.push(<PontoSlide key={`p${i}`} p={p} i={i + 1} total={total} ins={ins} imagem={ins.imagens[i] ?? null} rotulo={SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} />));
   out.push(<CtaFinal key="f" ins={ins} total={total} />);
   return out;
