@@ -1,7 +1,7 @@
 // Conta do Instagram e configurações da automação (tabela social_accounts). O token fica criptografado (cripto.server.ts).
 import { exec, query } from "../db";
 import { cifrar, chaveOk, decifrar } from "./cripto.server";
-import { perfil, renovar } from "./instagram.server";
+import { perfil, renovar, tokenDoInstagram } from "./instagram.server";
 
 export interface Conta {
   network: string;
@@ -59,10 +59,12 @@ export async function conectar(token: string): Promise<{ username: string }> {
   if (!chaveOk()) throw new Error("SOCIAL_KEY ausente ou inválida: cadastre a variável no hPanel antes de conectar");
   const limpo = token.trim();
   const p = await perfil(limpo);
+  // Login do Instagram: vale 60 dias e o site renova sozinho. Login do Facebook (token de Página): não tem data de vencimento conhecida.
+  const doInstagram = tokenDoInstagram(p.tokenFinal);
   await exec(
     `UPDATE social_accounts SET account_id = ?, username = ?, token_enc = ?, token_status = 'ok', token_refreshed_at = UTC_TIMESTAMP(),
-       token_expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 60 DAY), paused_until = NULL, note = NULL WHERE network = 'instagram'`,
-    [p.user_id, p.username, cifrar(limpo)],
+       token_expires_at = ${doInstagram ? "DATE_ADD(UTC_TIMESTAMP(), INTERVAL 60 DAY)" : "NULL"}, paused_until = NULL, note = NULL WHERE network = 'instagram'`,
+    [p.user_id, p.username, cifrar(p.tokenFinal)],
   );
   return { username: p.username };
 }
@@ -86,7 +88,9 @@ export async function renovarSePreciso(): Promise<void> {
   );
   if (!r?.token_enc || r.status !== "ok" || (r.refreshed ?? 0) < 24 * 7) return;
   try {
-    const novo = await renovar(decifrar(r.token_enc));
+    const atual = decifrar(r.token_enc);
+    if (!tokenDoInstagram(atual)) return; // token de Página (login do Facebook): não há renovação por aqui
+    const novo = await renovar(atual);
     await exec("UPDATE social_accounts SET token_enc = ?, token_refreshed_at = UTC_TIMESTAMP(), token_expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND) WHERE network = 'instagram'", [cifrar(novo.token), novo.expiraEmSeg]);
   } catch (e) {
     const codigo = (e as { codigo?: number }).codigo;

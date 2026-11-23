@@ -743,6 +743,21 @@ Facebook.
 9. **Um app para todos os sites** serve: cada site conecta a própria conta do Instagram (testadora do mesmo app) e
    guarda o próprio token. Ou um app por site, se preferir separar (pergunta em aberto).
 
+## Caminho B: login do Facebook (se o painel da Meta só oferecer esse)
+
+Em 2026-11-23 o painel do dono só mostrava "Configuração da API com login do Facebook" (a Meta avisa que o "login unificado" é o
+recomendado e que o do Facebook está obsoleto, mas ainda funciona e publica imagem e carrossel). O site aceita os dois tipos de token:
+`IG…` (login do Instagram, `graph.instagram.com`) e `EAA…` (login do Facebook, `graph.facebook.com`). Passos:
+
+1. **Página do Facebook ligada à conta.** Criar (ou usar) uma Página do Facebook do Respawnou e ligar à conta profissional do Instagram
+   (Instagram → Editar perfil → "Página", ou na Página → Configurações → "Contas vinculadas" → Instagram).
+2. **Permissões** no app, no caso de uso do Instagram: `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`.
+3. **Gerar o token:** developers.facebook.com/tools/explorer → escolher o app → "Token de usuário" → adicionar as 4 permissões → "Gerar token de
+   acesso" → autorizar escolhendo a Página e a conta do Instagram.
+4. **Estender:** developers.facebook.com/tools/debug/accesstoken → colar o token → "Estender token de acesso" → copiar o novo (vale 60 dias).
+5. **Colar em `/admin/instagram` → Conectar.** O site acha a Página e a conta do Instagram sozinho e guarda o **token da Página** (que, vindo de
+   um token de longa duração, não vence). Sem renovação automática nesse caminho; se parar de funcionar, repetir os passos 3 a 5.
+
 ## Regras da Meta e boas práticas (para não perder a conta)
 - Postar pela API oficial é permitido. Não automatizar curtidas, comentários, seguir/deixar de seguir nem mensagens.
 - Não comprar seguidores, curtidas ou "engajamento"; não participar de grupos de troca de curtidas.

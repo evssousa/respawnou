@@ -1,6 +1,12 @@
 // Cliente da API oficial do Instagram (Instagram API com login do Instagram; grátis). Nunca loga o token.
 // Fluxo: contêiner de mídia → esperar FINISHED → media_publish → permalink. Carrossel: 1 contêiner por slide + 1 do carrossel.
+// Dois caminhos oficiais, mesma API de publicação:
+//  - login do Instagram: token que começa com "IG" → graph.instagram.com (não precisa de Página do Facebook);
+//  - login do Facebook: token da Página ou do usuário ("EAA…") → graph.facebook.com (a conta profissional precisa estar ligada a uma Página).
 const API = "https://graph.instagram.com/v23.0";
+const FB = "https://graph.facebook.com/v23.0";
+export const tokenDoInstagram = (token: string) => token.startsWith("IG");
+const baseDe = (token: string) => (tokenDoInstagram(token) ? API : FB);
 
 export class ErroInstagram extends Error {
   constructor(
@@ -19,7 +25,7 @@ async function chamar<T>(caminho: string, token: string, opts: { metodo?: "GET" 
   const metodo = opts.metodo ?? "GET";
   const corpo = new URLSearchParams();
   for (const [k, v] of Object.entries(opts.params ?? {})) if (v !== undefined) corpo.set(k, String(v));
-  const url = `${opts.base ?? API}${caminho}${metodo === "GET" && corpo.size ? `?${corpo}` : ""}`;
+  const url = `${opts.base ?? baseDe(token)}${caminho}${metodo === "GET" && corpo.size ? `?${corpo}` : ""}`;
   const res = await fetch(url, {
     method: metodo,
     headers: { Authorization: `Bearer ${token}`, ...(metodo === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) },
@@ -40,7 +46,27 @@ async function chamar<T>(caminho: string, token: string, opts: { metodo?: "GET" 
   return json as T;
 }
 
-export const perfil = (token: string) => chamar<{ user_id: string; username: string }>("/me", token, { params: { fields: "user_id,username" } });
+/** Conta do Instagram a que o token dá acesso: { id, username, tokenFinal }. No login do Facebook, descobre a Página ligada à conta. */
+export async function perfil(token: string): Promise<{ user_id: string; username: string; tokenFinal: string }> {
+  if (tokenDoInstagram(token)) {
+    const r = await chamar<{ user_id: string; username: string }>("/me", token, { params: { fields: "user_id,username" } });
+    return { ...r, tokenFinal: token };
+  }
+  // Token de Página: /me já traz a conta do Instagram ligada.
+  try {
+    const r = await chamar<{ instagram_business_account?: { id: string; username: string } }>("/me", token, { params: { fields: "instagram_business_account{id,username}" } });
+    if (r.instagram_business_account) return { user_id: r.instagram_business_account.id, username: r.instagram_business_account.username, tokenFinal: token };
+  } catch {
+    /* não é token de Página: tenta como token de usuário */
+  }
+  // Token de usuário: procura a Página com conta do Instagram e guarda o token dela (não vence, se vier de um token de usuário de longa duração).
+  const r = await chamar<{ data: { name: string; access_token: string; instagram_business_account?: { id: string; username: string } }[] }>("/me/accounts", token, {
+    params: { fields: "name,access_token,instagram_business_account{id,username}" },
+  });
+  const pagina = r.data.find((p) => p.instagram_business_account);
+  if (!pagina) throw new ErroInstagram("Nenhuma Página do Facebook com conta profissional do Instagram ligada foi encontrada para este token.", null, null, 200);
+  return { user_id: pagina.instagram_business_account!.id, username: pagina.instagram_business_account!.username, tokenFinal: pagina.access_token };
+}
 
 export async function cota(id: string, token: string) {
   const r = await chamar<{ data: { quota_usage: number; config?: { quota_total: number } }[] }>(`/${id}/content_publishing_limit`, token, { params: { fields: "quota_usage,config" } });

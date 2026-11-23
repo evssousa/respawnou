@@ -124,8 +124,8 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
           <p className="mt-2 text-sm text-body">{conta.username ? `Conectada: @${conta.username}` : `Nenhuma conta conectada (a conta do site é @${SOCIAL.handle}).`}</p>
           <Form method="post" className="mt-3 flex flex-col gap-3">
             <input type="hidden" name="intent" value="conectar" />
-            <Field label="Token de acesso do Instagram" hint="Gerado no app da Meta (nunca cole no chat). Fica criptografado.">
-              <input name="token" type="password" autoComplete="off" className={inputCls} placeholder="IGAA…" />
+            <Field label="Token de acesso" hint="Do login do Instagram (começa com IG…) ou do login do Facebook (começa com EAA…). Gerado no app da Meta; nunca cole no chat. Fica criptografado.">
+              <input name="token" type="password" autoComplete="off" className={inputCls} placeholder="IGAA… ou EAA…" />
             </Field>
             <div className="flex flex-wrap gap-2">
               <Button tone="primary" disabled={busy || !d.chave}>Conectar</Button>
