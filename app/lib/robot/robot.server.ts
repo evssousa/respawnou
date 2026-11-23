@@ -159,9 +159,13 @@ const SKIP_PATTERNS: [RegExp, string][] = [
     "oferta de varejo",
   ],
   [/\bwordle\b|\bconnections\b.*\bhints?\b|\bnyt\b|\bcrossword\b|\bstrands\b/i, "fora do tema (passatempos)"],
-  [/\b(movie|film|tv series|tv show|netflix|hbo|box office)\b/i, "cinema/TV"],
+  [/\b(movies?|films?|tv series|tv shows?|netflix|hbo|disney\+|hulu|apple tv\+?|prime video|box office|oscars?|emmys?|golden globes?|showrunner|sitcom|miniseries|season \d+ (premiere|finale)|filmes?|bilheteria|temporada da s[ée]rie)\b/i, "cinema/TV"],
+  [/\b(avengers|x-men|marvel studios|mcu|dc studios|dceu|doctor who|stranger things|game of thrones|house of the dragon|the boys|star trek|lord of the rings|harry potter|the mandalorian|andor|ahsoka|dune|justice league|fantastic four|deadpool)\b(?!.*\b(game|games|jogo|jogos|gameplay|playstation|xbox|steam|switch|pc)\b)/i, "cinema/TV (franquia sem jogo)"],
   [/\btalking point\b|\bopinion\b|\bfeature:|\bsoapbox\b|\bi (tried|played|feel|think|love|hate|spent|was)\b|\bwhy i\b|\bi'm\b/i, "texto de opinião"],
 ];
+
+/** Seções que não são de games nos sites de origem (IGN, GameSpot, GamesRadar...). */
+const URL_FORA_DO_TEMA = /\/(movies?|tv|television|film|films|comics?|entertainment|anime-manga|cinema|series)\//i;
 
 const BOOST: [RegExp, number][] = [
   [/\b(announce[sd]?|reveal(ed|s)?|confirm(ed|s)?|launch(es|ed)?|release date|delay(ed|s)?|cancel(led|s|ed)?)\b/i, 15],
@@ -270,7 +274,7 @@ function collectFeeds(): Promise<JobResult> {
           // Análise vale por mais tempo: as notas do mesmo jogo saem ao longo de dias.
           const oldest = review ? Date.now() - 21 * 86400_000 : cutoff;
           if (!it.publishedAt || it.publishedAt.getTime() < oldest || it.publishedAt.getTime() > Date.now() + 3600_000) continue;
-          const skip: [RegExp, string] | undefined = review ? [/./, "análise de outro veículo (vai para o consenso da crítica)"] : SKIP_PATTERNS.find(([re]) => re.test(it.title));
+          const skip: [RegExp, string] | undefined = review ? [/./, "análise de outro veículo (vai para o consenso da crítica)"] : (URL_FORA_DO_TEMA.test(it.url) ? ([/./, "fora do tema (seção de cinema/TV/quadrinhos do site de origem)"] as [RegExp, string]) : SKIP_PATTERNS.find(([re]) => re.test(it.title)));
           const [res] = await db().query<ResultSetHeader>(
             `INSERT IGNORE INTO feed_items (feed_id, guid_hash, title, url, summary, media, published_at, status, score, reason)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
