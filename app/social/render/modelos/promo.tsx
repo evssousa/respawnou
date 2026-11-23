@@ -1,8 +1,8 @@
 // Modelos P1 (jogo grátis, cupom) e P2 (ofertas da semana na Steam).
 import { COR, SOCIAL } from "../../config";
-import { cortar, maiusculasBR } from "../../core/texto";
+import { cortar } from "../../core/texto";
 import type { EntradaSocial } from "../../tipos";
-import { ajustarTitulo, ANTON, Chip, Faixa, MONO, Rodape, Tela, Topo } from "../ui";
+import { ajustarTitulo, ANTON, Chip, Faixa, MONO, Rodape, Tela, Topo, caixa } from "../ui";
 
 export interface InsumosPromo {
   logo: string;
@@ -29,7 +29,7 @@ export function ModeloGratis({ e, ins }: { e: EntradaSocial; ins: InsumosPromo }
         {ins.arte ? <img src={ins.arte} width={948} height={476} /> : <div style={{ display: "flex", width: 948, height: 476, backgroundColor: COR.painel2 }} />}
         <div style={{ display: "flex", width: 948, borderTop: `2px dashed ${COR.linhaSuave}` }} />
         <div style={{ display: "flex", flexDirection: "column", padding: "18px 32px" }}>
-          <div style={{ display: "flex", fontFamily: ANTON, fontSize: tam, lineHeight: 1.04 }}>{maiusculasBR(nome)}</div>
+          <div style={{ display: "flex", fontFamily: ANTON, fontSize: tam, lineHeight: 1.04 }}>{caixa(nome)}</div>
           <div style={{ display: "flex", alignItems: "center", marginTop: 12 }}>
             {g.precoNormal && <div style={{ display: "flex", fontFamily: MONO, fontWeight: 700, fontSize: 30, color: COR.apagado, textDecoration: "line-through", marginRight: 24 }}>{`DE ${g.precoNormal}`}</div>}
             <div style={{ display: "flex", fontFamily: ANTON, fontSize: 64, color: COR.destaque }}>R$ 0</div>
@@ -37,8 +37,8 @@ export function ModeloGratis({ e, ins }: { e: EntradaSocial; ins: InsumosPromo }
         </div>
       </div>
       <div style={{ position: "absolute", left: 96, top: 1124, display: "flex" }}>
-        <Chip texto={maiusculasBR(g.loja)} tipo="contorno" />
-        <Chip texto={`ATÉ ${maiusculasBR(g.ate)}`} tipo="alerta" estilo={{ marginLeft: 12 }} />
+        <Chip texto={caixa(g.loja)} tipo="contorno" />
+        <Chip texto={`ATÉ ${caixa(g.ate)}`} tipo="alerta" estilo={{ marginLeft: 12 }} />
       </div>
       <Rodape frase="Avisamos todo jogo grátis" botao="COMO RESGATAR: LINK NA BIO" />
       <Faixa />
@@ -65,7 +65,7 @@ export function ModeloOfertas({ e, ins }: { e: EntradaSocial; ins: InsumosPromo 
           <div key={i} style={{ display: "flex", alignItems: "center", height: 180, marginBottom: 16, backgroundColor: COR.painel, border: `2px solid ${COR.linhaSuave}` }}>
             {ins.imagens[i] ? <img src={ins.imagens[i]!} width={300} height={140} style={{ marginLeft: 18 }} /> : <div style={{ display: "flex", width: 300, height: 140, marginLeft: 18, backgroundColor: COR.painel2 }} />}
             <div style={{ display: "flex", flexDirection: "column", flex: 1, marginLeft: 24 }}>
-              <div style={{ display: "flex", fontFamily: ANTON, fontSize: 38, lineHeight: 1.05 }}>{maiusculasBR(cortar(it.nome, 26))}</div>
+              <div style={{ display: "flex", fontFamily: ANTON, fontSize: 38, lineHeight: 1.05 }}>{caixa(cortar(it.nome, 26))}</div>
               <div style={{ display: "flex", alignItems: "baseline", marginTop: 10 }}>
                 <div style={{ display: "flex", fontFamily: ANTON, fontSize: 48, color: COR.destaque }}>{it.preco}</div>
                 {it.precoAntes && <div style={{ display: "flex", fontFamily: MONO, fontWeight: 700, fontSize: 22, color: COR.apagado, textDecoration: "line-through", marginLeft: 16 }}>{it.precoAntes}</div>}

@@ -1,8 +1,11 @@
 // Peças comuns das artes (satori: todo div com mais de um filho precisa de display:flex; sem grid; sem z-index).
 import type { CSSProperties, ReactNode } from "react";
-import { COR, SOCIAL } from "../config";
+import { COR, FONTES, SOCIAL, TITULO } from "../config";
 
-export const MONO = "JetBrains Mono";
+export const MONO = FONTES.mono;
+export const ANTON = FONTES.titulo;
+/** Título em caixa alta ou como veio, conforme a identidade do site. */
+export const caixa = (t: string) => (TITULO.maiusculo ? t.toLocaleUpperCase("pt-BR") : t);
 
 /** Ícones em SVG (a JetBrains Mono latina não tem ▶ nem →). */
 export function Seta({ cor = COR.sobreDestaque, tam = 28 }: { cor?: string; tam?: number }) {
@@ -19,12 +22,11 @@ export function Play({ cor = COR.texto, tam = 22 }: { cor?: string; tam?: number
     </svg>
   );
 }
-export const ANTON = "Anton";
 
 /** Tela base 1080×1350 com a grade fina e o conteúdo posicionado de forma absoluta. */
 export function Tela({ grade, children, fundo, escuro = 0.78 }: { grade: string; children: ReactNode; fundo?: string; escuro?: number }) {
   return (
-    <div style={{ display: "flex", position: "relative", width: 1080, height: 1350, backgroundColor: COR.fundo, ...(fundo ? { backgroundImage: `url(${fundo})` } : {}), fontFamily: "Inter", color: COR.texto }}>
+    <div style={{ display: "flex", position: "relative", width: 1080, height: 1350, backgroundColor: COR.fundo, ...(fundo ? { backgroundImage: `url(${fundo})` } : {}), fontFamily: FONTES.corpo, color: COR.texto }}>
       {fundo && <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 1350, backgroundColor: COR.fundo, opacity: escuro }} />}
       <img src={grade} width={1080} height={1350} style={{ position: "absolute", left: 0, top: 0 }} />
       {children}
@@ -83,7 +85,7 @@ export function Rodape({ frase, botao = SOCIAL.dominio }: { frase: string; botao
 }
 
 /** Largura estimada de uma palavra em Anton maiúsculo (conservadora: melhor sobrar espaço do que invadir o rodapé). */
-const larguraPalavra = (w: string, tam: number) => w.length * tam * 0.5;
+const larguraPalavra = (w: string, tam: number) => w.length * tam * TITULO.largura;
 
 /** Quantas linhas o título ocupa nesse tamanho (quebra de palavras simulada, com o espaço entre palavras). */
 export function linhasDoTitulo(texto: string, tam: number, largura = 952): number {
@@ -105,7 +107,7 @@ export function linhasDoTitulo(texto: string, tam: number, largura = 952): numbe
  * Escolhe o maior tamanho (de `opcoes`) em que o título cabe em `maxLinhas`. Se nem o menor serve, corta o título por palavras
  * (com reticências) até caber. Devolve o texto final, o tamanho e quantas linhas ocupa.
  */
-export function ajustarTitulo(texto: string, largura = 952, maxLinhas = 3, opcoes = [96, 84, 72, 64]): { texto: string; tam: number; linhas: number } {
+export function ajustarTitulo(texto: string, largura = 952, maxLinhas = 3, opcoes: number[] = TITULO.tamanhos): { texto: string; tam: number; linhas: number } {
   for (const t of opcoes) {
     const l = linhasDoTitulo(texto, t, largura);
     if (l <= maxLinhas) return { texto, tam: t, linhas: l };
@@ -121,6 +123,6 @@ export function ajustarTitulo(texto: string, largura = 952, maxLinhas = 3, opcoe
 }
 
 /** Compatível com o uso antigo: só o tamanho. */
-export function tamanhoTitulo(texto: string, largura = 952, linhas = 3, opcoes = [96, 84, 72, 64]): number {
+export function tamanhoTitulo(texto: string, largura = 952, linhas = 3, opcoes: number[] = TITULO.tamanhos): number {
   return ajustarTitulo(texto, largura, linhas, opcoes).tam;
 }

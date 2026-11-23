@@ -1,12 +1,11 @@
 // Fila de posts sociais e o gatilho (docs/instagram.md). enfileirar() é rápido (não gera imagem); tick() decide e envia.
 import { readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { db } from "~/lib/db.server";
 import { mediaDir } from "../../../server-paths.mjs";
 import { SOCIAL } from "../config";
 import { horaBR, podeEnviar } from "../core/agenda";
 import { montarLegenda } from "../core/legenda";
-import { exec, hasDatabase, query } from "../db";
+import { db, exec, hasDatabase, query } from "../db";
 import { gerarSlides } from "../render/slides.server";
 import { salvar } from "../render/render.server";
 import { escolherModelo, lerEntrada, modeloAtivo, type DicaSocial } from "../site.server";

@@ -1,9 +1,9 @@
 // Modelo C: carrossel (artigos, reviews e guias), 5 a 7 slides: capa, pontos/notas/requisitos e CTA final.
 import type { ReactElement } from "react";
 import { COR, SOCIAL } from "../../config";
-import { cortar, frasesInteiras, maiusculasBR } from "../../core/texto";
+import { cortar, frasesInteiras } from "../../core/texto";
 import type { EntradaSocial, Ponto } from "../../tipos";
-import { ajustarTitulo, ANTON, Chip, Faixa, linhasDoTitulo, MONO, Seta, Tela, Topo } from "../ui";
+import { ajustarTitulo, ANTON, Chip, Faixa, linhasDoTitulo, MONO, Seta, Tela, Topo, caixa } from "../ui";
 
 export interface InsumosCarrossel {
   logo: string;
@@ -22,7 +22,7 @@ const corNota = (n: number) => (n >= 7.5 ? COR.destaque : n >= 5.5 ? COR.alerta 
 const nn = (i: number, t: number) => `${String(i).padStart(2, "0")}/${String(t).padStart(2, "0")}`;
 
 function Titulo({ texto, tam, cor = COR.texto, largura = 952 }: { texto: string; tam: number; cor?: string; largura?: number }) {
-  return <div style={{ display: "flex", fontFamily: ANTON, fontSize: tam, lineHeight: 1.04, color: cor, width: largura }}>{maiusculasBR(texto)}</div>;
+  return <div style={{ display: "flex", fontFamily: ANTON, fontSize: tam, lineHeight: 1.04, color: cor, width: largura }}>{caixa(texto)}</div>;
 }
 
 function Rod({ dir = "ARRASTA" }: { dir?: string }) {
@@ -158,7 +158,7 @@ function CtaFinal({ ins, total }: { ins: InsumosCarrossel; total: number }) {
       </div>
       <div style={{ position: "absolute", left: 0, top: 480, width: 1080, display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div style={{ display: "flex", fontFamily: ANTON, fontSize: 120 }}>CURTIU?</div>
-        <div style={{ display: "flex", fontFamily: ANTON, fontSize: 96, color: COR.destaque, marginTop: 10 }}>{`SIGA @${maiusculasBR(SOCIAL.handle)}`}</div>
+        <div style={{ display: "flex", fontFamily: ANTON, fontSize: 96, color: COR.destaque, marginTop: 10 }}>{`SIGA @${caixa(SOCIAL.handle)}`}</div>
         <div style={{ display: "flex", marginTop: 40, fontSize: 36, color: COR.corpo }}>{SOCIAL.frases.ctaFinal}</div>
       </div>
       <div style={{ position: "absolute", left: 160, top: 920, width: 760, height: 88, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: COR.destaque, color: COR.sobreDestaque, fontFamily: MONO, fontWeight: 700, fontSize: 32 }}>
@@ -189,7 +189,7 @@ export function slidesCarrossel(modelo: "C-artigo" | "C-review" | "C-guia", e: E
     return out;
   }
   const total = pontos.length + 2;
-  out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo={`${SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} // ${e.tag ? maiusculasBR(e.tag) : "DESTAQUES"}`} chipFinal={`${pontos.length} PONTOS NESTE POST`} />);
+  out.push(<Capa key="c" e={e} ins={ins} total={total} rotulo={`${SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} // ${e.tag ? caixa(e.tag) : "DESTAQUES"}`} chipFinal={`${pontos.length} PONTOS NESTE POST`} />);
   pontos.forEach((p, i) => out.push(<PontoSlide key={`p${i}`} p={p} i={i + 1} total={total} ins={ins} imagem={ins.imagens[i] ?? null} rotulo={SOCIAL.rotuloSecao[e.section] ?? "ARTIGO"} />));
   out.push(<CtaFinal key="f" ins={ins} total={total} />);
   return out;

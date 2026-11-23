@@ -1,8 +1,8 @@
 // Modelo S: lançamentos da semana em UMA imagem: uma linha por dia, blocos horizontais com a arte de cada jogo.
 import { COR } from "../../config";
-import { cortar, maiusculasBR } from "../../core/texto";
+import { cortar } from "../../core/texto";
 import type { EntradaSocial } from "../../tipos";
-import { ANTON, Faixa, MONO, Rodape, Tela, Topo } from "../ui";
+import { ANTON, Faixa, MONO, Rodape, Tela, Topo, caixa } from "../ui";
 
 export interface InsumosSemana {
   logo: string;
@@ -21,7 +21,7 @@ export function ModeloSemana({ e, ins }: { e: EntradaSocial; ins: InsumosSemana 
       <div style={{ position: "absolute", left: 64, top: 124, display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", fontFamily: ANTON, fontSize: 110, lineHeight: 1.02 }}>LANÇAMENTOS</div>
         <div style={{ display: "flex", fontFamily: ANTON, fontSize: 110, lineHeight: 1.02, color: COR.destaque }}>DA SEMANA</div>
-        <div style={{ display: "flex", marginTop: 10, fontFamily: MONO, fontWeight: 700, fontSize: 28, color: COR.corpo }}>{`> ${maiusculasBR(s.periodo)} // ${s.total} JOGOS`}</div>
+        <div style={{ display: "flex", marginTop: 10, fontFamily: MONO, fontWeight: 700, fontSize: 28, color: COR.corpo }}>{`> ${caixa(s.periodo)} // ${s.total} JOGOS`}</div>
       </div>
       <div style={{ position: "absolute", left: 0, top: 396, width: 1080, height: 2, backgroundColor: COR.linhaSuave }} />
       <div style={{ position: "absolute", left: 64, top: 410, width: 952, display: "flex", flexDirection: "column" }}>
@@ -36,7 +36,7 @@ export function ModeloSemana({ e, ins }: { e: EntradaSocial; ins: InsumosSemana 
               </div>
               {jogos.map((j, ji) => (
                 <div key={ji} style={{ display: "flex", flexDirection: "column", width: 192, height: alturaLinha, marginRight: 12, backgroundColor: COR.painel, border: j.destaque ? `3px solid ${COR.destaque}` : `2px solid ${COR.linhaSuave}` }}>
-                  {ins.artes[di]?.[ji] ? <img src={ins.artes[di][ji]!} width={192} height={108} /> : <div style={{ display: "flex", width: 192, height: 108, alignItems: "center", justifyContent: "center", fontFamily: ANTON, fontSize: 28, color: COR.corpo, textAlign: "center" }}>{maiusculasBR(cortar(j.nome, 18))}</div>}
+                  {ins.artes[di]?.[ji] ? <img src={ins.artes[di][ji]!} width={192} height={108} /> : <div style={{ display: "flex", width: 192, height: 108, alignItems: "center", justifyContent: "center", fontFamily: ANTON, fontSize: 28, color: COR.corpo, textAlign: "center" }}>{caixa(cortar(j.nome, 18))}</div>}
                   <div style={{ display: "flex", padding: "6px 8px", fontWeight: 600, fontSize: 22, lineHeight: 1.12 }}>{cortar(j.nome, 28)}</div>
                 </div>
               ))}

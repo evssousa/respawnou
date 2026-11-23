@@ -50,6 +50,22 @@ export const SOCIAL = {
   utm: "utm_source=instagram&utm_medium=social",
 };
 
+/**
+ * Fontes da arte. O satori não lê WOFF2 nem fonte variável: arquivos WOFF/TTF estáticos em app/social/fonts.
+ * `titulo`, `corpo` e `mono` são nomes de família; cada arquivo pode se registrar com o nome que quiser
+ * (ex.: o peso ExtraBold de uma fonte pode entrar como família "Titulo" no peso 400).
+ */
+export const FONTES = { titulo: "Anton", corpo: "Inter", mono: "JetBrains Mono" };
+export const FONTES_ARQUIVOS: { name: string; file: string; weight: 400 | 600 | 700 | 800 }[] = [
+  { name: "Anton", file: "anton-latin-400-normal.woff", weight: 400 },
+  { name: "Inter", file: "inter-latin-400-normal.woff", weight: 400 },
+  { name: "Inter", file: "inter-latin-600-normal.woff", weight: 600 },
+  { name: "Inter", file: "inter-latin-800-normal.woff", weight: 800 },
+  { name: "JetBrains Mono", file: "jetbrains-mono-latin-700-normal.woff", weight: 700 },
+];
+/** Título: caixa alta, largura média de cada letra (em × tamanho; Anton ≈ 0,5, Sora ≈ 0,62) e tamanhos tentados. */
+export const TITULO = { maiusculo: true, largura: 0.5, tamanhos: [96, 84, 72, 64] };
+
 /** Cores da arte (iguais a app/app.css; o site só tem tema escuro). */
 export const COR = {
   fundo: "#060807",

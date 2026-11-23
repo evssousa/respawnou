@@ -2,7 +2,7 @@
 import type { ResultSetHeader } from "mysql2/promise";
 import { db } from "~/lib/db.server";
 
-export { hasDatabase, query } from "~/lib/db.server";
+export { db, hasDatabase, query } from "~/lib/db.server";
 
 /** INSERT/UPDATE/DELETE: devolve as linhas afetadas e o id inserido. */
 export async function exec(sql: string, params: unknown[] = []) {

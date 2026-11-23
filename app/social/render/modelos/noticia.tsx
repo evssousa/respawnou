@@ -1,8 +1,8 @@
 // Modelo N: notícia, 1 imagem (capa grande, título em Anton, linha fina, convite para seguir).
 import { COR, SOCIAL } from "../../config";
-import { cortar, frasesInteiras, maiusculasBR, igual } from "../../core/texto";
+import { cortar, frasesInteiras, igual } from "../../core/texto";
 import type { EntradaSocial } from "../../tipos";
-import { ajustarTitulo, ANTON, Chip, Faixa, linhasDoTitulo, Play, Rodape, Tela, Topo, MONO } from "../ui";
+import { ajustarTitulo, ANTON, Chip, Faixa, linhasDoTitulo, Play, Rodape, Tela, Topo, MONO, caixa } from "../ui";
 
 export interface Insumos {
   logo: string;
@@ -12,8 +12,8 @@ export interface Insumos {
 
 /** Palavras do título que coincidem com a palavra-chave saem em verde. */
 function Titulo({ titulo, chave, tam }: { titulo: string; chave: string | null; tam: number }) {
-  const palavras = maiusculasBR(titulo).split(" ");
-  const k = chave ? maiusculasBR(chave).split(" ").filter((w) => w.length > 2) : [];
+  const palavras = caixa(titulo).split(" ");
+  const k = chave ? caixa(chave).split(" ").filter((w) => w.length > 2) : [];
   return (
     <div style={{ display: "flex", flexWrap: "wrap", fontFamily: ANTON, fontSize: tam, lineHeight: 1.02, width: 952 }}>
       {palavras.map((p, i) => (
@@ -58,7 +58,7 @@ export function ModeloNoticia({ e, ins }: { e: EntradaSocial; ins: Insumos }) {
       <div style={{ position: "absolute", left: 0, top: 460, width: 1080, height: 300, backgroundImage: "linear-gradient(to bottom, rgba(6,8,7,0), rgba(6,8,7,1))" }} />
       <Topo logo={ins.logo} direita={`${SOCIAL.rotuloSecao[e.section] ?? "NOTÍCIAS"} //`} />
       {e.capa?.credito && (
-        <div style={{ position: "absolute", right: 64, top: 690, display: "flex", fontFamily: MONO, fontWeight: 700, fontSize: 18, color: COR.texto, opacity: 0.6 }}>{maiusculasBR(cortar(e.capa.credito, 44))}</div>
+        <div style={{ position: "absolute", right: 64, top: 690, display: "flex", fontFamily: MONO, fontWeight: 700, fontSize: 18, color: COR.texto, opacity: 0.6 }}>{caixa(cortar(e.capa.credito, 44))}</div>
       )}
       <div style={{ position: "absolute", left: 64, top: 712, display: "flex" }}>
         <Chip texto={`NOTÍCIA${plats ? ` · ${plats}` : ""}`} />
