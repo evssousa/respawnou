@@ -9,6 +9,8 @@ export interface PostFilter {
   section?: SectionSlug;
   platform?: PlatformSlug;
   gameSlug?: string;
+  /** Nome do autor (posts.author), para a página do autor. */
+  author?: string;
   exclude?: string[];
 }
 

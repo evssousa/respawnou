@@ -75,7 +75,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
         datePublished: post.publishedAt,
         dateModified: post.updatedAt ?? post.publishedAt,
         author: authorByName(post.author)
-          ? { "@type": "Person", name: post.author, url: absoluteUrl(`/redacao#${authorByName(post.author)!.slug}`), description: "Autor de IA da redação do Respawnou" }
+          ? { "@type": "Person", name: post.author, url: absoluteUrl(`/autores/${authorByName(post.author)!.slug}`), worksFor: { "@type": "Organization", name: SITE.name, url: SITE.url } }
           : { "@type": "Organization", name: post.author, url: absoluteUrl("/redacao") },
         publisher: { "@type": "Organization", name: SITE.name, url: SITE.url, logo: { "@type": "ImageObject", url: absoluteUrl("/logo-512.png"), width: 512, height: 512 } },
         mainEntityOfPage: url,
@@ -125,10 +125,9 @@ export default function PostPage({ loaderData }: Route.ComponentProps) {
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-dashed border-line-soft py-3 font-mono text-xs text-muted">
             <span>
               POR{" "}
-              <Link to={`/redacao${authorByName(post.author) ? `#${authorByName(post.author)!.slug}` : ""}`} className="text-paper underline decoration-acc underline-offset-4 hover:text-acc">
+              <Link to={authorByName(post.author) ? `/autores/${authorByName(post.author)!.slug}` : "/redacao"} className="text-paper underline decoration-acc underline-offset-4 hover:text-acc">
                 {post.author.toUpperCase()}
               </Link>
-              {authorByName(post.author) && " · AUTOR DE IA"}
             </span>
             <time dateTime={post.publishedAt}>{formatDateTime(post.publishedAt)}</time>
             <span>{post.readMinutes} MIN DE LEITURA</span>

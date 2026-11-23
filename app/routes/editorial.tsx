@@ -51,9 +51,10 @@ const sections: DocSection[] = [
     body: (
       <>
         <p>
-          As matérias são escritas por <TextLink to="/redacao">autores de IA da redação</TextLink>, um por tipo de conteúdo. Uma pessoa define as regras, revisa a
-          peça semanal (que só é publicada depois de lida), atende pedidos de correção e pode tirar do ar qualquer matéria. A checagem de código confere números,
-          datas e nomes contra as fontes antes de publicar.
+          As matérias são produzidas com apoio de inteligência artificial e assinadas pelos <TextLink to="/redacao">autores da redação</TextLink>, um por tipo
+          de conteúdo. Uma pessoa confere o que é publicado e corrige, remove ou acrescenta o que for preciso, revisa a peça semanal (que só é publicada depois de
+          lida), atende pedidos de correção e pode tirar do ar qualquer matéria. Antes de publicar, uma checagem de código confere números, datas e nomes contra
+          as fontes.
         </p>
         <p>Para pedir uma correção, use o canal de correções abaixo; costumamos responder em até 3 dias úteis.</p>
       </>

@@ -1,7 +1,7 @@
 // Fonte de dados de exemplo (em memória). Usada quando não há banco configurado.
 import { MOCK_FREE_GAMES, MOCK_GAMES, MOCK_POSTS } from "../mock-data";
 import { normalize } from "../format";
-import { SECTIONS } from "../site";
+import { authorForSection, SECTIONS } from "../site";
 import type { Post } from "../types";
 import type { PostFilter, Repo } from "./types";
 
@@ -11,6 +11,7 @@ const matches = (p: Post, f: PostFilter) =>
   (!f.section || p.section === f.section) &&
   (!f.platform || p.platforms.includes(f.platform)) &&
   (!f.gameSlug || p.gameSlug === f.gameSlug) &&
+  (!f.author || p.author === f.author || authorForSection(p.section)?.name === f.author) &&
   !(f.exclude ?? []).includes(p.slug);
 
 export const mockRepo: Repo = {

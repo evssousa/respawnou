@@ -24,6 +24,7 @@ export default [
   route("cookies", "routes/cookies.tsx"),
   route("politica-editorial", "routes/editorial.tsx"),
   route("redacao", "routes/team.tsx"),
+  route("autores/:slug", "routes/author.tsx"),
   route("como-avaliamos", "routes/review-policy.tsx"),
   route("anuncie", "routes/advertise.tsx"),
   route("faq", "routes/faq.tsx"),

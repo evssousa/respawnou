@@ -1,5 +1,5 @@
 import { getAllGames, getAllPosts, getAvailability, postUrl } from "~/lib/content.server";
-import { absoluteUrl, DOC_PAGES } from "~/lib/site";
+import { absoluteUrl, AUTHORS, DOC_PAGES } from "~/lib/site";
 import { navFor, platformsFor } from "~/lib/availability";
 import { ARCADE_GAMES } from "~/lib/arcade";
 
@@ -14,6 +14,7 @@ export async function loader() {
     ...platformsFor(available).map((p) => ({ loc: `/plataforma/${p.slug}`, changefreq: "daily" })),
     ...posts.map((p) => ({ loc: postUrl(p), lastmod: p.updatedAt ?? p.publishedAt })),
     ...games.map((g) => ({ loc: `/jogos/${g.slug}`, changefreq: "weekly" })),
+    ...AUTHORS.filter((a) => posts.some((p) => p.author === a.name)).map((a) => ({ loc: `/autores/${a.slug}`, changefreq: "daily" })),
     ...ARCADE_GAMES.map((g) => ({ loc: `/arcade/${g.slug}`, changefreq: "monthly", lastmod: g.updated })),
     ...DOC_PAGES.map((d) => ({ loc: d.to, lastmod: d.updated, changefreq: "yearly" })),
   ];

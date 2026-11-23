@@ -109,22 +109,70 @@ export const DOC_PAGES: DocPage[] = [
 ];
 
 /**
- * Autores de IA da redação: um por tipo de conteúdo (como no Anime Profile). A página /redacao explica que são autores
- * de IA, revisados por pessoa; nada de currículo ou história inventada. O nome fica em posts.author (migration 011).
+ * Autores da redação: um perfil por tipo de conteúdo (como no Anime Profile). Cada um tem página em /autores/<slug>.
+ * Os textos são produzidos com apoio de IA e sempre conferidos pela redação (ver /redacao). O nome fica em posts.author
+ * (migration 011). Perfil sem currículo ou história inventada: só o que a pessoa leitora precisa saber.
  */
 export interface Author {
   slug: string;
   name: string;
   sections: SectionSlug[];
-  bio: string;
+  /** Frase curta do perfil. */
+  tagline: string;
+  /** Descrição do que o autor cobre. */
+  about: string;
+  /** Assuntos favoritos (chips). */
+  topics: string[];
+  /** Frase de efeito do perfil. */
+  quote: string;
 }
 
 export const AUTHORS: Author[] = [
-  { slug: "nox", name: "Nox", sections: ["noticias"], bio: "Acompanha anúncios, atualizações e bastidores da indústria a partir de canais oficiais e da imprensa especializada, e sempre linka a fonte original." },
-  { slug: "lume", name: "Lume", sections: ["artigos"], bio: "Escreve artigos, listas e resumos feitos a partir de dados: lançamentos da semana, jogos de um gênero, jogos que rodam em PC fraco e o resumo de domingo." },
-  { slug: "vero", name: "Vero", sections: ["reviews"], bio: "Reúne o consenso da crítica: calcula a média das notas publicadas pelos veículos e resume o que foi mais elogiado e mais criticado, atribuindo cada opinião a quem a escreveu." },
-  { slug: "atlas", name: "Atlas", sections: ["guias"], bio: "Faz guias práticos, como requisitos de PC, com os números da loja e comparação entre o mínimo e o recomendado, sem inventar desempenho." },
-  { slug: "loot", name: "Loot", sections: ["promocoes"], bio: "Acompanha jogos grátis e promoções com prazo, com preço em reais conferido na loja e a data da conferência no texto." },
+  {
+    slug: "nox",
+    name: "Nox",
+    sections: ["noticias"],
+    tagline: "Radar ligado 24 horas nas notícias dos games.",
+    about: "Nox acompanha anúncios, trailers, atualizações e bastidores da indústria a partir de canais oficiais e da imprensa especializada, e sempre linka a fonte original. Se aconteceu no mundo dos games, passou pelo radar do Nox.",
+    topics: ["Anúncios", "Trailers", "Atualizações", "Indústria", "Esports"],
+    quote: "Primeiro o fato, depois a opinião. E sem enrolação.",
+  },
+  {
+    slug: "lume",
+    name: "Lume",
+    sections: ["artigos"],
+    tagline: "Listas, resumos e dados que valem a leitura.",
+    about: "Lume transforma dados em artigos: os lançamentos da semana, os jogos mais esperados de cada gênero, os que rodam em PC fraco e o resumo de domingo. Gosta de ranking bem explicado e de lista com critério claro.",
+    topics: ["Listas", "Rankings", "Lançamentos da semana", "PC fraco", "Resumo da semana"],
+    quote: "Lista boa mostra o critério. Ranking sem critério é só opinião.",
+  },
+  {
+    slug: "vero",
+    name: "Vero",
+    sections: ["reviews"],
+    tagline: "O que a crítica achou, em um lugar só.",
+    about: "Vero reúne o consenso da crítica: calcula a média das notas publicadas pelos grandes veículos e resume o que foi mais elogiado e mais criticado, atribuindo cada opinião a quem a escreveu. Não dá nota própria: mostra o que a imprensa disse.",
+    topics: ["Consenso da crítica", "Notas", "Elogios", "Críticas", "Lançamentos"],
+    quote: "Quando todo mundo discorda, a média ainda conta uma história.",
+  },
+  {
+    slug: "atlas",
+    name: "Atlas",
+    sections: ["guias"],
+    tagline: "Seu mapa para jogar melhor.",
+    about: "Atlas faz guias práticos: requisitos de PC com os números da loja, comparação entre o mínimo e o recomendado, e o que muda para quem joga no Brasil. Prefere dado confirmado a palpite de desempenho.",
+    topics: ["Requisitos de PC", "Mínimo e recomendado", "Dicas", "PC gamer", "Preço em reais"],
+    quote: "Antes de baixar, confira se o seu PC dá conta.",
+  },
+  {
+    slug: "loot",
+    name: "Loot",
+    sections: ["promocoes"],
+    tagline: "Caçador de jogo grátis e promoção de verdade.",
+    about: "Loot acompanha jogos grátis e promoções com prazo, com o preço em reais conferido na loja e a data da conferência no texto. Só entra oferta que vale a pena de verdade.",
+    topics: ["Jogos grátis", "Promoções", "Steam", "Epic Games", "Descontos"],
+    quote: "Grátis acaba. Quem resgata a tempo, joga de graça para sempre.",
+  },
 ];
 
 export const authorByName = (name?: string | null) => AUTHORS.find((a) => a.name === name);

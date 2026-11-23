@@ -176,6 +176,10 @@ function where(f: PostFilter) {
     sql.push("g.slug = ?");
     params.push(f.gameSlug);
   }
+  if (f.author) {
+    sql.push("p.author = ?");
+    params.push(f.author);
+  }
   if (f.exclude?.length) {
     sql.push(`p.slug NOT IN (${f.exclude.map(() => "?").join(",")})`);
     params.push(...f.exclude);

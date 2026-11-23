@@ -32,6 +32,7 @@ export interface ListOptions {
   section?: SectionSlug;
   platform?: PlatformSlug;
   gameSlug?: string;
+  author?: string;
   exclude?: string[];
   page?: number;
   perPage?: number;
