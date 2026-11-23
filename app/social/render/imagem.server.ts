@@ -73,3 +73,10 @@ export async function gradeDataUri(w = 1080, h = 1350): Promise<string> {
   gradeCache.set(chave, uri);
   return uri;
 }
+
+/** Recorta bytes JPEG/PNG já em memória (cover) para w×h, com desfoque opcional, e devolve data URI JPEG. */
+export async function bufferDataUri(b: Buffer, w: number, h: number, opts: { blur?: number } = {}): Promise<string> {
+  let p = sharp(b).resize(w, h, { fit: "cover" });
+  if (opts.blur) p = p.blur(opts.blur);
+  return `data:image/jpeg;base64,${(await p.jpeg({ quality: 84 }).toBuffer()).toString("base64")}`;
+}

@@ -2,12 +2,13 @@
 import { createElement } from "react";
 import { extrairPontos } from "../core/pontos";
 import type { EntradaSocial, Modelo, Ponto } from "../tipos";
-import { gradeDataUri, imagemDataUri, logoDataUri } from "./imagem.server";
+import { bufferDataUri, gradeDataUri, imagemDataUri, logoDataUri } from "./imagem.server";
 import { ModeloNoticia } from "./modelos/noticia";
 import { slidesCarrossel } from "./modelos/carrossel";
 import { ModeloGratis, ModeloOfertas } from "./modelos/promo";
 import { ModeloSemana } from "./modelos/semana";
-import { renderizar } from "./render.server";
+import { ModeloStoryMoldura, ModeloStoryNoticia } from "./modelos/story";
+import { ALTURA_STORY, renderizar } from "./render.server";
 
 export interface Slides {
   jpegs: Buffer[];
@@ -77,4 +78,26 @@ export async function gerarSlides(modelo: Modelo, e: EntradaSocial): Promise<Sli
   const jpegs: Buffer[] = [];
   for (const s of slides) jpegs.push(await renderizar(s));
   return { jpegs, pontos: modelo === "C-artigo" ? pontos : undefined };
+}
+
+/**
+ * Story 1080×1920 da matéria. Modelo N do feed: ST-N (capa grande). Os outros: ST-M, a moldura com o slide 1 do feed
+ * (`slide1Src` = arquivo já gerado do post de feed, se existir; senão o slide 1 é gerado na hora, sem gravar).
+ */
+export async function gerarStory(modeloFeed: Modelo, e: EntradaSocial, opts: { slide1Src?: string | null; noFeed: boolean }): Promise<Buffer> {
+  const [logo, grade] = await Promise.all([logoDataUri(128), gradeDataUri(1080, ALTURA_STORY)]);
+  if (modeloFeed === "N") {
+    const arte = await imagemDataUri(e.capa?.src, 1080, 1000);
+    if (!arte) throw new Error("sem capa utilizável");
+    return renderizar(createElement(ModeloStoryNoticia, { e, ins: { logo, grade, arte, noFeed: opts.noFeed } }), { altura: ALTURA_STORY });
+  }
+  let arte = opts.slide1Src ? await imagemDataUri(opts.slide1Src, 860, 1076) : null;
+  let fundo: string | null = null;
+  if (arte) fundo = await imagemDataUri(opts.slide1Src, 1080, ALTURA_STORY, { blur: 40 });
+  else {
+    const jpeg = (await gerarSlides(modeloFeed, e)).jpegs[0];
+    arte = await bufferDataUri(jpeg, 860, 1076);
+    fundo = await bufferDataUri(jpeg, 1080, ALTURA_STORY, { blur: 40 });
+  }
+  return renderizar(createElement(ModeloStoryMoldura, { e, modelo: modeloFeed, ins: { logo, grade, arte, fundo, noFeed: opts.noFeed } }), { altura: ALTURA_STORY });
 }

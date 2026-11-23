@@ -1,18 +1,18 @@
 // Painel do Instagram (/admin/instagram): conta, automação, fila e prévias. Módulo: app/social (docs/instagram.md).
 import { useEffect, useState } from "react";
-import { Form, redirect, useNavigation } from "react-router";
+import { Form, Link, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/instagram";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { hasDatabase } from "~/lib/db.server";
 import { SOCIAL } from "~/social/config";
-import { conectar, desconectar, getConta, salvarConfig } from "~/social/server/conta.server";
+import { conectar, desconectar, getConta, salvarConfig, salvarConfigStory } from "~/social/server/conta.server";
 import { chaveOk } from "~/social/server/cripto.server";
 import { extrairPontos } from "~/social/core/pontos";
 import { montarLegenda } from "~/social/core/legenda";
-import { lerEntrada } from "~/social/site.server";
+import { lerEntrada, urlDaMateria } from "~/social/site.server";
 import type { Modelo } from "~/social/tipos";
-import { enfileirarRecentes, gerarDeNovo, imagensDe, listarFila, listarPostados, postarAgora, pular, repostar, resumo, tick, tirarDosPostados, zerarFila } from "~/social/server/fila.server";
+import { enfileirarRecentes, gerarDeNovo, imagensDe, listarFila, listarPostados, marcarPostadoAMao, postarAgora, pular, repostar, resumo, tick, tirarDosPostados, zerarFila } from "~/social/server/fila.server";
 import { cota, perfil } from "~/social/server/instagram.server";
 import { getToken } from "~/social/server/conta.server";
 
@@ -21,24 +21,28 @@ export const meta = () => adminMeta("Instagram");
 export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request);
   if (!hasDatabase()) return { semBanco: true as const };
-  const [conta, fila0, postados, r] = await Promise.all([getConta(), listarFila(30), listarPostados(50), resumo()]);
+  const aba = new URL(request.url).searchParams.get("aba") === "stories" ? ("stories" as const) : ("feed" as const);
+  const kind = aba === "stories" ? ("story" as const) : ("feed" as const);
+  const [conta, fila0, postados, r] = await Promise.all([getConta(), listarFila(30, kind), listarPostados(50, kind), resumo()]);
   // Para cada item: legenda (calculada na hora se a arte ainda não foi gerada), categoria da matéria e quantos slides terá.
   const fila = await Promise.all(
     fila0.map(async (l) => {
       let caption = l.caption;
       let categoria = "";
       let slides = imagensDe(l.images).length;
+      let link = "";
       try {
         const e = await lerEntrada(l.post_id);
         if (e) {
-          if (!caption) caption = montarLegenda(e, l.model as Modelo);
+          link = `${urlDaMateria(e)}?${SOCIAL.utm.replace("social", "story")}`;
+          if (!caption && kind === "feed") caption = montarLegenda(e, l.model as Modelo);
           categoria = [SOCIAL.rotuloSecao[e.section] ?? e.section, e.tag].filter(Boolean).join(" · ");
           if (!slides) slides = l.model === "C-artigo" ? extrairPontos(e.corpo).length + 2 : l.model === "C-review" ? 3 : 1;
         }
       } catch {
         /* sem os extras: o item continua aparecendo */
       }
-      return { ...l, caption, categoria, slides };
+      return { ...l, caption, categoria, slides, link };
     }),
   );
   let usoApi: string | null = null;
@@ -55,6 +59,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const dias = conta.token_expires_at ? Math.floor((new Date(`${String(conta.token_expires_at).replace(" ", "T")}Z`).getTime() - Date.now()) / 86400_000) : null;
   return {
     semBanco: false as const,
+    aba,
     conta,
     resumo: r,
     chave: chaveOk(),
@@ -63,7 +68,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     msg: url.searchParams.get("ok"),
     erro: url.searchParams.get("erro"),
     postados: postados.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, published_at: l.published_at, permalink: l.permalink, imagem: imagensDe(l.images)[0] ?? null })),
-    fila: fila.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, status: l.status, origin: l.origin, created_at: l.created_at, published_at: l.published_at, permalink: l.permalink, error: l.error, attempts: l.attempts, caption: l.caption, categoria: l.categoria, slides: l.slides, imagens: imagensDe(l.images) })),
+    fila: fila.map((l) => ({ id: l.id, post_id: l.post_id, title: l.title ?? "", model: l.model, status: l.status, origin: l.origin, created_at: l.created_at, published_at: l.published_at, permalink: l.permalink, error: l.error, attempts: l.attempts, caption: l.caption, categoria: l.categoria, slides: l.slides, link: l.link, expires_at: l.expires_at ?? null, imagens: imagensDe(l.images) })),
   };
 }
 
@@ -72,7 +77,7 @@ export async function action({ request }: Route.ActionArgs) {
   const f = await request.formData();
   const intent = String(f.get("intent"));
   const id = Number(f.get("id"));
-  const back = (q: string) => redirect(`/admin/instagram?${q}`);
+  const back = (q: string) => redirect(`/admin/instagram?${q}${f.get("aba") === "stories" ? "&aba=stories" : ""}`);
   try {
     if (intent === "conectar") {
       const r = await conectar(String(f.get("token") ?? ""));
@@ -92,6 +97,12 @@ export async function action({ request }: Route.ActionArgs) {
       });
       return back("ok=salvo");
     }
+    if (intent === "salvar_story") {
+      const num = (n: string, min: number, max: number, pad: number) => Math.max(min, Math.min(max, Math.round(Number(f.get(n)) || pad)));
+      await salvarConfigStory({ enabled: f.get("story_enabled") === "on", daily_limit: num("story_daily_limit", 1, 15, 6), min_gap_minutes: num("story_min_gap_minutes", 15, 360, 45) });
+      return back("ok=salvo");
+    }
+    if (intent === "manual") return (await marcarPostadoAMao(id), back("ok=manual"));
     if (intent === "rodar") {
       // Espera até 25 s para dizer o que aconteceu (a CDN corta pedidos longos; o que passar disso segue em segundo plano).
       const andamento = tick();
@@ -104,7 +115,7 @@ export async function action({ request }: Route.ActionArgs) {
       return back(`ok=recentes-${n}`);
     }
     if (intent === "zerar") {
-      const n = await zerarFila();
+      const n = await zerarFila(f.get("aba") === "stories" ? "story" : "feed");
       return back(`ok=zerou-${n}`);
     }
     if (intent === "postar") {
@@ -129,6 +140,7 @@ const MSG: Record<string, string> = {
   enviando: "Enviando em segundo plano; recarregue em 1 minuto.",
   pulado: "Post pulado.",
   novo: "Vai gerar a arte de novo no próximo ciclo.",
+  manual: "Marcado como postado à mão.",
   tirado: "Tirado da lista de postados (continua no Instagram).",
   repostar: "Voltou para a fila (cuidado: vai criar outro post no Instagram).",
 };
@@ -165,16 +177,18 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
   const busy = useNavigation().state !== "idle";
   const [aberto, setAberto] = useState<{ imgs: string[]; i: number } | null>(null);
   const [carregando, setCarregando] = useState<number | null>(null);
+  const [copiado, setCopiado] = useState<number | null>(null);
   /** Abre o visualizador. Sem arte gerada ainda: pergunta quantos slides a matéria terá e mostra todos (gerados na hora). */
   const abrir = async (l: { id: number; post_id: number; imagens: string[] }, i = 0) => {
+    const fmt = d.semBanco ? "" : d.aba === "stories" ? "&formato=story" : "";
     if (l.imagens.length) return setAberto({ imgs: l.imagens, i });
     setCarregando(l.id);
     try {
-      const r = await fetch(`/admin/instagram/previa/${l.post_id}?info=1`);
+      const r = await fetch(`/admin/instagram/previa/${l.post_id}?info=1${fmt}`);
       const j = r.ok ? ((await r.json()) as { slides: number }) : { slides: 1 };
-      setAberto({ imgs: Array.from({ length: j.slides }, (_, k) => `/admin/instagram/previa/${l.post_id}?s=${k + 1}`), i });
+      setAberto({ imgs: Array.from({ length: j.slides }, (_, k) => `/admin/instagram/previa/${l.post_id}?s=${k + 1}${fmt}`), i });
     } catch {
-      setAberto({ imgs: [`/admin/instagram/previa/${l.post_id}?s=1`], i: 0 });
+      setAberto({ imgs: [`/admin/instagram/previa/${l.post_id}?s=1${fmt}`], i: 0 });
     } finally {
       setCarregando(null);
     }
@@ -202,17 +216,18 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
       {conta.token_status === "invalid" && <Notice tone="warn">O token do Instagram não vale mais. Gere outro e cole abaixo (passo a passo em docs/instagram.md).</Notice>}
       {conta.note && <Notice tone="warn">{conta.note}</Notice>}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Stat label="Hoje" value={`${d.resumo.hoje}/${conta.daily_limit}`} />
-        <Stat label="Na fila" value={d.resumo.naFila} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Hoje (feed)" value={`${d.resumo.hoje}/${conta.daily_limit}`} />
+        <Stat label="Stories hoje" value={`${d.resumo.storiesHoje}/${conta.story_daily_limit}`} />
+        <Stat label="Na fila" value={`${d.resumo.naFila} + ${d.resumo.storiesNaFila} stories`} />
         <Stat label="Token" value={d.dias == null ? "—" : `${d.dias} dias`} tone={d.dias != null && d.dias < 10 ? "warn" : undefined} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Conta">
           {!d.chave && <Notice tone="warn">Falta a variável SOCIAL_KEY no hPanel (64 caracteres hexadecimais). Sem ela o token não pode ser guardado.</Notice>}
           <p className="mt-2 text-sm text-body">{conta.username ? `Conectada: @${conta.username}` : `Nenhuma conta conectada (a conta do site é @${SOCIAL.handle}).`}</p>
-          <Form method="post" className="mt-3 flex flex-col gap-3">
+          <Form method="post" className="mt-3 flex flex-col gap-3"><input type="hidden" name="aba" value={d.aba} />
             <input type="hidden" name="intent" value="conectar" />
             <Field label="Token de acesso" hint="Do login do Instagram (começa com IG…) ou do login do Facebook (começa com EAA…). Gerado no app da Meta; nunca cole no chat. Fica criptografado.">
               <input name="token" type="password" autoComplete="off" className={inputCls} placeholder="IGAA… ou EAA…" />
@@ -223,15 +238,30 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
             </div>
           </Form>
           {conta.hasToken && (
-            <Form method="post" className="mt-3">
+            <Form method="post" className="mt-3"><input type="hidden" name="aba" value={d.aba} />
               <input type="hidden" name="intent" value="desconectar" />
               <Button tone="danger" disabled={busy}>Desconectar</Button>
             </Form>
           )}
         </Card>
 
-        <Card title="Automação">
+        <Card title="Stories">
           <Form method="post" className="flex flex-col gap-3">
+            <input type="hidden" name="intent" value="salvar_story" />
+            <label className="flex items-center gap-3 text-paper">
+              <input type="checkbox" name="story_enabled" defaultChecked={conta.story_enabled} className="h-5 w-5 accent-[var(--color-acc)]" />
+              Stories ligados (1 story por matéria publicada)
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Stories por dia"><input name="story_daily_limit" type="number" min={1} max={15} defaultValue={conta.story_daily_limit} className={inputCls} /></Field>
+              <Field label="Intervalo (min)"><input name="story_min_gap_minutes" type="number" min={15} max={360} defaultValue={conta.story_min_gap_minutes} className={inputCls} /></Field>
+            </div>
+            <div><Button tone="primary" disabled={busy}>Salvar</Button></div>
+            <p className="text-xs text-muted">Usam a mesma janela de horário e o mesmo modo de teste do feed. Pela API não dá para pôr figurinha de link: o Story manda para o link da bio.</p>
+          </Form>
+        </Card>
+        <Card title="Automação">
+          <Form method="post" className="flex flex-col gap-3"><input type="hidden" name="aba" value={d.aba} />
             <input type="hidden" name="intent" value="salvar" />
             <label className="flex items-center gap-3 text-paper">
               <input type="checkbox" name="enabled" defaultChecked={conta.enabled} className="h-5 w-5 accent-[var(--color-acc)]" />
@@ -261,15 +291,15 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
             </div>
           </Form>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Form method="post">
+            <Form method="post"><input type="hidden" name="aba" value={d.aba} />
               <input type="hidden" name="intent" value="recentes" />
               <Button disabled={busy}>Colocar as 30 últimas matérias na fila</Button>
             </Form>
-            <Form method="post">
+            <Form method="post"><input type="hidden" name="aba" value={d.aba} />
               <input type="hidden" name="intent" value="rodar" />
               <Button disabled={busy}>Rodar a fila agora</Button>
             </Form>
-            <Form method="post" onSubmit={(e) => { if (!confirm("Zerar a fila? Apaga tudo que ainda não foi postado (o que já está no Instagram fica registrado).")) e.preventDefault(); }}>
+            <Form method="post" onSubmit={(e) => { if (!confirm("Zerar a fila? Apaga tudo que ainda não foi postado (o que já está no Instagram fica registrado).")) e.preventDefault(); }}><input type="hidden" name="aba" value={d.aba} />
               <input type="hidden" name="intent" value="zerar" />
               <Button disabled={busy}>Zerar a fila</Button>
             </Form>
@@ -278,9 +308,14 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
         </Card>
       </div>
 
-      <Card title="Fila (últimas 30)">
+      <nav className="mt-2 flex gap-5 border-b border-line font-mono text-xs font-bold uppercase" aria-label="Formato">
+        <Link to="/admin/instagram" className={`-mb-px border-b-2 px-1 py-2 ${d.aba === "feed" ? "border-acc text-paper" : "border-transparent text-muted hover:text-paper"}`}>Feed ({d.resumo.naFila})</Link>
+        <Link to="/admin/instagram?aba=stories" className={`-mb-px border-b-2 px-1 py-2 ${d.aba === "stories" ? "border-acc text-paper" : "border-transparent text-muted hover:text-paper"}`}>Stories ({d.resumo.storiesNaFila})</Link>
+      </nav>
+
+      <Card title={d.aba === "stories" ? "Fila de Stories" : "Fila (últimas 30)"}>
         {d.fila.length === 0 ? (
-          <p className="text-sm text-muted">Nada na fila. Assim que uma matéria for publicada, ela aparece aqui.</p>
+          <p className="text-sm text-muted">{d.aba === "stories" ? "Nenhum Story na fila. Ligue os stories no card acima; cada matéria publicada gera um." : "Nada na fila. Assim que uma matéria for publicada, ela aparece aqui."}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-line">
             {d.fila.map((l) => (
@@ -289,11 +324,11 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                   {/* Sem arte gerada ainda (na fila): mostra a prévia feita na hora; clicar abre grande. */}
                   <button
                     type="button"
-                    className="h-[150px] w-[120px] shrink-0 overflow-hidden border border-line bg-ink hover:border-acc"
+                    className={`shrink-0 overflow-hidden border border-line bg-ink hover:border-acc ${d.aba === "stories" ? "h-[192px] w-[108px]" : "h-[150px] w-[120px]"}`}
                     aria-label="Ver a arte grande"
                     onClick={() => void abrir(l)}
                   >
-                    <img src={l.imagens[0] ?? `/admin/instagram/previa/${l.post_id}?s=1`} alt="" width={120} height={150} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    <img src={l.imagens[0] ?? `/admin/instagram/previa/${l.post_id}?s=1${d.aba === "stories" ? "&formato=story" : ""}`} alt="" width={d.aba === "stories" ? 108 : 120} height={d.aba === "stories" ? 192 : 150} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     {carregando === l.id && <span className="block bg-acc px-1 font-mono text-[10px] font-bold text-ink">CARREGANDO…</span>}
                   </button>
                   <div className="min-w-0 flex-1">
@@ -307,29 +342,40 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                       {l.attempts > 0 && <span>· {l.attempts} tentativa(s)</span>}
                     </p>
                     <p className="mt-1 font-mono text-xs font-bold text-acc">
-                      {l.slides > 1 ? `CARROSSEL · ${l.slides} SLIDES (ARRASTE PARA O LADO)` : "IMAGEM ÚNICA"}
+                      {d.aba === "stories" ? (l.expires_at && l.status !== "published" ? `STORY 9:16 · EXPIRA ${when(l.expires_at)}` : "STORY 9:16") : l.slides > 1 ? `CARROSSEL · ${l.slides} SLIDES (ARRASTE PARA O LADO)` : "IMAGEM ÚNICA"}
                     </p>
                     {l.error && <p className="mt-1 line-clamp-1 text-xs text-warn" title={l.error}>{l.error}</p>}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {["pending", "preview", "failed", "skipped"].includes(l.status) && (
-                      <Form method="post"><input type="hidden" name="intent" value="postar" /><input type="hidden" name="id" value={l.id} /><Button tone="primary" disabled={busy}>Postar agora</Button></Form>
+                      <Form method="post"><input type="hidden" name="aba" value={d.aba} /><input type="hidden" name="intent" value="postar" /><input type="hidden" name="id" value={l.id} /><Button tone="primary" disabled={busy}>Postar agora</Button></Form>
                     )}
                     {l.status !== "published" && l.status !== "skipped" && (
-                      <Form method="post"><input type="hidden" name="intent" value="pular" /><input type="hidden" name="id" value={l.id} /><Button disabled={busy}>Pular</Button></Form>
+                      <Form method="post"><input type="hidden" name="aba" value={d.aba} /><input type="hidden" name="intent" value="pular" /><input type="hidden" name="id" value={l.id} /><Button disabled={busy}>Pular</Button></Form>
                     )}
                     {l.status !== "published" && (
-                      <Form method="post"><input type="hidden" name="intent" value="novo" /><input type="hidden" name="id" value={l.id} /><Button disabled={busy}>Gerar de novo</Button></Form>
+                      <Form method="post"><input type="hidden" name="aba" value={d.aba} /><input type="hidden" name="intent" value="novo" /><input type="hidden" name="id" value={l.id} /><Button disabled={busy}>Gerar de novo</Button></Form>
                     )}
                     {l.status === "published" && (
-                      <Form method="post" onSubmit={(e) => { if (!confirm("Já está no Instagram; postar de novo cria outro post. Continuar?")) e.preventDefault(); }}>
+                      <Form method="post" onSubmit={(e) => { if (!confirm("Já está no Instagram; postar de novo cria outro post. Continuar?")) e.preventDefault(); }}><input type="hidden" name="aba" value={d.aba} />
                         <input type="hidden" name="intent" value="repostar" /><input type="hidden" name="id" value={l.id} /><Button disabled={busy}>Repostar</Button>
                       </Form>
                     )}
                     {l.permalink && <a href={l.permalink} target="_blank" rel="noopener" className="inline-flex min-h-10 items-center px-2 font-mono text-xs font-bold text-acc underline">Abrir no Instagram</a>}
+                    {d.aba === "stories" && l.status !== "published" && (
+                      <>
+                        <a href={l.imagens[0] ?? `/admin/instagram/previa/${l.post_id}?s=1&formato=story`} download={`story-${l.id}.jpg`} className="inline-flex min-h-10 items-center border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc">Baixar JPEG</a>
+                        <button type="button" className="inline-flex min-h-10 items-center border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => { void navigator.clipboard?.writeText(l.link); setCopiado(l.id); setTimeout(() => setCopiado(null), 2000); }}>
+                          {copiado === l.id ? "COPIADO" : "Copiar link da matéria"}
+                        </button>
+                        <Form method="post" onSubmit={(e) => { if (!confirm("Você postou este Story pelo app? O robô não vai postá-lo.")) e.preventDefault(); }}>
+                          <input type="hidden" name="intent" value="manual" /><input type="hidden" name="id" value={l.id} /><Button disabled={busy}>Marcar como postado à mão</Button>
+                        </Form>
+                      </>
+                    )}
                   </div>
                 </div>
-                {l.imagens.length > 0 && (
+                {d.aba === "feed" && l.imagens.length > 0 && (
                   <div className="flex gap-3 overflow-x-auto pb-2">
                     {l.imagens.map((src, k) => (
                       <button key={src} type="button" className="shrink-0 hover:opacity-90" aria-label={`Ver o slide ${k + 1} grande`} onClick={() => setAberto({ imgs: l.imagens, i: k })}>
@@ -338,7 +384,7 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
                     ))}
                   </div>
                 )}
-                {l.caption && <pre className="whitespace-pre-wrap border border-line bg-ink p-3 text-xs text-body">{l.caption}</pre>}
+                {d.aba === "feed" && l.caption && <pre className="whitespace-pre-wrap border border-line bg-ink p-3 text-xs text-body">{l.caption}</pre>}
               </li>
             ))}
           </ul>
@@ -346,15 +392,20 @@ export default function AdminInstagram({ loaderData: d }: Route.ComponentProps) 
       </Card>
       {d.postados.length > 0 && (
         <section className="mt-6 opacity-70 transition hover:opacity-100">
-          <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-wide text-muted">Já postados no Instagram ({d.postados.length})</h2>
+          <h2 className="mb-2 font-mono text-xs font-bold uppercase tracking-wide text-muted">{d.aba === "stories" ? "Stories já postados" : "Já postados no Instagram"} ({d.postados.length})</h2>
           <ul className="flex flex-col divide-y divide-line border border-line">
             {d.postados.map((l) => (
               <li key={l.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
                 {l.imagem && <img src={l.imagem} alt="" width={32} height={40} loading="lazy" className="h-10 w-8 shrink-0 border border-line object-cover" />}
                 <span className="min-w-0 flex-1 truncate text-body" title={l.title}>{l.title}</span>
                 <span className="font-mono text-xs text-muted">{l.model} · {when(l.published_at)}</span>
+                {d.aba === "stories" && l.published_at && (
+                  <span className="font-mono text-xs font-bold text-acc">
+                    {Date.now() - new Date(`${l.published_at.replace(" ", "T")}Z`).getTime() < 86_400_000 ? `NO AR ATÉ ${when(new Date(new Date(`${l.published_at.replace(" ", "T")}Z`).getTime() + 86_400_000).toISOString())}` : <span className="text-muted">SAIU DO AR</span>}
+                  </span>
+                )}
                 {l.permalink && <a href={l.permalink} target="_blank" rel="noopener" className="font-mono text-xs font-bold text-acc underline">Abrir</a>}
-                <Form method="post" onSubmit={(e) => { if (!confirm("Tirar da lista? O post continua no Instagram; a matéria poderá entrar na fila de novo.")) e.preventDefault(); }}>
+                <Form method="post" onSubmit={(e) => { if (!confirm("Tirar da lista? O post continua no Instagram; a matéria poderá entrar na fila de novo.")) e.preventDefault(); }}><input type="hidden" name="aba" value={d.aba} />
                   <input type="hidden" name="intent" value="tirar" /><input type="hidden" name="id" value={l.id} />
                   <button type="submit" disabled={busy} className="font-mono text-xs text-muted underline hover:text-warn">Tirar da lista</button>
                 </Form>

@@ -17,12 +17,15 @@ export interface Conta {
   start_hour: number;
   end_hour: number;
   models: Record<string, boolean>;
+  story_enabled: boolean;
+  story_daily_limit: number;
+  story_min_gap_minutes: number;
   paused_until: string | null;
   note: string | null;
   hasToken: boolean;
 }
 
-type Linha = Omit<Conta, "enabled" | "test_mode" | "models" | "hasToken"> & { enabled: number; test_mode: number; models: unknown; token_enc: string | null };
+type Linha = Omit<Conta, "enabled" | "test_mode" | "models" | "hasToken" | "story_enabled"> & { enabled: number; test_mode: number; story_enabled: number; models: unknown; token_enc: string | null };
 
 export async function getConta(): Promise<Conta> {
   const [r] = await query<Linha>("SELECT * FROM social_accounts WHERE network = 'instagram'");
@@ -34,7 +37,7 @@ export async function getConta(): Promise<Conta> {
     /* padrão vazio */
   }
   const { token_enc, ...resto } = r;
-  return { ...resto, enabled: !!r.enabled, test_mode: !!r.test_mode, models, hasToken: !!token_enc };
+  return { ...resto, enabled: !!r.enabled, test_mode: !!r.test_mode, story_enabled: !!r.story_enabled, models, hasToken: !!token_enc };
 }
 
 export async function getToken(): Promise<string | null> {
@@ -52,6 +55,11 @@ export async function salvarConfig(c: { enabled: boolean; test_mode: boolean; da
     "UPDATE social_accounts SET enabled = ?, test_mode = ?, daily_limit = ?, min_gap_minutes = ?, start_hour = ?, end_hour = ?, models = ? WHERE network = 'instagram'",
     [c.enabled ? 1 : 0, c.test_mode ? 1 : 0, c.daily_limit, c.min_gap_minutes, c.start_hour, c.end_hour, JSON.stringify(c.models)],
   );
+}
+
+/** Stories: interruptor, limite por dia e intervalo (janela de horário e modo de teste são os do feed). */
+export async function salvarConfigStory(c: { enabled: boolean; daily_limit: number; min_gap_minutes: number }) {
+  await exec("UPDATE social_accounts SET story_enabled = ?, story_daily_limit = ?, story_min_gap_minutes = ? WHERE network = 'instagram'", [c.enabled ? 1 : 0, c.daily_limit, c.min_gap_minutes]);
 }
 
 /** Conecta com o token colado no painel: confere o perfil, guarda criptografado e marca como válido. */

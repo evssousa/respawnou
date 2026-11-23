@@ -2,6 +2,18 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+## 2026-11-23 — Plano de Stories, imagens próprias e vídeos curtos (`instagram-stories-videos.md`; propostas, falta o dono responder as perguntas)
+
+- **Stories pela API sem figurinha de link** (a API não permite): CTA "link na bio" e seta para o nome da conta; o
+  painel permite baixar o JPEG e marcar como "postado à mão" para os dias em que o dono posta com figurinha.
+- **Coluna `kind` (`feed|story|reel`) em `social_posts`**, índice único `(post_id, network, kind)`, limites próprios de
+  Story em `social_accounts`. Por quê: mesma fila, ações e anti-duplicado; `network` continua sendo a rede.
+- **Dois modelos de Story** (ST-N para notícia, ST-M "moldura" com o slide 1 do feed): poucos layouts bem resolvidos.
+- **Imagens próprias** em `social_posts.overrides` (JSON) e `MEDIA_DIR/social/uploads`, com foco em 6 opções.
+- **Vídeos renderizados no GitHub Actions** (repositório público, minutos grátis, ffmpeg via apt), nunca na Hostinger
+  (sem ffmpeg e com CPU compartilhada). Voz ElevenLabs com alinhamento por caractere para a legenda palavra por palavra;
+  roteiro com 1 pedido ao Gemini; sem música. Fases: baixar → Reels → YouTube → TikTok manual.
+
 ## 2026-11-22 — Anúncios: blocos manuais, locais fixos e modo "ver espaços" (plano em `anuncios.md`)
 
 - **O quê:** só blocos manuais; anúncios automáticos desligados no painel (inclusive âncora e vinheta). 4 unidades

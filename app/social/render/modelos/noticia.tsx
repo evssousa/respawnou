@@ -11,7 +11,7 @@ export interface Insumos {
 }
 
 /** Palavras do título que coincidem com a palavra-chave saem em verde. */
-function Titulo({ titulo, chave, tam }: { titulo: string; chave: string | null; tam: number }) {
+export function Titulo({ titulo, chave, tam }: { titulo: string; chave: string | null; tam: number }) {
   const palavras = caixa(titulo).split(" ");
   const k = chave ? caixa(chave).split(" ").filter((w) => w.length > 2) : [];
   return (

@@ -46,6 +46,30 @@ export const SOCIAL = {
     "C-artigo": { prioridade: 20, validadeH: 48 },
     N: { prioridade: 10, validadeH: 12 },
   } as Record<Modelo, { prioridade: number; validadeH: number }>,
+  /** Stories (docs/instagram-stories-videos.md): padrões, fila e texto do botão por modelo do feed. */
+  story: {
+    padrao: { ligado: false, limiteDia: 6, intervaloMin: 45 },
+    noFeed: "NOVO NO FEED",
+    apontar: "TOQUE NO @ LÁ EM CIMA",
+    cta: {
+      N: "MATÉRIA COMPLETA: LINK NA BIO",
+      "C-artigo": "LISTA COMPLETA: LINK NA BIO",
+      "C-review": "TODAS AS NOTAS: LINK NA BIO",
+      "C-guia": "REQUISITOS COMPLETOS: LINK NA BIO",
+      P1: "COMO RESGATAR: LINK NA BIO",
+      P2: "TODAS AS OFERTAS: LINK NA BIO",
+      S: "CALENDÁRIO COMPLETO: LINK NA BIO",
+    } as Record<Modelo, string>,
+    fila: {
+      P1: { prioridade: 50, validadeH: 24 },
+      S: { prioridade: 40, validadeH: 24 },
+      P2: { prioridade: 35, validadeH: 24 },
+      "C-review": { prioridade: 30, validadeH: 24 },
+      "C-guia": { prioridade: 20, validadeH: 24 },
+      "C-artigo": { prioridade: 20, validadeH: 24 },
+      N: { prioridade: 10, validadeH: 6 },
+    } as Record<Modelo, { prioridade: number; validadeH: number }>,
+  },
   /** Tipos de post com hashtag de loja (promoções). */
   utm: "utm_source=instagram&utm_medium=social",
 };

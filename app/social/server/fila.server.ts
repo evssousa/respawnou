@@ -6,16 +6,17 @@ import { SOCIAL } from "../config";
 import { horaBR, podeEnviar } from "../core/agenda";
 import { montarLegenda } from "../core/legenda";
 import { db, exec, hasDatabase, query } from "../db";
-import { gerarSlides } from "../render/slides.server";
+import { gerarSlides, gerarStory } from "../render/slides.server";
 import { salvar } from "../render/render.server";
 import { escolherModelo, lerEntrada, modeloAtivo, type DicaSocial } from "../site.server";
 import type { Modelo } from "../tipos";
 import { getConta, getToken, marcarTokenInvalido, pausar, renovarSePreciso, type Conta } from "./conta.server";
-import { classificar, containerStatus, cota, publicar, ultimasMidias } from "./instagram.server";
+import { classificar, containerStatus, cota, publicar, publicarStory, ultimasMidias } from "./instagram.server";
 
 export interface LinhaFila {
   id: number;
   post_id: number;
+  kind: "feed" | "story" | "reel";
   model: Modelo;
   status: "pending" | "preview" | "sending" | "published" | "failed" | "skipped" | "expired";
   origin: "auto" | "manual";
@@ -29,6 +30,7 @@ export interface LinhaFila {
   error: string | null;
   attempts: number;
   next_try_at: string | null;
+  expires_at?: string | null;
   created_at: string;
   published_at: string | null;
   title?: string;
@@ -50,32 +52,59 @@ const payloadDe = (v: unknown): DicaSocial | undefined => {
   }
 };
 
-/** Põe a matéria publicada na fila. Rascunho não entra. Falha aqui nunca pode atrapalhar a publicação. */
+/** Põe a matéria publicada na fila (feed e, se ligado, Story). Rascunho não entra. Falha aqui nunca pode atrapalhar a publicação. */
 export async function enfileirar(postId: number, dica?: DicaSocial, origem: "auto" | "manual" = "auto"): Promise<number | null> {
   if (!hasDatabase()) return null;
+  let idFeed: number | null = null;
+  let e: Awaited<ReturnType<typeof lerEntrada>> = null;
+  let conta: Conta | null = null;
+  let modelo: Modelo | null = null;
   try {
-    const e = await lerEntrada(postId, dica);
+    e = await lerEntrada(postId, dica);
     if (!e || !e.publicada) return null;
-    const conta = await getConta();
-    const modelo = escolherModelo(e);
-    if (origem === "auto" && !modeloAtivo(modelo, conta.models)) return null;
-    const cfg = SOCIAL.fila[modelo];
-    const r = await exec(
-      `INSERT IGNORE INTO social_posts (post_id, network, model, status, origin, priority, payload, expires_at)
-       VALUES (?, 'instagram', ?, 'pending', ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? HOUR))`,
-      [postId, modelo, origem, cfg.prioridade, dica ? JSON.stringify(dica) : null, cfg.validadeH],
-    );
-    return r.affected ? r.insertId : null;
+    conta = await getConta();
+    modelo = escolherModelo(e);
+    if (origem === "manual" || modeloAtivo(modelo, conta.models)) {
+      const cfg = SOCIAL.fila[modelo];
+      const r = await exec(
+        `INSERT IGNORE INTO social_posts (post_id, network, kind, model, status, origin, priority, payload, expires_at)
+         VALUES (?, 'instagram', 'feed', ?, 'pending', ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? HOUR))`,
+        [postId, modelo, origem, cfg.prioridade, dica ? JSON.stringify(dica) : null, cfg.validadeH],
+      );
+      idFeed = r.affected ? r.insertId : null;
+    }
   } catch (err) {
     console.error(`[social] enfileirar falhou (post ${postId}): ${String((err as Error)?.message ?? err).slice(0, 120)}`);
-    return null;
   }
+  // Story: independente dos modelos ligados do feed; só para matéria nova (o botão "últimas 30" é só do feed).
+  if (origem === "auto" && conta && modelo && (conta.story_enabled || conta.test_mode)) {
+    try {
+      const cfg = SOCIAL.story.fila[modelo];
+      await exec(
+        `INSERT IGNORE INTO social_posts (post_id, network, kind, model, status, origin, priority, payload, expires_at)
+         VALUES (?, 'instagram', 'story', ?, 'pending', 'auto', ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? HOUR))`,
+        [postId, modelo, cfg.prioridade, dica ? JSON.stringify(dica) : null, cfg.validadeH],
+      );
+    } catch (err) {
+      console.error(`[social] enfileirar story falhou (post ${postId}): ${String((err as Error)?.message ?? err).slice(0, 120)}`);
+    }
+  }
+  return idFeed;
 }
 
 /** Gera imagens e legenda de uma linha (se ainda não há) e grava. Lança erro se faltar dado. */
 async function gerar(l: LinhaFila): Promise<void> {
   const e = await lerEntrada(l.post_id, payloadDe(l.payload));
   if (!e) throw new Error("matéria não existe mais");
+  if (l.kind === "story") {
+    // Story: ST-N (capa) para notícia; os outros usam o slide 1 do feed (se o feed já gerou a arte, reaproveita o arquivo).
+    const [feed] = await query<{ images: unknown; status: string }>("SELECT images, status FROM social_posts WHERE post_id = ? AND network = 'instagram' AND kind = 'feed'", [l.post_id]);
+    const slide1 = feed ? imagensDe(feed.images)[0] ?? null : null;
+    const jpeg = await gerarStory(l.model, e, { slide1Src: slide1, noFeed: feed?.status === "published" });
+    const img = await salvar(jpeg, l.id, 1, "st");
+    await exec("UPDATE social_posts SET images = ?, caption = NULL, rendered_at = UTC_TIMESTAMP(), error = NULL WHERE id = ?", [JSON.stringify([img]), l.id]);
+    return;
+  }
   const slides = await gerarSlides(l.model, e);
   if (slides.pontos) e.pontos = slides.pontos;
   const imgs: string[] = [];
@@ -91,7 +120,7 @@ async function carregar(id: number): Promise<LinhaFila | null> {
 /** Envia uma linha já travada (status sending). Atualiza o estado conforme o resultado. */
 async function enviar(l: LinhaFila, conta: Conta, token: string): Promise<void> {
   try {
-    if (!imagensDe(l.images).length || !l.caption) {
+    if (!imagensDe(l.images).length || (l.kind === "feed" && !l.caption)) {
       await gerar(l);
       l = (await carregar(l.id))!;
     }
@@ -107,13 +136,11 @@ async function enviar(l: LinhaFila, conta: Conta, token: string): Promise<void> 
       return;
     }
     const imgs = imagensDe(l.images).map((p) => `${SOCIAL.baseUrl}${p}`);
-    const r = await publicar({
-      contaId: conta.account_id!,
-      token,
-      imagens: imgs,
-      legenda: l.caption!,
-      aoCriarContainer: async (id) => void (await exec("UPDATE social_posts SET container_id = ? WHERE id = ?", [id, l.id])),
-    });
+    const aoCriarContainer = async (id: string) => void (await exec("UPDATE social_posts SET container_id = ? WHERE id = ?", [id, l.id]));
+    const r =
+      l.kind === "story"
+        ? await publicarStory({ contaId: conta.account_id!, token, imagem: imgs[0], aoCriarContainer })
+        : await publicar({ contaId: conta.account_id!, token, imagens: imgs, legenda: l.caption!, aoCriarContainer });
     await exec("UPDATE social_posts SET status = 'published', media_id = ?, permalink = ?, published_at = UTC_TIMESTAMP(), locked_at = NULL, error = NULL WHERE id = ?", [r.mediaId, r.link, l.id]);
   } catch (err) {
     const msg = String((err as Error)?.message ?? err).slice(0, 400);
@@ -141,12 +168,17 @@ async function enviar(l: LinhaFila, conta: Conta, token: string): Promise<void> 
 
 /** Linha presa em `sending` (o processo caiu): confere o contêiner para não postar duas vezes. */
 async function recuperarPresas(token: string | null): Promise<void> {
-  const presas = await query<LinhaFila>("SELECT * FROM social_posts WHERE kind = 'feed' AND status = 'sending' AND locked_at < UTC_TIMESTAMP() - INTERVAL 15 MINUTE");
+  const presas = await query<LinhaFila>("SELECT * FROM social_posts WHERE status = 'sending' AND locked_at < UTC_TIMESTAMP() - INTERVAL 15 MINUTE");
   for (const l of presas) {
     let publicada = false;
     if (l.container_id && token) {
       try {
         if ((await containerStatus(l.container_id, token)) === "PUBLISHED") {
+          if (l.kind === "story") {
+            // Story não tem legenda para achar a mídia: o contêiner publicado basta.
+            await exec("UPDATE social_posts SET status = 'published', published_at = UTC_TIMESTAMP(), locked_at = NULL WHERE id = ?", [l.id]);
+            continue;
+          }
           const m = (await ultimasMidias(token)).data.find((x) => (x.caption ?? "").slice(0, 40) === (l.caption ?? "").slice(0, 40));
           if (m) {
             await exec("UPDATE social_posts SET status = 'published', media_id = ?, permalink = ?, published_at = UTC_TIMESTAMP(), locked_at = NULL WHERE id = ?", [m.id, m.permalink ?? null, l.id]);
@@ -188,6 +220,43 @@ export interface ResultadoTick {
   postId?: number;
 }
 
+/** Um passo da fila para o formato dado: modo de teste gera prévias; ligado, envia 1 respeitando janela, limite e intervalo. */
+async function passo(kind: "feed" | "story", conta: Conta, token: string | null): Promise<ResultadoTick> {
+  if (conta.test_mode) {
+    // Modo de teste: gera arte (e legenda do feed) de até 2 pendentes e deixa como "preview" (não envia).
+    const lista = await query<LinhaFila>("SELECT * FROM social_posts WHERE network = 'instagram' AND kind = ? AND status = 'pending' ORDER BY priority DESC, created_at DESC LIMIT 2", [kind]);
+    for (const l of lista) {
+      try {
+        await gerar(l);
+        await exec("UPDATE social_posts SET status = 'preview' WHERE id = ?", [l.id]);
+      } catch (err) {
+        await exec("UPDATE social_posts SET status = 'skipped', error = ? WHERE id = ?", [`não gerou a arte: ${String((err as Error)?.message ?? err).slice(0, 300)}`, l.id]);
+      }
+    }
+    return { acao: `modo de teste: ${lista.length} prévia(s)` };
+  }
+  if (kind === "story" && !conta.story_enabled) return { acao: "desligado" };
+
+  const [pub] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND kind = ? AND status = 'published' AND published_at >= ?", [kind, inicioDoDia()]);
+  const [ult] = await query<{ t: string | null }>("SELECT MAX(published_at) AS t FROM social_posts WHERE network = 'instagram' AND kind = ? AND status = 'published'", [kind]);
+  const decisao = podeEnviar(
+    { limiteDia: kind === "story" ? conta.story_daily_limit : conta.daily_limit, intervaloMin: kind === "story" ? conta.story_min_gap_minutes : conta.min_gap_minutes, inicioHora: conta.start_hour, fimHora: conta.end_hour },
+    { agora: new Date(), publicadosHoje: Number(pub?.n ?? 0), ultimoPublicado: ult?.t ? new Date(`${String(ult.t).replace(" ", "T")}Z`) : null, pausadoAte: conta.paused_until ? new Date(`${String(conta.paused_until).replace(" ", "T")}Z`) : null, tokenOk: conta.token_status === "ok" && !!token && !!conta.account_id },
+  );
+  if (!decisao.pode) return { acao: decisao.motivo };
+
+  const [l] = await query<LinhaFila>(
+    `SELECT * FROM social_posts WHERE network = 'instagram' AND kind = ? AND (status = 'pending' OR (status = 'failed' AND attempts < 3 AND next_try_at <= UTC_TIMESTAMP()))
+     ORDER BY priority DESC, created_at DESC LIMIT 1`,
+    [kind],
+  );
+  if (!l) return { acao: "fila vazia" };
+  const r = await exec("UPDATE social_posts SET status = 'sending', locked_at = UTC_TIMESTAMP() WHERE id = ? AND status IN ('pending','failed')", [l.id]);
+  if (!r.affected) return { acao: "outra execução pegou" };
+  await enviar(l, conta, token!);
+  return { acao: "enviado", postId: l.post_id };
+}
+
 /** Roda a cada coleta (30 min) e logo depois de publicar uma matéria. Uma instância por vez (GET_LOCK). */
 export async function tick(): Promise<ResultadoTick> {
   if (!hasDatabase()) return { acao: "sem banco" };
@@ -207,38 +276,10 @@ export async function tick(): Promise<ResultadoTick> {
       }
       const conta = await getConta();
       if (!conta.enabled && !conta.test_mode) return { acao: "desligado" };
-
-      if (conta.test_mode) {
-        // Modo de teste: gera arte e legenda de até 2 pendentes e deixa como "preview" (não envia).
-        const lista = await query<LinhaFila>("SELECT * FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status = 'pending' ORDER BY priority DESC, created_at DESC LIMIT 2");
-        for (const l of lista) {
-          try {
-            await gerar(l);
-            await exec("UPDATE social_posts SET status = 'preview' WHERE id = ?", [l.id]);
-          } catch (err) {
-            await exec("UPDATE social_posts SET status = 'skipped', error = ? WHERE id = ?", [`não gerou a arte: ${String((err as Error)?.message ?? err).slice(0, 300)}`, l.id]);
-          }
-        }
-        return { acao: `modo de teste: ${lista.length} prévia(s)` };
-      }
-
-      const [pub] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status = 'published' AND published_at >= ?", [inicioDoDia()]);
-      const [ult] = await query<{ t: string | null }>("SELECT MAX(published_at) AS t FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status = 'published'");
-      const decisao = podeEnviar(
-        { limiteDia: conta.daily_limit, intervaloMin: conta.min_gap_minutes, inicioHora: conta.start_hour, fimHora: conta.end_hour },
-        { agora: new Date(), publicadosHoje: Number(pub?.n ?? 0), ultimoPublicado: ult?.t ? new Date(`${String(ult.t).replace(" ", "T")}Z`) : null, pausadoAte: conta.paused_until ? new Date(`${String(conta.paused_until).replace(" ", "T")}Z`) : null, tokenOk: conta.token_status === "ok" && !!token && !!conta.account_id },
-      );
-      if (!decisao.pode) return { acao: decisao.motivo };
-
-      const [l] = await query<LinhaFila>(
-        `SELECT * FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND (status = 'pending' OR (status = 'failed' AND attempts < 3 AND next_try_at <= UTC_TIMESTAMP()))
-         ORDER BY priority DESC, created_at DESC LIMIT 1`,
-      );
-      if (!l) return { acao: "fila vazia" };
-      const r = await exec("UPDATE social_posts SET status = 'sending', locked_at = UTC_TIMESTAMP() WHERE id = ? AND status IN ('pending','failed')", [l.id]);
-      if (!r.affected) return { acao: "outra execução pegou" };
-      await enviar(l, conta, token!);
-      return { acao: "enviado", postId: l.post_id };
+      const feed = await passo("feed", conta, token);
+      if (!conta.story_enabled && !conta.test_mode) return feed;
+      const story = await passo("story", conta, token);
+      return { acao: `feed: ${feed.acao}; story: ${story.acao}`, postId: feed.postId ?? story.postId };
     } finally {
       await conn.query("SELECT RELEASE_LOCK('social_tick')");
     }
@@ -280,8 +321,8 @@ export async function enfileirarRecentes(n = 30): Promise<number> {
 }
 
 /** Zera a fila: apaga tudo que ainda não foi ao ar (o que já foi publicado fica, para nunca postar duas vezes a mesma matéria). */
-export async function zerarFila(): Promise<number> {
-  const r = await exec("DELETE FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status <> 'published' AND status <> 'sending'");
+export async function zerarFila(kind: "feed" | "story" = "feed"): Promise<number> {
+  const r = await exec("DELETE FROM social_posts WHERE network = 'instagram' AND kind = ? AND status <> 'published' AND status <> 'sending'", [kind]);
   return r.affected;
 }
 
@@ -289,7 +330,10 @@ export const pular = (id: number) => exec("UPDATE social_posts SET status = 'ski
 export const gerarDeNovo = (id: number) => exec("UPDATE social_posts SET images = NULL, caption = NULL, rendered_at = NULL, status = 'pending', error = NULL, attempts = 0 WHERE id = ? AND status <> 'published'", [id]);
 export const repostar = (id: number) => exec("UPDATE social_posts SET status = 'pending', origin = 'manual', media_id = NULL, permalink = NULL, published_at = NULL, container_id = NULL, attempts = 0, error = NULL WHERE id = ? AND status = 'published'", [id]);
 
-export async function listarFila(limite = 30): Promise<LinhaFila[]> {
+export async function listarFila(limite = 30, kind: "feed" | "story" = "feed"): Promise<LinhaFila[]> {
+  if (kind === "story") {
+    return query<LinhaFila>(`SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = 'story' AND s.status <> 'published' ORDER BY s.created_at DESC, s.id DESC LIMIT ?`, [limite]);
+  }
   return query<LinhaFila>(
     `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = 'feed' AND s.status <> 'published' AND s.post_id IN (${RECENTES}) ORDER BY p.published_at DESC, p.id DESC`,
     [limite],
@@ -297,20 +341,25 @@ export async function listarFila(limite = 30): Promise<LinhaFila[]> {
 }
 
 /** Já postados no Instagram (lista à parte, mais discreta), do mais recente para o mais antigo. */
-export async function listarPostados(limite = 50): Promise<LinhaFila[]> {
+export async function listarPostados(limite = 50, kind: "feed" | "story" = "feed"): Promise<LinhaFila[]> {
   return query<LinhaFila>(
-    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = 'feed' AND s.status = 'published' ORDER BY s.published_at DESC LIMIT ?`,
-    [limite],
+    `SELECT s.*, p.title FROM social_posts s JOIN posts p ON p.id = s.post_id WHERE s.network = 'instagram' AND s.kind = ? AND s.status = 'published' ORDER BY s.published_at DESC LIMIT ?`,
+    [kind, limite],
   );
 }
 
 /** Tira da lista de postados (não apaga nada no Instagram; a matéria pode voltar à fila depois). */
 export const tirarDosPostados = (id: number) => exec("DELETE FROM social_posts WHERE id = ? AND status = 'published'", [id]);
 
+/** Story postado à mão (pelo app, com figurinha): marca como publicado para o robô não repetir. */
+export const marcarPostadoAMao = (id: number) => exec("UPDATE social_posts SET status = 'published', origin = 'manual', published_at = UTC_TIMESTAMP(), locked_at = NULL, error = NULL WHERE id = ? AND status <> 'published'", [id]);
+
 export async function resumo() {
   const [h] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status = 'published' AND published_at >= ?", [inicioDoDia()]);
   const [p] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND kind = 'feed' AND status IN ('pending','preview','failed')");
-  return { hoje: Number(h?.n ?? 0), naFila: Number(p?.n ?? 0) };
+  const [hs] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND kind = 'story' AND status = 'published' AND published_at >= ?", [inicioDoDia()]);
+  const [ps] = await query<{ n: number }>("SELECT COUNT(*) AS n FROM social_posts WHERE network = 'instagram' AND kind = 'story' AND status IN ('pending','preview','failed')");
+  return { hoje: Number(h?.n ?? 0), naFila: Number(p?.n ?? 0), storiesHoje: Number(hs?.n ?? 0), storiesNaFila: Number(ps?.n ?? 0) };
 }
 
 export { imagensDe };

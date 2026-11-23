@@ -15,6 +15,14 @@ export function Seta({ cor = COR.sobreDestaque, tam = 28 }: { cor?: string; tam?
     </svg>
   );
 }
+/** Seta diagonal (↖) em SVG: a JetBrains Mono latina não tem setas. */
+export function SetaDiagonal({ cor = COR.corpo, tam = 28 }: { cor?: string; tam?: number }) {
+  return (
+    <svg width={tam} height={tam} viewBox="0 0 24 24" style={{ marginRight: 12 }}>
+      <path d="M5 5h11v2.5H9.3l9.9 9.9-1.8 1.8-9.9-9.9V16H5z" fill={cor} />
+    </svg>
+  );
+}
 export function Play({ cor = COR.texto, tam = 22 }: { cor?: string; tam?: number }) {
   return (
     <svg width={tam} height={tam} viewBox="0 0 24 24" style={{ marginRight: 12 }}>
@@ -24,11 +32,11 @@ export function Play({ cor = COR.texto, tam = 22 }: { cor?: string; tam?: number
 }
 
 /** Tela base 1080×1350 com a grade fina e o conteúdo posicionado de forma absoluta. */
-export function Tela({ grade, children, fundo, escuro = 0.78 }: { grade: string; children: ReactNode; fundo?: string; escuro?: number }) {
+export function Tela({ grade, children, fundo, escuro = 0.78, altura = 1350 }: { grade: string; children: ReactNode; fundo?: string; escuro?: number; altura?: number }) {
   return (
-    <div style={{ display: "flex", position: "relative", width: 1080, height: 1350, backgroundColor: COR.fundo, ...(fundo ? { backgroundImage: `url(${fundo})` } : {}), fontFamily: FONTES.corpo, color: COR.texto }}>
-      {fundo && <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 1350, backgroundColor: COR.fundo, opacity: escuro }} />}
-      <img src={grade} width={1080} height={1350} style={{ position: "absolute", left: 0, top: 0 }} />
+    <div style={{ display: "flex", position: "relative", width: 1080, height: altura, backgroundColor: COR.fundo, ...(fundo ? { backgroundImage: `url(${fundo})` } : {}), fontFamily: FONTES.corpo, color: COR.texto }}>
+      {fundo && <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: altura, backgroundColor: COR.fundo, opacity: escuro }} />}
+      <img src={grade} width={1080} height={altura} style={{ position: "absolute", left: 0, top: 0 }} />
       {children}
     </div>
   );
@@ -51,8 +59,8 @@ export function Topo({ logo, direita, tam = 64, y = 48 }: { logo: string; direit
 }
 
 /** Barra verde de 8 px no pé. */
-export function Faixa() {
-  return <div style={{ position: "absolute", left: 0, top: 1342, width: 1080, height: 8, backgroundColor: COR.destaque }} />;
+export function Faixa({ y = 1342 }: { y?: number }) {
+  return <div style={{ position: "absolute", left: 0, top: y, width: 1080, height: 8, backgroundColor: COR.destaque }} />;
 }
 
 export function Chip({ texto, tipo = "cheio", estilo, icone }: { texto: string; tipo?: "cheio" | "contorno" | "alerta"; estilo?: CSSProperties; icone?: ReactNode }) {

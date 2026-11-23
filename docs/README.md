@@ -21,6 +21,8 @@ e o que vem a seguir.
 | [crescimento.md](crescimento.md) | Plano de crescimento orgânico (custo zero): SEO do Arcade, fichas de jogos, evergreen, Discover, divulgação |
 | [crescimento-rapido.md](crescimento-rapido.md) | Estratégia de crescimento rápido (seguidores, visitas, receita, rotina, equipe) e modelo para criar sites novos; vale para todos os sites |
 | [deploy-hostinger.md](deploy-hostinger.md) | Domínio, site Node.js, SSL, e-mail, variáveis |
+| [instagram.md](instagram.md) | Instagram automático: módulo `app/social`, artes, legenda, fila, painel `/admin/instagram`, Meta |
+| [instagram-stories-videos.md](instagram-stories-videos.md) | Plano (2026-11-23): Stories 9:16, imagens próprias nos slides e vídeos curtos (Reels, Shorts, TikTok) com voz ElevenLabs |
 
 ## Status
 
@@ -85,10 +87,16 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 7 | Frente 2: fichas de jogos úteis + critério de indexação (migration 010, passos B1–B7) | ⏳ |
 | 7 | Frente 3: cardápio evergreen e cadência do robô (passos C1–C6) | ⏳ |
 | 7 | Frente 4: Google Discover (auditoria feita; passos D1–D10) | ⏳ |
+| 7 | Instagram: **Stories** 1080×1920 junto de cada matéria (ST1–ST11, migration 013) — `instagram-stories-videos.md`, frente A | 🔄 ST1–ST9 feitos e testados (2026-11-23); falta ST10 (testar em produção) e ST11 (1º Story real) |
+| 7 | Instagram: **imagens próprias** nos slides da fila (UP1–UP8, migration 014) — frente C | ⏳ plano pronto |
+| 7 | **Vídeos curtos** (fase 1 gerar e baixar V1–V12; fase 2 Reels; fase 3 YouTube; fase 4 TikTok manual; migration 015) — frente B | 💤 plano pronto; depende do dono (ElevenLabs Starter, voz) |
 
 ## Próximos passos
 
-- Instagram: criar as imagens dos **Stories** (9:16) junto com os posts; combinado para 2026-11-24.
+- **Stories no ar em modo de teste:** em `/admin/instagram` → card Stories, ligar "Stories" (o modo de teste do feed vale para eles); conferir as artes na aba Stories, depois "Postar agora" em 1 (ST10/ST11). A conta precisa ser **Empresa**.
+- Instagram, plano em `instagram-stories-videos.md` (2026-11-23), na ordem: (1) **Stories** ST1–ST11 (combinado para
+  2026-11-24; migration 013, colar o SQL no chat); (2) **imagens próprias nos slides** UP1–UP8 (migration 014);
+  (3) **vídeos, fase 1** V1–V12 só depois das respostas do dono (perguntas 1 a 4 do plano); depois fases 2 a 4.
 
 Em ordem (atualizado em 2026-11-22):
 
@@ -106,6 +114,9 @@ Em ordem (atualizado em 2026-11-22):
 
 ## Pendências suas
 
+- **Stories e vídeos (2026-11-23, `instagram-stories-videos.md`):** responder as 9 perguntas do fim do plano. Para os
+  vídeos começarem: assinar o ElevenLabs **Starter (US$ 5/mês)** e escolher a voz (perguntas 1 a 4). Para os Stories:
+  conferir que a conta do Instagram é do tipo **Empresa** (a API pode recusar Story em conta de Criador).
 - **Instagram (IG0):** (1) no app do Instagram, mudar `@respawnou.com.br` para conta **profissional**; (2) em developers.facebook.com criar o app e gerar o token (passo a passo em `instagram.md`, seção "Passo a passo na Meta"); (3) no hPanel cadastrar a variável **`SOCIAL_KEY`** (64 caracteres hexadecimais: rode `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` no seu computador e cole só o resultado no hPanel; não mande no chat); (4) em `/admin/instagram` colar o token e clicar em Conectar; (5) deixar o **modo de teste** ligado por uns dias, olhar as artes e legendas na fila e, se gostar, desligar o modo de teste e ligar a automação. Nunca cole o token no chat.
 - **Autores de IA (2026-11-22):** o robô passa a assinar cada matéria com o autor da editoria (Nox, Lume, Vero, Atlas, Loot), listados em `/redacao`. A migration 011 roda sozinha no deploy e muda só as matérias do robô que estavam como "Redação Respawnou". Se quiser outros nomes, é só dizer (`AUTHORS` em `app/lib/site.ts` + uma migration nova). Conferir `/redacao` e uma matéria depois do deploy.
 - **Peça da semana (C7):** toda quinta o robô cria um **rascunho** em `/admin/materias` ("o que jogar agora" ou "jogos com legendas em português"). Revisar o texto, ajustar e publicar; não sai sozinha. Para testar antes: `/admin/robo` → "Compilação agora" → "Peça da semana" → "Testar (sem gravar)".

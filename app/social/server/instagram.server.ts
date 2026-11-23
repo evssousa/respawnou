@@ -130,6 +130,16 @@ export async function publicar(opts: { contaId: string; token: string; imagens: 
   return { containerId: container, mediaId: pub.id, link: await permalink(pub.id, token).catch(() => null) };
 }
 
+/** Publica 1 Story (imagem 9:16, sem legenda). Mesmo caminho do post: contêiner → FINISHED → media_publish. */
+export async function publicarStory(opts: { contaId: string; token: string; imagem: string; aoCriarContainer?: (id: string) => Promise<void> }) {
+  const { contaId, token } = opts;
+  const r = await chamar<{ id: string }>(`/${contaId}/media`, token, { metodo: "POST", params: { media_type: "STORIES", image_url: opts.imagem } });
+  await opts.aoCriarContainer?.(r.id);
+  await esperar(r.id, token);
+  const pub = await chamar<{ id: string }>(`/${contaId}/media_publish`, token, { metodo: "POST", params: { creation_id: r.id } });
+  return { containerId: r.id, mediaId: pub.id, link: null as string | null };
+}
+
 /** Últimas mídias (para achar um post que já foi publicado quando o processo caiu no meio). */
 export const ultimasMidias = (token: string) => chamar<{ data: { id: string; caption?: string; permalink?: string }[] }>("/me/media", token, { params: { fields: "id,caption,permalink,timestamp", limit: 5 } });
 
