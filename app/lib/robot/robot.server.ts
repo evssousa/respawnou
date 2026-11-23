@@ -1,5 +1,6 @@
 // Robô de postagem do Respawnou. Chamado pelas rotas /api/cron/* (Cron Job da Hostinger).
 // Regras de qualidade: docs/adsense.md. Arquitetura: docs/automacao.md.
+import { enfileirar, tick as tickSocial } from "../../social/server/fila.server.ts";
 import { atualizarPecas } from "./atualizacoes.server.ts";
 import { enrichGamesFromSteam, liberarFichas } from "./fichas.server.ts";
 import { authorForSection } from "../site.ts";
@@ -182,6 +183,7 @@ export async function collect(): Promise<JobResult> {
   if (!(await retryAfterGeminiOutage())) await catchUpMissedPublish();
   await limparVisitasDoDia();
   await atualizarPecasDaSemana();
+  await rodarFilaSocial();
   return result;
 }
 
@@ -192,6 +194,16 @@ async function atualizarPecasDaSemana() {
     if (r.updated > 0) console.log(`[evergreen] ${r.updated} peça(s) atualizada(s)`);
   } catch (e) {
     console.error(`[evergreen] atualização falhou: ${String((e as Error)?.message ?? e).slice(0, 120)}`);
+  }
+}
+
+/** Fila do Instagram (docs/instagram.md): decide e envia o próximo post. Falha não derruba a coleta. */
+export async function rodarFilaSocial() {
+  try {
+    const r = await tickSocial();
+    if (r.acao === "enviado") console.log(`[social] post ${r.postId} enviado ao Instagram`);
+  } catch (e) {
+    console.error(`[social] tick falhou: ${String((e as Error)?.message ?? e).slice(0, 120)}`);
   }
 }
 
@@ -656,7 +668,7 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
         const a = { ...result.article, section: comp.section, platforms: comp.kind === "ofertas" ? ["pc"] : result.article.platforms };
         const slug = await uniqueSlug(a.section, slugify(a.title));
         if (opts.dry) return { status: "ok", message: `Teste: compilação "${comp.kind}" gerada (${a.words} palavras), nada foi gravado.`, post: summary(a, slug), stats: { tried } };
-        const postId = await insertPost(a, slug, { ...comp.source, art: "abcd"[a.words % 4] }, { tag: comp.tag, draft: comp.draft });
+        const postId = await insertPost(a, slug, { ...comp.source, art: "abcd"[a.words % 4] }, { tag: comp.tag, draft: comp.draft, social: comp.social });
         await markCompilation(comp.kind, comp.period);
         return {
           status: "ok",
@@ -757,11 +769,15 @@ export function publish(opts: PublishOptions = {}): Promise<JobResult> {
       };
     }
     return { status: "skipped", message: `Nenhuma pauta aproveitada nesta execução. ${tried.join(" · ")}`, stats: { tried } };
+  }).then(async (r) => {
+    // Assim que algo é publicado, a fila do Instagram já decide se pode sair agora (o intervalo mínimo é respeitado).
+    if (!opts.dry && r.status === "ok" && /^Publicado:/.test(r.message ?? "")) await rodarFilaSocial();
+    return r;
   });
 }
 
 /** Grava a matéria (imagens já baixadas para /media) e devolve o id. */
-async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, extra: { review?: Review; tag?: string; gameId?: number; draft?: boolean } = {}) {
+async function insertPost(a: BuiltArticle, slug: string, source: { name: string; url: string; art: string }, extra: { review?: Review; tag?: string; gameId?: number; draft?: boolean; social?: import("../../social/site.server.ts").DicaSocial } = {}) {
   const { review, tag } = extra;
   // Peça para revisão: rascunho sem data (não conta no limite diário nem aparece no site até o dono publicar).
   const status = extra.draft ? "draft" : "published";
@@ -797,6 +813,8 @@ async function insertPost(a: BuiltArticle, slug: string, source: { name: string;
       gameId,
     ],
   );
+  // Instagram: só matéria publicada entra na fila (rascunho não); a arte e o envio saem no próximo tick.
+  if (!extra.draft) await enfileirar(res.insertId, extra.social);
   return res.insertId;
 }
 

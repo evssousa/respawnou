@@ -641,3 +641,9 @@ Mesma estrutura (linha de base, datas do nicho, metas em 3 fases). O que muda:
 ## Revisões
 
 _(preencher no D30, D60 e D90: números contra as metas e 3 linhas do que mudar)_
+
+## Decisões do dono (2026-11-22)
+
+- **Contas de Instagram já reservadas:** `@respawnou.com.br` (respawnou) e `@animeprofilebr` (animeprofile). Vibecoin e criasite ainda sem conta.
+- **Tempo do dono por dia:** segunda, quarta e sexta só **30 minutos**; terça **60 minutos**; quinta, sábado e domingo **até 3 horas**. Planejar as tarefas manuais pesadas (revisar a peça semanal, responder comentários em volume, gravar ou revisar vídeos, parcerias) para quinta, sábado e domingo; segunda, quarta e sexta ficam só com o essencial (conferir o painel e as correções). A peça semanal em rascunho (quinta) já cai no dia certo.
+- **Rosto:** não aparece. **Voz:** pode usar narração gerada (ElevenLabs) nos vídeos; tudo segue com os perfis da redação.

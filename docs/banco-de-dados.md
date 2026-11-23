@@ -38,6 +38,8 @@ Dados de exemplo para desenvolvimento: `npm run db:seed-dev` (apaga posts/jogos;
 | `feed_items` | Fila de pautas | `guid_hash` (sha256) único, `status` (new/used/skipped/failed), `reason`, `post_id`, `media` JSON (imagens/vídeos/links do RSS) |
 | `critic_reviews` | Análises com nota dos veículos (consenso da crítica) | `game_key`, `url_hash` (único) |
 | `critic_consensus` | Um consenso por jogo: post, status, nº de análises | `game_key` (PK) |
+| `social_accounts` | Conta do Instagram: token criptografado (AES-256-GCM, chave `SOCIAL_KEY`), interruptor, modo de teste, limites e janela (migration 012) | `network` (PK) |
+| `social_posts` | Fila e registro dos posts do Instagram (uma linha por matéria e rede) | `(post_id, network)` único, `status`, `model`, `images`, `caption` |
 | `free_games` | Jogos grátis por tempo limitado (Epic + GamerPower, job `ofertas`) | `ends_at`, `starts_at`, `(source, external_id)` |
 | `cron_runs` | Histórico do robô | `job`, `status`, `message`, `stats` JSON |
 | `settings` | Configurações do admin | `posts_per_day`, `robot_sections`, `robot_enabled` |

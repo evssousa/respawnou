@@ -13,6 +13,7 @@ import { absoluteUrl } from "../site.ts";
 import { steamApp } from "./enrich.server.ts";
 import { emptyMedia } from "./media.ts";
 import { USER_AGENT } from "./rss.server.ts";
+import type { DicaSocial } from "../../social/site.server.ts";
 import type { PreparedSources, Source } from "./writer.server.ts";
 
 const TZ = "America/Sao_Paulo";
@@ -30,6 +31,8 @@ export interface Compilation {
   source: { name: string; url: string };
   /** Peça que o dono revisa antes de publicar: grava como rascunho e não conta no limite diário. */
   draft?: boolean;
+  /** Dados para a arte do Instagram (compilado da semana e ofertas). */
+  social?: DicaSocial;
 }
 
 // ───────────── Agenda ─────────────
@@ -120,6 +123,7 @@ async function steamDeals(week: string): Promise<Compilation | null> {
     .sort((a, b) => Number(b.steamRatingCount) * Number(b.steamRatingPercent) - Number(a.steamRatingCount) * Number(a.steamRatingPercent))
     .slice(0, 14);
   const sources: Source[] = [];
+  const ofertasSocial: { nome: string; imagem: string | null; preco: string; precoAntes: string | null; desconto: number }[] = [];
   const media = emptyMedia();
   const date = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, day: "numeric", month: "long", year: "numeric" }).format(new Date());
   for (const d of picked) {
@@ -146,6 +150,7 @@ async function steamDeals(week: string): Promise<Compilation | null> {
         .join("\n"),
     });
     if (app.screenshots[0]) media.images.push({ url: app.screenshots[0], source: "Steam" });
+    ofertasSocial.push({ nome: app.name, imagem: app.screenshots[0] ?? null, preco: app.price.now, precoAntes: app.price.normal, desconto: app.price.discount });
   }
   if (sources.length < 5) return null;
   sources.unshift({
@@ -160,6 +165,7 @@ async function steamDeals(week: string): Promise<Compilation | null> {
     period: week,
     section: "promocoes",
     tag: "Ofertas",
+    social: { ofertas: { dia: new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, day: "2-digit", month: "2-digit" }).format(new Date()), total: ofertasSocial.length, itens: [...ofertasSocial].sort((a, b) => b.desconto - a.desconto) } },
     source: { name: "Steam (preços) e CheapShark (seleção)", url: "https://store.steampowered.com/specials" },
     prepared: {
       sources,
@@ -363,6 +369,7 @@ interface GameRow {
   slug: string;
   release_date: string | null;
   release_label: string | null;
+  hypes: number | null;
   platforms: unknown;
   genres: unknown;
   developer: string;
@@ -378,7 +385,7 @@ interface GameRow {
   languages: unknown;
 }
 
-const GAME_COLS = "name, slug, release_date, release_label, platforms, genres, developer, publisher, description, summary_en, image_url, critic_score, critic_count, pc_min, pc_rec, price_brl, languages";
+const GAME_COLS = "name, slug, release_date, release_label, hypes, platforms, genres, developer, publisher, description, summary_en, image_url, critic_score, critic_count, pc_min, pc_rec, price_brl, languages";
 
 /** Uma fonte por jogo: só dados do banco (IGDB e Steam), com link para a ficha. */
 function gameSource(g: GameRow, extra = ""): Source {
@@ -434,6 +441,7 @@ async function weekReleases(week: string, monday: Date): Promise<Compilation | n
     period: week,
     section: "artigos",
     tag: "Lista",
+    social: { semana: semanaSocial(games, monday, range) },
     source: { name: "IGDB.com", url: "https://www.igdb.com" },
     prepared: {
       sources,
@@ -544,4 +552,34 @@ PAUTA: peça semanal "${title}", que será REVISADA por uma pessoa antes de publ
 - Escreva um parágrafo final "Como escolher" com uma orientação prática baseada SÓ nos dados (ex.: quem tem PC mais fraco, quem quer legendas em português). Sem opinião inventada, sem comparar com jogos que não estão nas fontes.`,
     },
   };
+}
+
+
+/** Dias da semana (SEG..DOM) com os jogos e a arte, para a imagem do Instagram. Mais de 5 dias: junta sábado e domingo. */
+function semanaSocial(games: GameRow[], monday: Date, periodo: string): NonNullable<DicaSocial["semana"]> {
+  const nomes = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+  const maisHype = [...games].sort((a, b) => Number(b.hypes ?? 0) - Number(a.hypes ?? 0))[0];
+  const porDia = new Map<string, GameRow[]>();
+  for (const g of games) {
+    const d = String(g.release_date).slice(0, 10);
+    porDia.set(d, [...(porDia.get(d) ?? []), g]);
+  }
+  const dd = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+  type Dia = { rotulo: string; data: string; jogos: { nome: string; arte: string | null; destaque: boolean }[] };
+  let dias: Dia[] = [...porDia.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([d, gs]) => ({
+      rotulo: nomes[new Date(`${d}T12:00:00Z`).getUTCDay()],
+      data: dd(d),
+      jogos: gs.map((g) => ({ nome: g.name, arte: g.image_url, destaque: g === maisHype })),
+    }));
+  if (dias.length > 5) {
+    const fim = dias.filter((d) => d.rotulo === "SÁB" || d.rotulo === "DOM");
+    if (fim.length > 1) {
+      const junto: Dia = { rotulo: "FIM DE SEMANA", data: `${fim[0].data.slice(0, 2)}–${fim.at(-1)!.data}`, jogos: fim.flatMap((d) => d.jogos) };
+      dias = [...dias.filter((d) => d.rotulo !== "SÁB" && d.rotulo !== "DOM"), junto];
+    }
+  }
+  void monday;
+  return { titulo: "Lançamentos da semana", periodo, total: games.length, dias: dias.slice(0, 5) };
 }

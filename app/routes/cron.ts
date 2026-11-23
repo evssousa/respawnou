@@ -20,6 +20,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Route } from "./+types/cron";
 import { hasDatabase } from "~/lib/db.server";
+import { tick as tickSocial } from "~/social/server/fila.server";
 import { collect, collectGames, collectOffers, diag, feedStats, publish, recentRuns, type JobResult } from "~/lib/robot/robot.server";
 
 function authorized(request: Request) {
@@ -42,6 +43,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
   if (params.job === "status") return Response.json(await recentRuns(Number(url.searchParams.get("n")) || 10), { headers });
   if (params.job === "fontes") return Response.json(await feedStats(), { headers });
+  // Fila do Instagram (app/social): decide e envia o próximo post agora.
+  if (params.job === "social") return Response.json(await tickSocial(), { headers });
 
   let job: () => Promise<JobResult>;
   if (params.job === "coletar") job = collect;

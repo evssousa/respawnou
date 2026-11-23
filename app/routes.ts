@@ -24,6 +24,7 @@ export default [
   route("cookies", "routes/cookies.tsx"),
   route("politica-editorial", "routes/editorial.tsx"),
   route("redacao", "routes/team.tsx"),
+  route("links", "routes/links.tsx"),
   route("autores/:slug", "routes/author.tsx"),
   route("como-avaliamos", "routes/review-policy.tsx"),
   route("anuncie", "routes/advertise.tsx"),
@@ -54,6 +55,8 @@ export default [
     route("fontes", "routes/admin/feeds.tsx"),
     route("robo", "routes/admin/robot.tsx"),
     route("visitas", "routes/admin/visitas.tsx"),
+    route("instagram", "routes/admin/instagram.tsx"),
+    route("instagram/previa/:id", "routes/admin/instagram-previa.ts"),
     route("config", "routes/admin/settings.tsx"),
   ]),
 

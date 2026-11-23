@@ -1,0 +1,111 @@
+// Cliente da API oficial do Instagram (Instagram API com login do Instagram; grátis). Nunca loga o token.
+// Fluxo: contêiner de mídia → esperar FINISHED → media_publish → permalink. Carrossel: 1 contêiner por slide + 1 do carrossel.
+const API = "https://graph.instagram.com/v23.0";
+
+export class ErroInstagram extends Error {
+  constructor(
+    message: string,
+    public codigo: number | null,
+    public subcodigo: number | null,
+    public http: number,
+  ) {
+    super(message);
+  }
+}
+
+type Params = Record<string, string | number | boolean | undefined>;
+
+async function chamar<T>(caminho: string, token: string, opts: { metodo?: "GET" | "POST"; params?: Params; base?: string } = {}): Promise<T> {
+  const metodo = opts.metodo ?? "GET";
+  const corpo = new URLSearchParams();
+  for (const [k, v] of Object.entries(opts.params ?? {})) if (v !== undefined) corpo.set(k, String(v));
+  const url = `${opts.base ?? API}${caminho}${metodo === "GET" && corpo.size ? `?${corpo}` : ""}`;
+  const res = await fetch(url, {
+    method: metodo,
+    headers: { Authorization: `Bearer ${token}`, ...(metodo === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}) },
+    body: metodo === "POST" ? corpo : undefined,
+    signal: AbortSignal.timeout(30_000),
+  });
+  const texto = await res.text();
+  let json: { error?: { message?: string; code?: number; error_subcode?: number } } & Record<string, unknown> = {};
+  try {
+    json = JSON.parse(texto);
+  } catch {
+    /* resposta sem JSON */
+  }
+  if (!res.ok || json.error) {
+    const e = json.error ?? {};
+    throw new ErroInstagram((e.message ?? texto.slice(0, 200)).slice(0, 300), e.code ?? null, e.error_subcode ?? null, res.status);
+  }
+  return json as T;
+}
+
+export const perfil = (token: string) => chamar<{ user_id: string; username: string }>("/me", token, { params: { fields: "user_id,username" } });
+
+export async function cota(id: string, token: string) {
+  const r = await chamar<{ data: { quota_usage: number; config?: { quota_total: number } }[] }>(`/${id}/content_publishing_limit`, token, { params: { fields: "quota_usage,config" } });
+  return { uso: r.data?.[0]?.quota_usage ?? 0, total: r.data?.[0]?.config?.quota_total ?? 100 };
+}
+
+const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Espera o contêiner ficar FINISHED (a cada 3 s, até 20 vezes). */
+async function esperar(idContainer: string, token: string) {
+  for (let i = 0; i < 20; i++) {
+    const r = await chamar<{ status_code?: string }>(`/${idContainer}`, token, { params: { fields: "status_code" } });
+    if (r.status_code === "FINISHED") return;
+    if (r.status_code === "ERROR" || r.status_code === "EXPIRED") throw new ErroInstagram(`contêiner ${r.status_code}`, null, null, 200);
+    await dormir(3000);
+  }
+  throw new ErroInstagram("tempo esgotado esperando o Instagram processar a imagem", null, null, 200);
+}
+
+export async function containerStatus(idContainer: string, token: string) {
+  return (await chamar<{ status_code?: string }>(`/${idContainer}`, token, { params: { fields: "status_code" } })).status_code ?? "";
+}
+
+export const permalink = async (mediaId: string, token: string) => (await chamar<{ permalink?: string }>(`/${mediaId}`, token, { params: { fields: "permalink" } })).permalink ?? null;
+
+/** Publica 1 imagem (ou um carrossel de 2 a 10). `aoCriarContainer` grava o id antes do media_publish (contra post duplicado). */
+export async function publicar(opts: { contaId: string; token: string; imagens: string[]; legenda: string; aoCriarContainer?: (id: string) => Promise<void> }) {
+  const { contaId, token, imagens, legenda } = opts;
+  let container: string;
+  if (imagens.length === 1) {
+    const r = await chamar<{ id: string }>(`/${contaId}/media`, token, { metodo: "POST", params: { image_url: imagens[0], caption: legenda } });
+    container = r.id;
+  } else {
+    const filhos: string[] = [];
+    for (const url of imagens) {
+      const r = await chamar<{ id: string }>(`/${contaId}/media`, token, { metodo: "POST", params: { image_url: url, is_carousel_item: true } });
+      filhos.push(r.id);
+    }
+    for (const f of filhos) await esperar(f, token);
+    const r = await chamar<{ id: string }>(`/${contaId}/media`, token, { metodo: "POST", params: { media_type: "CAROUSEL", children: filhos.join(","), caption: legenda } });
+    container = r.id;
+  }
+  await opts.aoCriarContainer?.(container);
+  await esperar(container, token);
+  const pub = await chamar<{ id: string }>(`/${contaId}/media_publish`, token, { metodo: "POST", params: { creation_id: container } });
+  return { containerId: container, mediaId: pub.id, link: await permalink(pub.id, token).catch(() => null) };
+}
+
+/** Últimas mídias (para achar um post que já foi publicado quando o processo caiu no meio). */
+export const ultimasMidias = (token: string) => chamar<{ data: { id: string; caption?: string; permalink?: string }[] }>("/me/media", token, { params: { fields: "id,caption,permalink,timestamp", limit: 5 } });
+
+/** Renova o token de longa duração (vale mais 60 dias). */
+export async function renovar(token: string) {
+  const r = await chamar<{ access_token: string; expires_in: number }>("/refresh_access_token", token, { base: "https://graph.instagram.com", params: { grant_type: "ig_refresh_token", access_token: token } });
+  return { token: r.access_token, expiraEmSeg: r.expires_in };
+}
+
+/** Classifica o erro para a fila: o que fazer depois. */
+export function classificar(e: unknown): { acao: "token" | "limite" | "pausa" | "bloqueio" | "tentar" | "falhar"; atrasoMin?: number } {
+  if (!(e instanceof ErroInstagram)) return { acao: "tentar" };
+  const c = e.codigo;
+  if (c === 190) return { acao: "token" };
+  if (c === 368) return { acao: "bloqueio" };
+  if (c !== null && [4, 17, 32, 613].includes(c)) return { acao: "limite", atrasoMin: 60 };
+  if (c === 9 || e.subcodigo === 2207042) return { acao: "pausa" };
+  if (e.subcodigo !== null && [2207004, 2207005, 2207009, 2207023, 2207026].includes(e.subcodigo)) return { acao: "falhar" };
+  return { acao: "tentar" };
+}

@@ -1,0 +1,28 @@
+// JSX → satori → SVG → sharp → JPEG (o Instagram só aceita JPEG). Um slide por vez; sem navegador.
+import { mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { join } from "node:path";
+import type { ReactElement } from "react";
+import satori from "satori";
+import sharp from "sharp";
+import { mediaDir } from "../../../server-paths.mjs";
+import { fontes } from "./fontes.server";
+
+export const LARGURA = 1080;
+export const ALTURA = 1350;
+
+/** Renderiza um slide 1080×1350 e devolve os bytes do JPEG. */
+export async function renderizar(elemento: ReactElement): Promise<Buffer> {
+  const svg = await satori(elemento, { width: LARGURA, height: ALTURA, fonts: await fontes() });
+  return sharp(Buffer.from(svg)).jpeg({ quality: 90, mozjpeg: true, chromaSubsampling: "4:4:4" }).toBuffer();
+}
+
+/** Grava o JPEG em MEDIA_DIR/social/AAAA/MM/ e devolve o caminho público (/media/social/...). O nome muda a cada geração. */
+export async function salvar(jpeg: Buffer, socialId: number, n: number): Promise<string> {
+  const d = new Date();
+  const dir = `social/${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  const nome = `s${socialId}-${n}-${createHash("sha1").update(jpeg).digest("hex").slice(0, 8)}.jpg`;
+  await mkdir(join(mediaDir(), dir), { recursive: true });
+  await writeFile(join(mediaDir(), dir, nome), jpeg);
+  return `/media/${dir}/${nome}`;
+}

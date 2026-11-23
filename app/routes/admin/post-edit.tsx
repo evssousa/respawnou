@@ -5,7 +5,8 @@ import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, when
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { blocksToText, textToBlocks } from "~/lib/admin/body-text";
 import { deletePost, getPost, setPostStatus, toggleFeatured, updateDraftAddress, updatePost } from "~/lib/admin/data.server";
-import { publish } from "~/lib/robot/robot.server";
+import { publish, rodarFilaSocial } from "~/lib/robot/robot.server";
+import { enfileirar } from "~/social/server/fila.server";
 import { PLATFORMS, SECTIONS } from "~/lib/site";
 
 export const meta = ({ loaderData }: Route.MetaArgs) => adminMeta(loaderData?.post.title ?? "Matéria");
@@ -39,7 +40,11 @@ export async function action({ request, params }: Route.ActionArgs) {
     const current = await getPost(id);
     const missing = [!current?.body.length && "o corpo", !current?.image_url && "a capa"].filter(Boolean);
     if (missing.length) return data({ errors: [`Antes de publicar, preencha ${missing.join(" e ")} e clique em Salvar.`] }, { status: 400 });
-    return (await setPostStatus(id, "published"), back("publicado"));
+    const primeira = !current?.published_at;
+    await setPostStatus(id, "published");
+    // Instagram: publicar um rascunho pela primeira vez também entra na fila (a arte e o envio saem em segundo plano).
+    if (primeira) void enfileirar(id).then(() => rodarFilaSocial());
+    return back("publicado");
   }
   if (intent === "rascunho") return (await setPostStatus(id, "draft"), back("rascunho"));
   if (intent === "arquivar") return (await setPostStatus(id, "archived"), back("arquivado"));
