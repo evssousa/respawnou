@@ -64,7 +64,22 @@ export async function perfil(token: string): Promise<{ user_id: string; username
     params: { fields: "name,access_token,instagram_business_account{id,username}" },
   });
   const pagina = r.data.find((p) => p.instagram_business_account);
-  if (!pagina) throw new ErroInstagram("Nenhuma Página do Facebook com conta profissional do Instagram ligada foi encontrada para este token.", null, null, 200);
+  if (!pagina) {
+    // Diz o motivo: quais permissões o token tem e quais Páginas a Meta devolveu (só nomes, nunca tokens).
+    let permissoes = "";
+    try {
+      const perm = await chamar<{ data: { permission: string; status: string }[] }>("/me/permissions", token);
+      const ok = perm.data.filter((x) => x.status === "granted").map((x) => x.permission);
+      const faltam = ["instagram_basic", "instagram_content_publish", "pages_show_list", "pages_read_engagement"].filter((x) => !ok.includes(x));
+      permissoes = faltam.length ? ` Permissões que faltam no token: ${faltam.join(", ")}.` : " Permissões do token: ok.";
+    } catch {
+      /* sem detalhe de permissões */
+    }
+    const motivo = r.data.length
+      ? `A Meta devolveu ${r.data.length} Página(s) (${r.data.map((p) => p.name).join(", ")}), mas nenhuma tem conta profissional do Instagram ligada: ligue o Instagram à Página (Página → Configurações → Contas vinculadas → Instagram).`
+      : "A Meta não devolveu nenhuma Página para este token: na janela de autorização marque a Página do Respawnou, ou, se a Página pertence a um portfólio empresarial, inclua também a permissão business_management.";
+    throw new ErroInstagram(`${motivo}${permissoes}`, null, null, 200);
+  }
   return { user_id: pagina.instagram_business_account!.id, username: pagina.instagram_business_account!.username, tokenFinal: pagina.access_token };
 }
 
