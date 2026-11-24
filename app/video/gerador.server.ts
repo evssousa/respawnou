@@ -7,15 +7,16 @@ import { recortarComFoco } from "~/social/render/imagem.server";
 import { gerarQuadros } from "./render/quadros.server";
 import { gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/ass";
 import { alinhamentoFalso, sintetizar } from "../../scripts/video/elevenlabs";
-import { instantesTransicao, montar } from "../../scripts/video/ffmpeg";
+import { type Clip, instantesTransicao, montar } from "../../scripts/video/ffmpeg";
 import { comandoTrilha, estiloDoVideo } from "../../scripts/video/musica";
+import { comandoCortes, ehVideoSrc, escolherTrechos, FRACAO_MAX_VIDEO, lerCortes, lerDuracao, TRECHO_MAX_S } from "../../scripts/video/videoclip";
 
 export interface PacoteVideo {
   id: number;
   titulo: string;
   secao: string;
   roteiro: { gancho: string; cenas: { fala: string; imagem: number }[]; titulo_curto: string };
-  imagens: { src: string; url: string; foco: string }[];
+  imagens: { src: string; url: string; foco: string; alt?: string }[];
   capa?: number;
   voz: string;
   modelo: string;
@@ -91,28 +92,58 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   // 2) Legenda: só as palavras das cenas
   const nG = p.roteiro.gancho.replace(/[.!?…]+$/, "").trim().split(/\s+/).length;
   const nCenas = falas.reduce((a, f) => a + f.trim().split(/\s+/).length, 0);
-  await writeFile(join(dir, "legenda.ass"), gerarAss(palavras.slice(nG, nG + nCenas)));
   await mkdir(join(dir, "fonts"), { recursive: true });
   await copyFile(join(process.cwd(), "app/video/fonts/Anton-Regular.ttf"), join(dir, "fonts/Anton-Regular.ttf"));
 
   // 3) Plano de clipes. Abertura + cena 1 viram um clipe só (o cartão de título fica por cima do gancho). Cada cena mostra SEMPRE a
   //    imagem escolhida para ela (voz e imagem combinam). Cena longa vira cortes de ~4 s na mesma imagem, alternando o quadro
   //    aberto com uma aproximação (punch-in) para dar ritmo sem trocar de assunto.
-  const usaveis = p.imagens.map((x, i) => (x.url && !x.url.startsWith("arte:") ? i : -1)).filter((i) => i >= 0);
+  const ehVideo = (i: number) => ehVideoSrc(p.imagens[i]?.src ?? "");
+  const usaveis = p.imagens.map((x, i) => (x.url && !x.url.startsWith("arte:") && !ehVideoSrc(x.src) ? i : -1)).filter((i) => i >= 0);
   if (!usaveis.length) throw new Error("nenhuma imagem utilizável");
   const cenasSeg = seg.segs.filter((x) => x.tipo === "cena").map((x) => ({ ...x }));
   if (cenasSeg.length) cenasSeg[0].ini = 0;
-  const plano: { img: number; ini: number; dur: number; punch: boolean }[] = [];
+  const plano: { img: number; ini: number; dur: number; punch: boolean; video: boolean; ss: number }[] = [];
   let anterior = -1;
   for (const c of cenasSeg) {
     const dur = c.fim - c.ini;
-    const partes = Math.max(1, Math.min(3, Math.round(dur / 4.2)));
     let img = p.roteiro.cenas[c.cena]?.imagem ?? 0;
-    // A imagem escolhida para a capa vale para a abertura (1ª cena).
-    if (plano.length === 0 && p.capa != null) img = p.capa;
-    if (!usaveis.includes(img)) img = usaveis.find((i) => i !== anterior) ?? usaveis[0];
-    for (let k = 0; k < partes; k++) plano.push({ img, ini: c.ini + (dur / partes) * k, dur: dur / partes, punch: k % 2 === 1 || (k === 0 && img === anterior) });
+    // A imagem escolhida para a capa vale para a abertura (1ª cena), desde que seja uma imagem (não um vídeo).
+    if (plano.length === 0 && p.capa != null && !ehVideo(p.capa)) img = p.capa;
+    const video = ehVideo(img) && !!p.imagens[img]?.url;
+    if (!video && !usaveis.includes(img)) img = usaveis.find((i) => i !== anterior) ?? usaveis[0];
+    const partes = video ? Math.max(1, Math.min(4, Math.ceil(dur / TRECHO_MAX_S))) : Math.max(1, Math.min(3, Math.round(dur / 4.2)));
+    for (let k = 0; k < partes; k++) plano.push({ img, ini: c.ini + (dur / partes) * k, dur: dur / partes, punch: !video && (k % 2 === 1 || (k === 0 && img === anterior)), video, ss: 0 });
     anterior = img;
+  }
+
+  // 3b) Trechos de vídeo (material enviado pelo dono): corta em pontos de corte de cena, com teto de duração por trecho e de
+  //     participação no vídeo final. Trecho que não couber vira imagem. O áudio original nunca entra (só a narração).
+  const imagemReserva = (de: number) => usaveis.find((i) => i !== de) ?? usaveis[0];
+  const fundirEmImagem = (it: (typeof plano)[number]) => {
+    it.video = false;
+    it.img = imagemReserva(plano[plano.indexOf(it) - 1]?.img ?? -1);
+    it.punch = true;
+  };
+  let segundosVideo = 0;
+  for (const it of plano) {
+    if (!it.video) continue;
+    if (segundosVideo + it.dur > seg.total * FRACAO_MAX_VIDEO) fundirEmImagem(it);
+    else segundosVideo += it.dur;
+  }
+  const arquivosVideo = new Map<number, string>();
+  for (const origem of new Set(plano.filter((x) => x.video).map((x) => x.img))) {
+    const itens = plano.filter((x) => x.video && x.img === origem);
+    const nome = `video${origem}.mp4`;
+    await writeFile(join(dir, nome), await baixar(p.imagens[origem].url));
+    const info = await rodar(ff, comandoCortes(nome), dir).catch(() => "");
+    const trechos = escolherTrechos(lerDuracao(info), lerCortes(info), itens.map((x) => x.dur));
+    itens.forEach((it, k) => {
+      const t = trechos[k];
+      if (!t || t.dur < it.dur * 0.6) return fundirEmImagem(it);
+      it.ss = t.ss;
+    });
+    arquivosVideo.set(origem, nome);
   }
 
   // 4) Imagens enquadradas para 9:16. Imagem larga (16:9): inteira no centro, sobre ela mesma desfocada (não corta personagem nas
@@ -142,11 +173,19 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     prep.set(indice, r);
     return r;
   };
-  const clips = [];
+  const clips: Clip[] = [];
+  const creditos: { ini: number; fim: number; texto: string }[] = [];
   for (const c of plano) {
+    if (c.video) {
+      clips.push({ img: "", ini: c.ini, dur: c.dur, suave: true, video: { arquivo: arquivosVideo.get(c.img)!, ss: c.ss } });
+      creditos.push({ ini: c.ini, fim: c.ini + c.dur, texto: p.imagens[c.img].alt || "Vídeo: material de divulgação" });
+      continue;
+    }
     const x = await preparar(c.img);
     clips.push({ img: x.nome, ini: c.ini, dur: c.dur, suave: x.suave, fixo: x.fixo, punch: c.punch && !x.suave });
   }
+
+  await writeFile(join(dir, "legenda.ass"), gerarAss(palavras.slice(nG, nG + nCenas), { creditos }));
 
   // 5) Quadros (marca, abertura, fechamento) e montagem
   const q = await gerarQuadros({ titulo: p.titulo, secao: p.secao, cta: p.cta });
@@ -178,7 +217,8 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   }
 
   // 6) Capa: 1º quadro com moldura e cartão de abertura por cima
-  const base = await sharp(join(dir, clips[0].img)).resize(1080, 1920, { fit: "cover" }).toBuffer();
+  if (clips[0].video) await rodar(ff, ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(clips[0].video.ss), "-i", clips[0].video.arquivo, "-frames:v", "1", "capa0.jpg"], dir);
+  const base = await sharp(join(dir, clips[0].video ? "capa0.jpg" : clips[0].img)).resize(1080, 1920, { fit: "cover" }).toBuffer();
   const capa = await sharp(base).composite([{ input: q.moldura }, { input: q.abertura }]).jpeg({ quality: 88 }).toBuffer();
   return { mp4: join(dir, "saida.mp4"), capa, chars: p.falado.length, duracao: seg.total };
 }

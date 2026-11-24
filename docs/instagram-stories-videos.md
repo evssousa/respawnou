@@ -970,3 +970,8 @@ ElevenLabs pode servir os sites (os créditos são da conta; dividir a cota no p
 - Enquadramento manual ou preset do dono: a câmera só respira no centro (sem panorâmica), para o recorte aparecer como foi ajustado.
 - Trilha sintetizada pelo ffmpeg (scripts/video/musica.ts; 3 estilos por id do vídeo, sem direitos autorais) + whoosh nas transições, com ducking sob a voz. Efeitos: cor/vinheta, pulso de brilho na batida, mais transições (incl. flash branco).
 - Monetização: roteiro e voz próprios + revisão do dono + música própria; risco restante são as imagens (usar material de imprensa/capturas de jogo e creditar a fonte), e marcar "conteúdo sintético" no YouTube/TikTok quando pedirem.
+
+## Recortes de vídeo da matéria (2026-11-24)
+- O dono envia o arquivo (MP4/WebM, até 80 MB, material de divulgação que pode usar) + crédito, no rascunho do vídeo; entra na lista de imagens como "Vídeo: <crédito>" e é escolhido numa cena como qualquer imagem.
+- Recorte: ffmpeg acha os cortes de cena; trechos de até 4,5 s começando num corte, pulando 6% do início (logotipo) e 14% do fim (cartela); máx. 40% do vídeo final; sem o áudio original; crédito na tela. Trecho que não couber vira imagem.
+- Decisão: NÃO baixar do YouTube automaticamente (viola os termos e gera bloqueio/Content ID). Só arquivos enviados pelo dono.

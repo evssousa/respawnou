@@ -12,7 +12,7 @@ import type { Foco } from "~/social/tipos";
 import { SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
 import { ErroUpload } from "~/social/server/uploads.server";
-import { adicionarImagem, aprovar, descartar, gerarRoteiroDoJob, listarJobs, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { adicionarImagem, adicionarVideo, aprovar, descartar, gerarRoteiroDoJob, listarJobs, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -67,7 +67,7 @@ export async function action({ request }: Route.ActionArgs) {
     }
     if (intent === "descartar") return (await descartar(id)) ? back("ok=descartado") : back(`erro=${encodeURIComponent("Não dá para excluir um vídeo que está sendo gerado agora.")}`);
     if (intent === "reabrir") return (await reabrir(id)) ? back("ok=reaberto") : back(`erro=${encodeURIComponent("Este vídeo não pode ser reaberto agora.")}`);
-    if (intent === "salvar" || intent === "aprovar" || intent === "refazer" || intent === "img_add") {
+    if (intent === "salvar" || intent === "aprovar" || intent === "refazer" || intent === "img_add" || intent === "vid_add") {
       if (intent !== "refazer") {
         const cenas: { fala: string; imagem: number }[] = [];
         const focus: Record<string, Foco> = {};
@@ -89,6 +89,12 @@ export async function action({ request }: Route.ActionArgs) {
         const r = await adicionarImagem(id, file);
         return r === "ok" ? back("ok=imagem") : back(`erro=${encodeURIComponent(r)}`);
       }
+      if (intent === "vid_add") {
+        const file = f.get("video");
+        if (!(file instanceof File) || !file.size) return back(`erro=${encodeURIComponent("Escolha um arquivo de vídeo primeiro.")}`);
+        const r = await adicionarVideo(id, file, String(f.get("credito") ?? ""));
+        return r === "ok" ? back("ok=video") : back(`erro=${encodeURIComponent(r)}`);
+      }
       if (intent === "salvar") return back("ok=salvo");
       const r = await aprovar(id);
       if (!r.ok) return back(`erro=${encodeURIComponent(r.aviso ?? "não aprovou")}`);
@@ -107,6 +113,7 @@ const MSG: Record<string, string> = {
   salvo: "Roteiro salvo.",
   descartado: "Vídeo excluído (arquivos apagados).",
   imagem: "Imagem acrescentada (e o roteiro salvo). Escolha-a numa cena, ou como capa.",
+  video: "Vídeo acrescentado (e o roteiro salvo). Escolha-o numa cena: o sistema recorta os melhores trechos sozinho.",
   reaberto: "Vídeo reaberto: mexa no roteiro, nas imagens e no enquadramento e clique em Aprovar e gerar quando quiser.",
   aprovado: "Aprovado. O vídeo fica pronto em alguns minutos: recarregue a página.",
 };
@@ -135,13 +142,16 @@ function CenaLinha({ i, c, images, focus }: { i: number; c: { fala: string; imag
   const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
   const src = images[img]?.src;
-  const real = src && !src.startsWith("arte:") ? src : null;
+  const ehVid = !!src && /\.(mp4|webm)$/i.test(src);
+  const real = src && !src.startsWith("arte:") && !ehVid ? src : null;
   return (
     <div className="grid gap-2 border border-line p-2 sm:grid-cols-[64px_1fr]">
       {real ? (
         <button type="button" className="block hover:opacity-90" aria-label="Ver a imagem grande e alinhar" onClick={() => setAlinhando(true)}>
           <img src={real} alt="" width={64} height={114} className="h-[114px] w-16 border border-line object-cover" style={ehFocoManual(foco) ? { objectPosition: foco.replace(",", "% ") + "%" } : undefined} loading="lazy" />
         </button>
+      ) : ehVid ? (
+        <video src={src} muted playsInline preload="metadata" className="h-[114px] w-16 border border-line object-cover" />
       ) : (
         <div className="flex h-[114px] w-16 items-center justify-center border border-line text-[10px] text-muted">ARTE</div>
       )}
@@ -213,7 +223,7 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
               <Field label="Imagem da capa e da abertura (a 1ª imagem do vídeo)">
                 <select name="capa" defaultValue={j.focus["_capa"] ?? ""} className={inputCls}>
                   <option value="">Automática (a da 1ª cena)</option>
-                  {j.images.map((x, k) => (x.src.startsWith("arte:") ? null : <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>))}
+                  {j.images.map((x, k) => (x.src.startsWith("arte:") || /\.(mp4|webm)$/i.test(x.src) ? null : <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>))}
                 </select>
               </Field>
               {r.cenas.map((c, i) => (
@@ -223,6 +233,14 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
                 <span className="text-xs text-muted">A imagem não combina com o texto? Envie outra ({j.images.length} no vídeo):</span>
                 <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/avif" className="max-w-full text-xs text-body" />
                 <Button name="intent" value="img_add" disabled={busy}>Enviar imagem (salva o roteiro)</Button>
+              </div>
+              <div className="flex flex-col gap-2 border border-dashed border-line-soft p-2">
+                <span className="text-xs text-muted">Trecho de vídeo da matéria (trailer/material de imprensa que você tem o direito de usar). O sistema recorta cortes curtos de até 4,5 s, só com a sua narração (o áudio do vídeo não entra), no máximo 40% do vídeo, com o crédito na tela.</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input type="file" name="video" accept="video/mp4,video/webm" className="max-w-full text-xs text-body" />
+                  <input name="credito" placeholder="Crédito (ex.: Bandai Namco)" maxLength={60} className={`${inputCls} max-w-[240px]`} />
+                  <Button name="intent" value="vid_add" disabled={busy}>Enviar vídeo (salva o roteiro)</Button>
+                </div>
               </div>
               <p className="text-xs text-muted">Fechamento fixo: “{VIDEO.fechamento}”</p>
               <p className="font-mono text-xs text-body">≈ {Math.round(palavras / 2.5 + 3)} s · {chars} caracteres · ~US$ {custo.toFixed(2).replace(".", ",")}</p>

@@ -98,7 +98,7 @@ const limpa = (t: string) => t.replace(/[{}\\]/g, "").toLocaleUpperCase("pt-BR")
  * Arquivo ASS (1080×1920, Anton 84, contorno 6 px, palavra atual em verde-limão). Um evento por palavra mostrando a página
  * inteira; só as palavras das cenas (sem gancho e sem fechamento). Sem sobreposição de tempo entre eventos.
  */
-export function gerarAss(palavrasCenas: Palavra[], opts: { margemV?: number } = {}): string {
+export function gerarAss(palavrasCenas: Palavra[], opts: { margemV?: number; creditos?: { ini: number; fim: number; texto: string }[] } = {}): string {
   const pags = paginas(palavrasCenas);
   const eventos: string[] = [];
   // A palavra da vez acende em verde-limão e "pula" (cresce e volta ao normal em 0,12 s).
@@ -115,6 +115,8 @@ export function gerarAss(palavrasCenas: Palavra[], opts: { margemV?: number } = 
       eventos.push(`Dialogue: 0,${hms(ini)},${hms(fim)},Pal,,0,0,0,,${texto}`);
     });
   }
+  // Crédito do material de terceiros, no canto de baixo, enquanto o trecho está na tela.
+  for (const c of opts.creditos ?? []) eventos.push(`Dialogue: 1,${hms(c.ini)},${hms(c.fim)},Cred,,0,0,0,,${limpa(c.texto)}`);
   return `[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -124,6 +126,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Cred,Anton,38,&H00EAF3EE,&H00EAF3EE,&H00070806,&H00000000,0,0,0,0,100,100,2,0,1,3,0,1,48,48,330,1
 Style: Pal,Anton,92,&H00EAF3EE,&H00EAF3EE,&H00070806,&H00000000,0,0,0,0,100,100,0,0,1,6,0,2,64,164,${opts.margemV ?? 480},1
 
 [Events]

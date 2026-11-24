@@ -9,6 +9,7 @@ import { lerOverrides } from "~/social/core/overrides";
 import { SOCIAL } from "~/social/config";
 import { escolherModelo, lerEntrada, urlDaMateria } from "~/social/site.server";
 import type { Foco } from "~/social/tipos";
+import { lerDuracao } from "../../scripts/video/videoclip";
 import { VIDEO, vozDaSecao } from "./config";
 import { lerConfig } from "./config.server";
 import { exec, hasDatabase, query } from "./db";
@@ -116,6 +117,50 @@ export async function salvarRoteiro(id: number, roteiro: unknown, focus: Record<
 }
 
 export const MAX_IMAGENS = 14;
+const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
+
+/**
+ * O dono enviou um trecho de material de divulgação (trailer/vídeo de imprensa) para recortar. Entra na lista de imagens como
+ * item de vídeo; o crédito vira o texto exibido enquanto o trecho aparece. Nada é baixado de sites de terceiros.
+ */
+export async function adicionarVideo(id: number, file: File, credito: string): Promise<string> {
+  const [j] = await query<Record<string, unknown>>("SELECT * FROM video_jobs WHERE id = ?", [id]);
+  if (!j) return "Job não encontrado.";
+  const job = linha(j);
+  if (job.status !== "aguardando" && job.status !== "falhou") return "Só dá para acrescentar vídeos enquanto o vídeo está em rascunho (use Editar e refazer).";
+  if (job.images.length >= MAX_IMAGENS) return `Limite de ${MAX_IMAGENS} itens por vídeo.`;
+  const cred = credito.replace(/[{}\\\r\n]/g, " ").trim().slice(0, 60);
+  if (cred.length < 3) return "Informe o crédito/fonte do vídeo (ex.: Bandai Namco). Ele aparece na tela durante o trecho.";
+  if (!file.size) return "Nenhum arquivo enviado.";
+  if (file.size > MAX_VIDEO_BYTES) return "Vídeo maior que 80 MB.";
+  const ext = file.type === "video/mp4" ? "mp4" : file.type === "video/webm" ? "webm" : "";
+  if (!ext) return "Formato não aceito: use MP4 ou WebM.";
+  const buf = Buffer.from(await file.arrayBuffer());
+  const d = new Date();
+  const rel = `video/uploads/${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  const nome = `v${id}-${createHash("sha1").update(buf).digest("hex").slice(0, 8)}.${ext}`;
+  await mkdir(join(mediaDir(), rel), { recursive: true });
+  const caminho = join(mediaDir(), rel, nome);
+  await writeFile(caminho, buf);
+  // Confere se o ffmpeg consegue abrir (e a duração): arquivo ruim é apagado na hora.
+  const { caminhoFfmpeg } = await import("./gerador.server");
+  const { spawn } = await import("node:child_process");
+  const binario = await caminhoFfmpeg();
+  const info = await new Promise<string>((ok) => {
+    const p = spawn(binario, ["-hide_banner", "-threads", "1", "-i", caminho], { stdio: ["ignore", "ignore", "pipe"] });
+    let e = "";
+    p.stderr.on("data", (x) => (e += String(x)));
+    p.on("error", () => ok(""));
+    p.on("close", () => ok(e));
+  });
+  const dur = lerDuracao(info);
+  if (dur < 4 || !/Video:/.test(info)) {
+    await rm(caminho, { force: true }).catch(() => undefined);
+    return "Não deu para ler esse vídeo (ou ele tem menos de 4 segundos).";
+  }
+  await exec("UPDATE video_jobs SET images = ? WHERE id = ?", [JSON.stringify([...job.images, { src: `/media/${rel}/${nome}`, alt: `Vídeo: ${cred}` }]), id]);
+  return "ok";
+}
 
 /** O dono enviou uma imagem própria para o vídeo: entra no fim da lista (os números das imagens existentes não mudam). */
 export async function adicionarImagem(id: number, file: File): Promise<string> {
@@ -174,6 +219,10 @@ async function apagarArquivosDoJob(id: number): Promise<void> {
     await rm(join(mediaDir(), f.slice("/media/".length)), { force: true }).catch(() => undefined);
   }
   await exec("UPDATE video_jobs SET video = NULL, cover = NULL WHERE id = ?", [id]);
+  const [im] = await query<{ images: unknown }>("SELECT images FROM video_jobs WHERE id = ?", [id]);
+  for (const x of json<Imagem[]>(im?.images, [])) {
+    if (/^\/media\/video\/uploads\/\d{4}\/\d{2}\/[\w.-]+$/.test(x.src)) await rm(join(mediaDir(), x.src.slice("/media/".length)), { force: true }).catch(() => undefined);
+  }
 }
 
 /** Exclui o vídeo (pronto, com falha ou rascunho): some da lista e os arquivos são apagados na hora. Não mexe em vídeo sendo gerado. */
@@ -235,7 +284,7 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
     secao: SOCIAL.rotuloSecao[e.section] ?? e.section.toUpperCase(),
     chaveSecao: e.section,
     roteiro: job.script,
-    imagens: job.images.map((x, i) => ({ src: x.src, url: abs(x.src), foco: job.focus[String(i)] ?? "auto" })),
+    imagens: job.images.map((x, i) => ({ src: x.src, url: abs(x.src), foco: job.focus[String(i)] ?? "auto", alt: x.alt })),
     capa: job.focus["_capa"] != null && Number.isInteger(Number(job.focus["_capa"])) ? Number(job.focus["_capa"]) : undefined,
     voz,
     modelo: job.voice_model || cfg.model,

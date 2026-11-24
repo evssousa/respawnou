@@ -17,6 +17,8 @@ export interface Clip {
   suave: boolean;
   /** O dono alinhou o enquadramento à mão (ou por preset): só zoom centrado, sem panorâmica, para manter o que ele escolheu. */
   fixo?: boolean;
+  /** Trecho de vídeo (material enviado pelo dono) no lugar da imagem: arquivo na pasta de trabalho e instante inicial. */
+  video?: { arquivo: string; ss: number };
   /** Corte de aproximação (zoom forte e centrado) para dar ritmo quando a mesma imagem segue na tela. */
   punch?: boolean;
 }
@@ -74,6 +76,17 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   clips.forEach((c, k) => {
     // A transição fica centrada na fronteira da fala: o clipe começa T/2 antes do seu início e sobra T/2 depois do fim.
     const dur = c.dur + TRANSICAO;
+    if (c.video) {
+      // Trecho de vídeo: tela cheia com ele mesmo desfocado ao fundo (não corta os lados); se acabar antes, congela o último quadro.
+      args.push(...t1, "-ss", s3(c.video.ss), "-t", s3(dur), "-i", c.video.arquivo);
+      partes.push(
+        `[${idx}:v]fps=${FPS},split=2[va${k}][vb${k}];[va${k}]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=24:3,eq=brightness=-0.12[vf${k}];` +
+          `[vb${k}]scale=1080:1920:force_original_aspect_ratio=decrease[vg${k}];[vf${k}][vg${k}]overlay=(W-w)/2:(H-h)/2,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=3,trim=duration=${s3(dur)},setpts=PTS-STARTPTS,settb=AVTB[c${k}]`,
+      );
+      rotulos.push(`[c${k}]`);
+      idx++;
+      return;
+    }
     args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(dur), "-i", c.img);
     const m = movimento(k, Math.round(dur * FPS), c.suave, c.punch ? "punch" : c.fixo ? "fixo" : "livre");
     partes.push(`[${idx}:v]zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=1:s=1080x1920:fps=${FPS},setsar=1,format=yuv420p,settb=AVTB[c${k}]`);
