@@ -433,7 +433,7 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
   const busy = useNavigation().state !== "idle";
   // Enquanto algo está sendo gerado ou enviado ao Instagram, a tela se atualiza sozinha a cada 8 s.
   const revalidador = useRevalidator();
-  const ativo = !d.semBanco && d.jobs.some((j) => j.ig_status === "enviando" || j.status === "gerando" || j.status === "aprovado");
+  const ativo = !d.semBanco && d.jobs.some((j) => j.ig_status === "enviando" || j.status === "gerando" || j.status === "aprovado" || (j.status === "falhou" && /tentando de novo/.test(j.error ?? "")));
   useEffect(() => {
     if (!ativo) return;
     const t = setInterval(() => revalidador.revalidate(), 8000);

@@ -119,6 +119,9 @@ export async function criarJobDoFormato(postId: number, formato: string): Promis
   return r;
 }
 
+/** Quantas vezes já tentamos de novo, sozinhos, o roteiro de cada job por causa de sobrecarga do Gemini. */
+const tentativasGemini = new Map<number, number>();
+
 /** (Re)gera o roteiro de um job que ainda não foi aprovado/gerado. */
 export async function gerarRoteiroDoJob(id: number): Promise<string> {
   const [j] = await query<Record<string, unknown>>("SELECT * FROM video_jobs WHERE id = ?", [id]);
@@ -133,9 +136,23 @@ export async function gerarRoteiroDoJob(id: number): Promise<string> {
     const fatosVideo: FatosVideo = { ...fatosDe(e), ...(dadosSerie?.fatos ?? {}) };
     const roteiro = await gerarRoteiro(e, job.images, fatosVideo, job.serie ?? "");
     await exec("UPDATE video_jobs SET script = ?, facts = ?, status = 'aguardando', error = NULL WHERE id = ?", [JSON.stringify(roteiro), JSON.stringify(fatosVideo), id]);
+    tentativasGemini.delete(id);
     return "ok";
   } catch (err) {
-    const msg = String((err as Error)?.message ?? err).slice(0, 400);
+    const bruto = String((err as Error)?.message ?? err);
+    // Gemini sobrecarregado (503 / "high demand"): é passageiro. Tenta de novo sozinho (3, 6 e 9 minutos depois), até 3 vezes.
+    const sobrecarga = /503|high demand|overload|UNAVAILABLE/i.test(bruto);
+    const n = tentativasGemini.get(id) ?? 0;
+    if (sobrecarga && n < 3) {
+      tentativasGemini.set(id, n + 1);
+      const espera = 3 * (n + 1);
+      setTimeout(() => void gerarRoteiroDoJob(id).catch(() => undefined), espera * 60_000);
+      const aviso = `O Gemini está sobrecarregado agora (erro 503, passa sozinho). Estou tentando de novo em ${espera} min (tentativa ${n + 2} de 4); você também pode clicar em "Gerar outro roteiro".`;
+      await exec("UPDATE video_jobs SET status = 'falhou', error = ? WHERE id = ?", [aviso, id]);
+      return aviso;
+    }
+    tentativasGemini.delete(id);
+    const msg = bruto.slice(0, 400);
     await exec("UPDATE video_jobs SET status = 'falhou', error = ? WHERE id = ?", [msg, id]);
     return msg;
   }
