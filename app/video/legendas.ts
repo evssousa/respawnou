@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Legendas do vídeo por rede (montadas por código, sem IA). Funções puras.
 import { SOCIAL } from "~/social/config";
 import { hashtags, montarLegenda } from "~/social/core/legenda";

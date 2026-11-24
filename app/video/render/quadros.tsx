@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Quadros do vídeo (satori → PNG 1080×1920): moldura (gradientes + marca, transparente), cartão de abertura (transparente) e fechamento.
 // Zonas seguras (Reels/Shorts/TikTok): topo 0–220, base 1500–1920, lateral direita x 950–1080. Texto importante em x 64–916, y 220–1500.
 import { COR, SOCIAL } from "~/social/config";

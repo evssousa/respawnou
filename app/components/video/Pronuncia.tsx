@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Cartão "Pronúncia da voz": como a voz deve falar siglas e nomes. Edita a lista do dono; a base da marca aparece só para consulta.
 import { useState } from "react";
 import { Form } from "react-router";

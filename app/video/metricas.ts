@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Contas puras das métricas dos vídeos (vale no navegador e no servidor).
 export type Marco = "24h" | "72h" | "7d" | "30d";
 export const MARCOS: Marco[] = ["24h", "72h", "7d", "30d"];

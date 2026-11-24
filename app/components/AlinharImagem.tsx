@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Ver a imagem grande e alinhar o recorte à mão: arrasta a imagem dentro do quadro (com a proporção em que ela aparece na arte)
 // ou usa os controles. O resultado é um foco "x,y" em porcentagem, o mesmo que o servidor usa para cortar (object-position).
 import { useEffect, useRef, useState } from "react";

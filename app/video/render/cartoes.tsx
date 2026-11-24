@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Cartões de dados do vídeo (satori → PNG pequeno, com 40 px de folga para a sombra): painel escuro com barra verde à esquerda,
 // rótulo técnico em mono, valor grande em Anton. Cada componente recebe só o que existe; sem o valor principal devolve null
 // (o cartão simplesmente não entra). Cores e fontes vêm da marca. Sobrepostos em x 24, y 560 (largura útil 852).

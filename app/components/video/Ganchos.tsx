@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Blocos do roteiro novo no painel: escolha do gancho (3 opções) e fechamento com pergunta. Campos do formulário:
 // `gancho` (o escolhido), `ganchos_json` (todas as opções), `pergunta`, `usar_pergunta`.
 import { useState } from "react";

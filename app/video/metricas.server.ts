@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Coleta das estatísticas dos Reels publicados (Instagram) em marcos de 24 h, 72 h, 7 d e 30 d. Chamada no fim da coleta do robô;
 // nunca derruba nada. Os números alimentam o painel /admin/videos e, mais tarde, o peso na escolha do vídeo do dia.
 import { contagensMidia, insightsMidia, semPermissao } from "~/social/server/instagram.server";

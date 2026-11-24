@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // GET /admin/videos/capa/:id?img=3&foco=30,60 — prévia da primeira tela do vídeo (imagem enquadrada + moldura + cartão de título),
 // montada com a mesma regra do gerador. Só admin. Não grava nada.
 import { readFile } from "node:fs/promises";

@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Trilha de fundo e efeitos sonoros gerados pelo próprio ffmpeg (síntese): música 100% nossa, sem direitos autorais de terceiros
 // (não cai em Content ID e não atrapalha a monetização). Só monta o comando; quem roda é o gerador.
 

@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Configuração do módulo de vídeo. Textos e nomes do site vêm de app/marca.ts; aqui ficam as regras do núcleo. Parte pura (vale no navegador). Os valores editáveis pelo dono
 // ficam em settings.video_config (config.server.ts).
 import { MARCA } from "../marca";

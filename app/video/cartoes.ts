@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Fatos da matéria para os cartões de dados do vídeo e quais cartões cada matéria pode ter. Puro: vale no navegador e no servidor.
 
 export type TipoCartao = "preco" | "lancamento" | "nota" | "requisitos" | "gratis" | "plataformas" | "ranking" | "dia";

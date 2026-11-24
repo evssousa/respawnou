@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Tipos e contas do roteiro (puro: vale no navegador e no servidor).
 import { MARCA } from "../marca";
 import { type ItemPronuncia, montarFala } from "../../scripts/video/falar";

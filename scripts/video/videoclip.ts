@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Recortes de vídeo da matéria (trailer/material de imprensa enviado pelo dono): acha os cortes de cena, escolhe trechos curtos
 // espalhados pelo vídeo e pula logotipos do começo e cartela do fim. Funções puras + o comando de análise do ffmpeg.
 

@@ -883,6 +883,8 @@ false}. Grava `youtube_id`/`youtube_status`.
 
 ## Como copiar para outro site (vídeos)
 
+> **Guia atual e permanente: [`modulo-video.md`](modulo-video.md)** (tabela núcleo × do site, campos de `app/marca.ts`, checklist). O texto abaixo é o plano original e pode estar desatualizado.
+
 `app/video/config.ts` (voz, velocidade, fechamento falado, cores da legenda vindas do `COR` do site, ordem de tipos),
 `app/video/db.ts`, `fonts/` (TTF da fonte de título do site), migration equivalente à 015, `video.yml` com o `SITE_URL`
 do site e os secrets próprios (`VIDEO_WORKER_SECRET` diferente por site). O worker e o ASS são genéricos. Uma conta

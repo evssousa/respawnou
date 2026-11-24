@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Dicionário de pronúncia do dono (settings.video_pronuncia). Só no servidor. A base da marca fica em app/marca.ts.
 import { exec, query } from "./db";
 import { type ItemPronuncia, juntarDicionario, limparItens } from "./pronuncia";

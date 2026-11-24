@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Gera os cartões de dados com fatos de exemplo (nome longo, preço sem dígito, nota baixa, 6 plataformas...) e uma "folha" com cada
 // um sobre uma imagem na posição real (x 24, y 560), para conferir de uma vez.
 // Rodar da raiz: npx tsx --tsconfig tsconfig.json scripts/video/testes/cartoes-render.ts [pasta-de-saida]

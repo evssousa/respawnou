@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Nota da crítica: formatação e cor (usada na arte do carrossel e nos cartões de dados do vídeo). Puro.
 import { COR } from "../config";
 

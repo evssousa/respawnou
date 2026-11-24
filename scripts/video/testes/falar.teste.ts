@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Teste puro da conversão tela → fala: npx tsx scripts/video/testes/falar.teste.ts
 import assert from "node:assert";
 import { palavrasDoAlinhamento } from "../ass";

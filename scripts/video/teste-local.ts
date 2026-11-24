@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Teste local do gerador de vídeo, sem gastar crédito (voz falsa) e sem rede. Gera imagens de teste, monta um vídeo curto ou longo,
 // mede o tempo de cada fase e extrai quadros para conferir. Rodar da raiz do projeto:
 //   VIDEO_TESTE=1 npx tsx scripts/video/teste-local.ts --perfil longo --manter

@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Teste do roteiro v2 (validação, compatibilidade com o formato antigo, ida e volta do formulário e reforço de cartões).
 // Rodar da raiz: npx tsx --tsconfig tsconfig.json scripts/video/testes/roteiro.teste.ts
 import assert from "node:assert";

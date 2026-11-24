@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Alinhamento da voz → palavras com tempo → segmentos do vídeo → legenda ASS palavra por palavra. Funções puras (sem rede, sem disco).
 
 export interface Alinhamento {

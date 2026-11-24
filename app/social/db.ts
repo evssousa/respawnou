@@ -1,3 +1,4 @@
+// DO SITE (adaptar ao copiar o módulo para outro site)
 // Ponte com o banco do site (ESPECÍFICO DO SITE: ao copiar o módulo, ajuste estas linhas; igual a app/visitas/db.ts).
 import type { ResultSetHeader } from "mysql2/promise";
 import { db } from "~/lib/db.server";

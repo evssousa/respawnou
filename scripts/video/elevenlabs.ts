@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Voz: ElevenLabs com alinhamento por caractere (with-timestamps). Uma chamada por vídeo.
 import type { Alinhamento } from "./ass";
 

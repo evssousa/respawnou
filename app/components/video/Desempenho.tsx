@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Métricas dos vídeos no painel: chips da lista de publicados e tabela de desempenho por formato (componentes puros).
 import { type LinhaMetrica, melhorMarco, milhar, pct, retencao, ROTULO_MARCO } from "~/video/metricas";
 

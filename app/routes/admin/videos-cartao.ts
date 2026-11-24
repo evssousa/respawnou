@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // GET /admin/videos/cartao/:id?tipo=preco&item=0 — miniatura (PNG) do cartão de dados com os fatos congelados do vídeo. Só admin.
 import type { Route } from "./+types/videos-cartao";
 import { requireAdmin } from "~/lib/admin/auth.server";

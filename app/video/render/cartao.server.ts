@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Renderiza um cartão de dados do vídeo (PNG pequeno com folga para a sombra). Só no servidor.
 import { createElement } from "react";
 import { renderizarPng } from "~/social/render/render.server";

@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Seletor de imagem com miniaturas (no lugar de uma lista só de texto): mostra a escolhida e abre uma grade para trocar.
 import { useEffect, useState } from "react";
 

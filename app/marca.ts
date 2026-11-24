@@ -1,3 +1,4 @@
+// DO SITE (adaptar ao copiar o módulo para outro site)
 // MARCA: tudo o que muda de um site para outro, num arquivo só. Ao copiar os módulos social e vídeo para outro site, este é o
 // arquivo que se edita (mais as pastas de fontes, o logo e o banco). `app/social/config.ts` e `app/video/config.ts` derivam daqui
 // e mantêm os mesmos nomes exportados. Puro: sem node:*, sem banco (vale no navegador). Guia: docs/modulo-video.md.

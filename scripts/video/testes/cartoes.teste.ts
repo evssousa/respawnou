@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Teste puro do plano de tempo dos cartões: npx tsx --tsconfig tsconfig.json scripts/video/testes/cartoes.teste.ts
 import assert from "node:assert";
 import { planoCartoes, termosDeDestaque, type FatosVideo } from "~/video/cartoes";

@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Gera os PNGs 1080×1920 do vídeo (usado pelo worker). Reaproveita satori, fontes e logo do módulo social.
 import { createElement } from "react";
 import { gradeDataUri, logoDataUri } from "~/social/render/imagem.server";

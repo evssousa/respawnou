@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Efeitos sonoros dos cartões de dados, sintetizados pelo ffmpeg (sem arquivo de terceiros): "ding" no preço e no grátis, "impacto"
 // na nota e no ranking, "pop" nos demais. Só monta o comando; quem roda é o gerador.
 

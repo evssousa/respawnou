@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Fila dos vídeos (tabela video_jobs): escolha do dia, roteiro, aprovação, entrega ao worker, resultado e limpeza.
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -524,6 +525,8 @@ export async function resumoMes(): Promise<{ prontos: number; creditos: number; 
 
 /** Apaga os arquivos: descartados em 7 dias; prontos em 45 dias (ou 30 dias depois da última publicação, quando houver). */
 export async function limparArquivos(): Promise<number> {
+  // Lançamentos da semana nasce na segunda e o dono aprova pelo painel; sem aprovação até quarta ~12h (50 h), o rascunho é descartado.
+  await exec("UPDATE video_jobs SET status = 'descartado' WHERE serie = 'lancamentos-semana' AND status = 'aguardando' AND created_at < UTC_TIMESTAMP() - INTERVAL 50 HOUR").catch(() => undefined);
   const velhos = await query<{ id: number; video: string | null; cover: string | null; status: string; rendered_at: string | null; created_at: string }>(
     `SELECT id, video, cover, status, rendered_at, created_at FROM video_jobs WHERE video IS NOT NULL AND (
        (status = 'descartado' AND created_at < UTC_TIMESTAMP() - INTERVAL 7 DAY) OR (status = 'pronto' AND rendered_at < UTC_TIMESTAMP() - INTERVAL 45 DAY))`,

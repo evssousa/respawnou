@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Dicionário de pronúncia (puro: vale no painel e no servidor). Base da marca + itens do dono; o do dono vence quando o "de" é igual.
 import { MARCA } from "~/marca";
 import type { ItemPronuncia } from "../../scripts/video/falar";

@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Teste dos efeitos sonoros: npx tsx --tsconfig tsconfig.json scripts/video/testes/efeitos.teste.ts
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";

@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Montagem do vídeo com ffmpeg: clipes com Ken Burns (zoompan) ligados por transições animadas (xfade), moldura com a marca,
 // cartão de abertura que entra deslizando e sai com fade, barra de progresso, legenda ASS queimada e só a narração no áudio.
 // Aqui só se monta o comando; quem roda é o gerador (app/video/gerador.server.ts).

@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Do texto da TELA (algarismos: "R$ 249,90", "28/11", "nota 8,7") para o texto FALADO ("duzentos e quarenta e nove reais e noventa
 // centavos"), com dicionário de pronúncia, pausas antes de números e o caminho de volta (as palavras com tempo da voz voltam a ser
 // as palavras da tela, para a legenda). Puro: sem rede nem disco; vale no navegador e no servidor.

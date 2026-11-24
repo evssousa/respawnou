@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Monta os fatos do vídeo (cartões de dados) a partir da matéria lida do banco. Só no servidor.
 import { MARCA } from "~/marca";
 import type { EntradaSocial } from "~/social/tipos";

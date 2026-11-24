@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Teste puro da legenda: npx tsx scripts/video/testes/ass.teste.ts
 import assert from "node:assert";
 import { classificar, corAss, gerarAss, paginas } from "../ass";

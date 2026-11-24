@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Roteiro do vídeo (Gemini grátis, 1 pedido por vídeo): prompt, esquema e validação em código.
 import { generateJson } from "~/lib/robot/gemini.server";
 import { limparLinks } from "~/social/core/texto";

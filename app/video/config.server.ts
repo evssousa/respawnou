@@ -1,3 +1,4 @@
+// NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Leitura e gravação da configuração dos vídeos (settings.video_config). Só no servidor.
 import { SECOES_VOZ, VIDEO, type VideoConfig } from "./config";
 import { exec, query } from "./db";

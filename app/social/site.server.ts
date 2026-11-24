@@ -1,3 +1,4 @@
+// DO SITE (adaptar ao copiar o módulo para outro site)
 // Lê a matéria do banco do respawnou e monta a EntradaSocial; escolhe o modelo de arte (ESPECÍFICO DO SITE).
 import { SOCIAL } from "./config";
 import { extrairPontos, lerRequisitos } from "./core/pontos";
