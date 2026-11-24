@@ -27,6 +27,8 @@ export interface PacoteVideo {
   falado: string;
   /** Dicionário de pronúncia (base + do dono). Presente = o gerador converte a tela em fala (números por extenso, pausas) e remapeia a legenda. */
   pronuncia?: ItemPronuncia[];
+  /** Termos para destacar em verde na legenda (destaques do roteiro, nome do jogo...). */
+  termos?: string[];
   pausa?: number;
   fechamento: string;
   pergunta?: string | null;
@@ -260,7 +262,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     if (clips.length === 1) capaDoPrimeiro = x.capaArq ?? x.nome;
   }
 
-  await writeFile(join(dir, "legenda.ass"), gerarAss(palavras.slice(nG, nG + nCenas), { creditos, cores: { texto: MARCA.cores.texto, destaque: MARCA.cores.destaque, contorno: MARCA.cores.fundo }, fonte: MARCA.fontes.legenda.familia }));
+  await writeFile(join(dir, "legenda.ass"), gerarAss(palavras.slice(nG, nG + nCenas), { creditos, cores: { texto: MARCA.cores.texto, destaque: MARCA.cores.destaque, contorno: MARCA.cores.fundo, alerta: MARCA.cores.alerta }, fonte: MARCA.fontes.legenda.familia, termos: p.termos }));
 
   o.fase?.("quadros");
   // 5) Quadros (marca, abertura, fechamento) e montagem

@@ -65,22 +65,83 @@ export function segmentos(palavras: Palavra[], gancho: string | number, falas: (
   return { segs: segs.filter((s) => s.fim - s.ini > 0.05), total, inicios, inicioFechamento };
 }
 
-/** Páginas de até 4 palavras ou 30 caracteres; a página fecha em pontuação. */
-export function paginas<T extends { texto: string }>(palavras: T[], maxPalavras = 4, maxChars = 30): T[][] {
+export type ClasseLegenda = "comum" | "numero" | "nome";
+export interface Classificada {
+  classe: ClasseLegenda;
+  /** Palavras seguidas do mesmo termo compartilham o grupo (não se separa um nome entre páginas se couber). */
+  grupo?: number;
+}
+
+const semAcentoLow = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}$%#,./ªº]+/gu, " ")
+    .trim()
+    .toLowerCase();
+const limpoTermo = (t: string) => semAcentoLow(t).replace(/^[,./]+|[,./]+$/g, "");
+
+/**
+ * Classifica cada palavra da tela: `numero` (algarismo, R$, %, #n, "grátis"), `nome` (faz parte de um termo da lista: destaques do
+ * roteiro, nome do jogo...; casa por sequência de palavras, a mais longa primeiro; termo com mais de 4 palavras destaca só as 4
+ * primeiras) ou `comum`.
+ */
+export function classificar(palavras: { texto: string }[], termos: string[] = []): Classificada[] {
+  const alvos = termos
+    .map((t) => limpoTermo(t).split(/\s+/).filter(Boolean).slice(0, 4))
+    .filter((t) => t.length)
+    .sort((a, b) => b.length - a.length);
+  const norm = palavras.map((p) => limpoTermo(p.texto.replace(/\u00a0/g, " ")));
+  const out: Classificada[] = palavras.map((p) => ({ classe: /\d|^R\$|%|^#\d|^gr[áa]tis/i.test(p.texto) ? "numero" : "comum" }));
+  let g = 0;
+  for (let i = 0; i < palavras.length; i++) {
+    if (out[i].grupo !== undefined) continue;
+    for (const alvo of alvos) {
+      // a palavra da tela pode ser várias palavras ligadas por espaço duro ("Game Pass"): compara a primeira com o início do alvo
+      const pedacos = norm[i].split(/\s+/).filter(Boolean);
+      const cand = pedacos.length > 1 ? pedacos : norm.slice(i, i + alvo.length);
+      if (pedacos.length > 1) {
+        if (alvo.length === pedacos.length && alvo.every((x, k) => x === pedacos[k])) {
+          out[i] = { classe: "nome", grupo: g++ };
+          break;
+        }
+        continue;
+      }
+      if (cand.length === alvo.length && cand.every((x, k) => x === alvo[k])) {
+        for (let k = 0; k < alvo.length; k++) out[i + k] = { classe: "nome", grupo: g };
+        g++;
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Páginas de até 4 palavras ou 30 caracteres; a página fecha em pontuação. Um número com ≥ 2 palavras na página já aberta abre a
+ * página seguinte (mais visível); palavras do mesmo nome não se separam por contagem (só se passarem de 30 caracteres).
+ */
+export function paginas<T extends { texto: string }>(palavras: T[], classes: Classificada[] = [], maxPalavras = 4, maxChars = 30): T[][] {
   const out: T[][] = [];
   let atual: T[] = [];
+  let grupoAnterior: number | undefined;
   const tam = (l: T[]) => l.map((p) => p.texto).join(" ").length;
-  for (const p of palavras) {
-    if (atual.length && (atual.length >= maxPalavras || tam([...atual, p]) > maxChars)) {
+  palavras.forEach((p, i) => {
+    const c = classes[i];
+    const mesmoNome = c?.grupo !== undefined && c.grupo === grupoAnterior;
+    const estourou = atual.length && ((!mesmoNome && atual.length >= maxPalavras) || tam([...atual, p]) > maxChars);
+    if (estourou || (atual.length >= 2 && c?.classe === "numero")) {
       out.push(atual);
       atual = [];
     }
     atual.push(p);
+    grupoAnterior = c?.grupo;
     if (/[.!?…,;:]$/.test(p.texto)) {
       out.push(atual);
       atual = [];
+      grupoAnterior = undefined;
     }
-  }
+  });
   if (atual.length) out.push(atual);
   return out;
 }
@@ -100,21 +161,30 @@ export function corAss(hex: string, alfa = 0): string {
   return `&H${alfa.toString(16).toUpperCase().padStart(2, "0")}${b}${g}${r}&`;
 }
 
-const limpa = (t: string) => t.replace(/[{}\\]/g, "").toLocaleUpperCase("pt-BR");
+const limpa = (t: string) => t.replace(/[{}\\]/g, "").toLocaleUpperCase("pt-BR").replace(/\u00a0/g, "\\h"); // espaço duro vira \h no ASS
 
 /**
- * Arquivo ASS (1080×1920, Anton 84, contorno 6 px, palavra atual em verde-limão). Um evento por palavra mostrando a página
- * inteira; só as palavras das cenas (sem gancho e sem fechamento). Sem sobreposição de tempo entre eventos.
+ * Arquivo ASS (1080×1920): um evento por palavra mostrando a página inteira; só as palavras das cenas (sem gancho e sem
+ * fechamento). Sem sobreposição de tempo entre eventos. Hierarquia: número (âmbar, maior) > nome de jogo (verde) > palavra da vez
+ * (verde com pulo) > resto (branco).
  */
-export function gerarAss(palavrasCenas: Palavra[], opts: { margemV?: number; creditos?: { ini: number; fim: number; texto: string }[]; cores?: { texto: string; destaque: string; contorno: string }; fonte?: string } = {}): string {
-  const cor = opts.cores ?? { texto: "#eef3ea", destaque: "#c8ff2e", contorno: "#060807" };
+export function gerarAss(
+  palavrasCenas: Palavra[],
+  opts: { margemV?: number; creditos?: { ini: number; fim: number; texto: string }[]; cores?: { texto: string; destaque: string; contorno: string; alerta?: string }; fonte?: string; termos?: string[] } = {},
+): string {
+  const cor = { alerta: "#ffb020", ...(opts.cores ?? { texto: "#eef3ea", destaque: "#c8ff2e", contorno: "#060807" }) };
   const fonte = opts.fonte ?? "Anton";
   const est = (hex: string) => corAss(hex).slice(0, -1); // nas linhas Style a cor não leva o "&" final
-  const pags = paginas(palavrasCenas);
+  const classes = classificar(palavrasCenas, opts.termos ?? []);
+  const pags = paginas(palavrasCenas, classes);
   const eventos: string[] = [];
-  // A palavra da vez acende em verde-limão e "pula" (cresce e volta ao normal em 0,12 s).
-  const verde = `{\\c${corAss(cor.destaque)}\\fscx122\\fscy122\\t(0,120,\\fscx100\\fscy100)}`;
-  const base = `{\\c${corAss(cor.texto)}\\fscx100\\fscy100}`;
+  const indice = new Map<Palavra, number>(palavrasCenas.map((p, i) => [p, i]));
+  // Tags de cada palavra (cada uma define cor, escala e contorno inteiros, para não herdar da anterior).
+  const tag = (c: ClasseLegenda, vez: boolean) => {
+    if (c === "numero") return vez ? `{\\c${corAss(cor.alerta)}\\bord8\\fscx138\\fscy138\\t(0,140,\\fscx112\\fscy112)}` : `{\\c${corAss(cor.alerta)}\\bord6\\fscx112\\fscy112}`;
+    if (c === "nome") return vez ? `{\\c${corAss(cor.destaque)}\\bord6\\fscx118\\fscy118\\t(0,120,\\fscx100\\fscy100)}` : `{\\c${corAss(cor.destaque)}\\bord6\\fscx100\\fscy100}`;
+    return vez ? `{\\c${corAss(cor.destaque)}\\bord6\\fscx122\\fscy122\\t(0,120,\\fscx100\\fscy100)}` : `{\\c${corAss(cor.texto)}\\bord6\\fscx100\\fscy100}`;
+  };
   for (let pi = 0; pi < pags.length; pi++) {
     const pag = pags[pi];
     const proxima = pags[pi + 1]?.[0];
@@ -122,7 +192,7 @@ export function gerarAss(palavrasCenas: Palavra[], opts: { margemV?: number; cre
       const ini = p.ini;
       const fim = i < pag.length - 1 ? pag[i + 1].ini : Math.min(p.fim + 0.25, proxima ? proxima.ini : p.fim + 0.25);
       if (fim - ini < 0.02) return;
-      const texto = pag.map((x, j) => (j === i ? `${verde}${limpa(x.texto)}${base}` : limpa(x.texto))).join(" ");
+      const texto = pag.map((x, j) => `${tag(classes[indice.get(x) ?? 0]?.classe ?? "comum", j === i)}${limpa(x.texto)}`).join(" ");
       eventos.push(`Dialogue: 0,${hms(ini)},${hms(fim)},Pal,,0,0,0,,${texto}`);
     });
   }

@@ -67,6 +67,7 @@ function pacote(urls: string[]): PacoteVideo {
     falado,
     pronuncia: MARCA.video.pronunciaBase,
     pausa: VIDEO.voz.pausaAntesNumero,
+    termos: ["GTA 6", "Xbox"],
     fechamento,
     pergunta,
     cta: "MATÉRIA COMPLETA: LINK NO PERFIL",

@@ -61,3 +61,17 @@ export function dadosDoPrompt(f: FatosVideo | null | undefined): string {
   if (f.ranking?.length) f.ranking.forEach((r, i) => l.push(`Item ${i + 1}: ${r.titulo}`));
   return l.join("\n");
 }
+
+/** Termos que a legenda destaca em verde: destaques do roteiro + nome do jogo + nomes de grátis, dias e ranking (sem repetir; até 30). */
+export function termosDeDestaque(roteiro: { destaques?: string[] } | null | undefined, f: FatosVideo | null | undefined): string[] {
+  const todos = [
+    ...(roteiro?.destaques ?? []),
+    f?.jogo ?? "",
+    ...(f?.gratis ?? []).map((g) => g.nome),
+    ...(f?.dias ?? []).flatMap((d) => d.jogos),
+    ...(f?.ranking ?? []).map((r) => r.titulo),
+  ]
+    .map((x) => (x ?? "").trim())
+    .filter((x) => x.length >= 2 && x.length <= 40);
+  return [...new Set(todos.map((x) => x.toLowerCase()))].slice(0, 30).map((l) => todos.find((x) => x.toLowerCase() === l)!);
+}

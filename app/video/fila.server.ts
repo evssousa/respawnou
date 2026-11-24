@@ -19,7 +19,7 @@ import { legendasDoVideo } from "./legendas";
 import { fechamentoFinal, perguntaDoFechamento, textoFalado, type Imagem, type Roteiro } from "./roteiro";
 import type { ItemPronuncia } from "./pronuncia";
 import { dicionarioCompleto } from "./pronuncia.server";
-import type { FatosVideo } from "./cartoes";
+import { termosDeDestaque, type FatosVideo } from "./cartoes";
 import { fatosDe } from "./fatos.server";
 import { gerarRoteiro, imagensDisponiveis, validarRoteiro } from "./roteiro.server";
 
@@ -324,6 +324,7 @@ export interface PacoteWorker {
   velocidade: number;
   falado: string;
   pronuncia: ItemPronuncia[];
+  termos: string[];
   pausa: number;
   chaveSecao: string;
   /** Índice da imagem escolhida para a capa/abertura (opcional). */
@@ -368,6 +369,7 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
     velocidade: cfg.speed,
     falado: textoFalado(job.script, dic, VIDEO.voz.pausaAntesNumero),
     pronuncia: dic,
+    termos: termosDeDestaque(job.script, (job.facts as FatosVideo | null) ?? null),
     pausa: VIDEO.voz.pausaAntesNumero,
     fechamento: fechamentoFinal(job.script),
     pergunta: perguntaDoFechamento(job.script),
