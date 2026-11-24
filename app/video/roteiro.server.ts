@@ -96,7 +96,7 @@ const schemaDoJob = (cartoes: TipoCartao[]) => ({
         properties: {
           fala: { type: "STRING", description: "fala da cena" },
           imagem: { type: "INTEGER", description: "índice da imagem na lista" },
-          ...(cartoes.length ? { cartao: { type: "STRING", enum: [...cartoes, ""], description: "cartão de dados opcional" } } : {}),
+          ...(cartoes.length ? { cartao: { type: "STRING", enum: [...cartoes], description: "cartão de dados; omita o campo se nenhum combinar" } } : {}),
           item: { type: "INTEGER", description: "nas séries, número do item da lista de DADOS" },
         },
         required: ["fala", "imagem"],
