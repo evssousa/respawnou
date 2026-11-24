@@ -2,6 +2,30 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+## 2026-11-24 — Plano de melhorias dos vídeos curtos (`video-melhorias.md`; itens aprovados pelo dono)
+
+- **Fora do escopo:** vídeo semanal horizontal de 5 min, programa no PC do dono, versão em inglês (decisão do dono).
+- **Roteiro escrito para a tela, voz normalizada pelo código:** o Gemini passa a escrever números em algarismos e o código
+  converte para a fala (com dicionário de pronúncia e pausas antes de números), guardando um mapa tela ↔ fala. Por quê:
+  legenda com algarismos (mais legível e destacável), pronúncia determinística em qualquer modelo da ElevenLabs e
+  dicionário que não muda o que aparece na tela.
+- **Dicionário de pronúncia:** base no arquivo de marca + itens do dono em `settings.video_pronuncia`, editados no
+  `/admin/videos`. Sem migration.
+- **Cartões de dados** (preço, lançamento, nota, requisitos, grátis, plataformas; ranking e dia nas séries) renderizados
+  no tamanho do cartão (não em 1080×1920), um por vez, entre y 600 e 1040; o roteiro indica o cartão por cena (campo
+  opcional) e o código descarta o que não tem dado. Por quê: informar sem cobrir legenda/botões e sem pesar na montagem.
+- **Montagem:** primeiro tirar decodificação repetida de JPEG/PNG e filtros tela cheia (estimativa de 35–45% menos tempo,
+  mesma qualidade); depois dividir em partes com áudio separado, pasta de trabalho persistente e retomada. Por quê: com
+  1 thread, dividir não reduz o trabalho, mas dá retomada sem gastar voz de novo, processos curtos, menos memória e a opção
+  de 2 partes em paralelo.
+- **Séries:** "Grátis da semana" (quinta) e "Lançamentos da semana" (segunda, a confirmar pelo dono) por calendário;
+  "Review em 60 s" e "Top 5" como formatos automáticos das reviews e listas. Chave única de `video_jobs` passa a ser
+  `(post_id, serie)`.
+- **Métricas:** estatísticas dos Reels em marcos (24 h, 72 h, 7 d, 30 d) numa tabela própria (`video_metrics`, migration
+  017); peso por formato na escolha automática só com ≥ 6 vídeos medidos.
+- **Módulo copiável:** um único `app/marca.ts` por site; `app/social/config.ts` e `app/video/config.ts` derivam dele com os
+  mesmos nomes exportados; checklist em `docs/modulo-video.md`.
+
 ## 2026-11-23 — Plano de Stories, imagens próprias e vídeos curtos (`instagram-stories-videos.md`; propostas, falta o dono responder as perguntas)
 
 - **Stories pela API sem figurinha de link** (a API não permite): CTA "link na bio" e seta para o nome da conta; o

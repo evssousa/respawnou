@@ -1,6 +1,7 @@
 // Gerador do vídeo (voz + imagens + ffmpeg): usado pelo worker do GitHub Actions e, no modo "servidor", pelo próprio site.
 import { spawn } from "node:child_process";
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import sharp from "sharp";
 import { recortarComFoco } from "~/social/render/imagem.server";
@@ -34,6 +35,8 @@ export interface OpcoesGerador {
   /** Voz falsa (teste, sem gastar créditos). */
   vozFalsa?: boolean;
   chaveElevenLabs?: string;
+  /** Chamado ao começar cada fase ("voz", "imagens", "quadros", "trilha", "montagem", "capa"): serve para medir o tempo de cada uma. */
+  fase?: (nome: string) => void;
 }
 
 export async function caminhoFfmpeg(): Promise<string> {
@@ -60,6 +63,8 @@ function rodar(cmd: string, args: string[], cwd: string): Promise<string> {
 const POSICAO: Record<string, string | number> = { auto: sharp.strategy.attention, centre: "centre", north: "north", south: "south", west: "west", east: "east" };
 
 async function baixar(url: string): Promise<Buffer> {
+  // Só no teste local (scripts/video/teste-local.ts): imagem do disco. Fora dele, file:// continua proibido (as URLs vêm do banco).
+  if (process.env.VIDEO_TESTE === "1" && url.startsWith("file://")) return readFile(fileURLToPath(url));
   const r = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "respawnou-video" } });
   if (!r.ok) throw new Error(`imagem ${url} → HTTP ${r.status}`);
   return Buffer.from(await r.arrayBuffer());
@@ -89,6 +94,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   // libvips (sharp) cria uma thread por núcleo: no servidor compartilhado limita a 1 para sobrar espaço no limite da conta.
   if (leve) sharp.concurrency(1);
   // 1) Voz (ou voz falsa de teste)
+  o.fase?.("voz");
   let alin;
   let audio = "voz.mp3";
   if (o.vozFalsa) {
@@ -113,6 +119,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   await mkdir(join(dir, "fonts"), { recursive: true });
   await copyFile(join(process.cwd(), "app/video/fonts/Anton-Regular.ttf"), join(dir, "fonts/Anton-Regular.ttf"));
 
+  o.fase?.("imagens");
   // 3) Plano de clipes. Abertura + cena 1 viram um clipe só (o cartão de título fica por cima do gancho). Cada cena mostra SEMPRE a
   //    imagem escolhida para ela (voz e imagem combinam). Cena longa vira cortes de ~4 s na mesma imagem, alternando o quadro
   //    aberto com uma aproximação (punch-in) para dar ritmo sem trocar de assunto.
@@ -230,12 +237,14 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
 
   await writeFile(join(dir, "legenda.ass"), gerarAss(palavras.slice(nG, nG + nCenas), { creditos }));
 
+  o.fase?.("quadros");
   // 5) Quadros (marca, abertura, fechamento) e montagem
   const q = await gerarQuadros({ titulo: p.titulo, secao: p.secao, cta: p.cta });
   await writeFile(join(dir, "moldura.png"), q.moldura);
   await writeFile(join(dir, "abertura.png"), q.abertura);
   await writeFile(join(dir, "fechamento.png"), q.fechamento);
   const fimAbertura = seg.segs.find((x) => x.tipo === "abertura")?.fim ?? 3;
+  o.fase?.("trilha");
   // Trilha: música sintetizada (sem direitos autorais) + whoosh em cada transição.
   const estilo = estiloDoVideo(p.id);
   const fechIni = seg.inicioFechamento;
@@ -250,6 +259,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     arq: { moldura: "moldura.png", abertura: "abertura.png", fechamento: "fechamento.png", audio, legenda: "legenda.ass", saida: "saida.mp4" },
   });
   await writeFile(join(dir, "filtro.txt"), filtro);
+  o.fase?.("montagem");
   try {
     await rodar(ff, args, dir);
   } catch (err) {
@@ -259,6 +269,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     await rodar(ff, args, dir);
   }
 
+  o.fase?.("capa");
   // 6) Capa: 1º quadro com moldura e cartão de abertura por cima
   if (clips[0].video) await rodar(ff, ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(clips[0].video.ss), "-i", clips[0].video.arquivo, "-frames:v", "1", "capa0.jpg"], dir);
   const base = await sharp(join(dir, clips[0].video ? "capa0.jpg" : capaDoPrimeiro)).resize(1080, 1920, { fit: "cover" }).toBuffer();

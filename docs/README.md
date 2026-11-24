@@ -23,6 +23,7 @@ e o que vem a seguir.
 | [deploy-hostinger.md](deploy-hostinger.md) | Domínio, site Node.js, SSL, e-mail, variáveis |
 | [instagram.md](instagram.md) | Instagram automático: módulo `app/social`, artes, legenda, fila, painel `/admin/instagram`, Meta |
 | [instagram-stories-videos.md](instagram-stories-videos.md) | Plano (2026-11-23): Stories 9:16, imagens próprias nos slides e vídeos curtos (Reels, Shorts, TikTok) com voz ElevenLabs |
+| [video-melhorias.md](video-melhorias.md) | Plano (2026-11-24): melhorias dos vídeos curtos em 13 etapas: cartões de dados animados, legenda com destaque, 3 ganchos + pergunta, pronúncia e pausas, efeitos sonoros, séries fixas, métricas dos Reels, montagem em partes, arquivo de marca único (módulo copiável) |
 
 ## Status
 
@@ -90,9 +91,11 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 7 | Instagram: **Stories** 1080×1920 junto de cada matéria (ST1–ST11, migration 013) — `instagram-stories-videos.md`, frente A | 🔄 ST1–ST9 feitos e testados (2026-11-23); falta ST10 (testar em produção) e ST11 (1º Story real) |
 | 7 | Instagram: **imagens próprias** nos slides da fila (UP1–UP8, migration 014) — frente C | ⏳ plano pronto |
 | 7 | **Vídeos curtos** (fase 1 gerar e baixar V1–V12; fase 2 Reels; fase 3 YouTube; fase 4 TikTok manual; migration 015) — frente B | 💤 plano pronto; depende do dono (ElevenLabs Starter, voz) |
+| 7 | **Vídeos: melhorias** (etapas 0–12: teste local, métricas, marca única, montagem em partes, pronúncia, roteiro v2, gancho/pergunta, legenda, cartões, efeitos, séries, peso por métricas, módulo copiável; migration 017) — `video-melhorias.md` | ⏳ plano pronto (2026-11-24) |
 
 ## Próximos passos
 
+- **Vídeos, melhorias (plano `video-melhorias.md`, 2026-11-24):** executar na ordem das etapas: 0 teste local fixo → 1 métricas dos Reels (migration 017, colar o SQL no chat) → 2 `app/marca.ts` → 3 montagem mais leve e em partes (medir e preencher a tabela de tempos) → 4 pronúncia e pausas → 5 roteiro v2 → 6 gancho e pergunta → 7 legenda com destaque → 8 cartões de dados → 9 efeitos → 10 séries → 11 peso por métricas → 12 checklist de cópia (`docs/modulo-video.md`). Deploy e 1 vídeo real ao fim das etapas 3, 8 e 10.
 - **Vídeos curtos, fase 1 pronta no código (2026-11-24):** `/admin/videos` (roteiro pelo Gemini → você revisa e aprova → o próprio servidor gera voz + vídeo → você baixa o MP4 e copia as legendas de Instagram, YouTube e TikTok). Escolha automática de 1 matéria por dia (desligada até você ligar), voz por editoria, migration 015. Falta só o que é seu (veja "Pendências suas"). Reels automático, YouTube e TikTok são as fases 2 a 4.
 - **Imagens próprias nos slides (2026-11-24, frente C do plano `instagram-stories-videos.md`):** em `/admin/instagram`, cada item da fila do feed tem o bloco "Imagens dos slides": trocar a imagem de um slide (com foco do recorte), acrescentar slides de foto (até 10 no total) e "Gerar de novo com as minhas imagens". Migration 014 (`overrides`). Itens já publicados não aceitam troca.
 - **Regras da fila do Instagram (2026-11-23):** só sai sozinho o que entrou sozinho (matéria nova): notícia (vale 48 h desde a publicação), promoções e lançamentos. Carrossel (artigo, review, guia) e tudo que vem do botão "Colocar as 30 últimas" ficam na fila só para "Postar agora" (revisão manual). Stories seguem as mesmas regras (os de carrossel também são manuais).
@@ -118,6 +121,7 @@ Em ordem (atualizado em 2026-11-22):
 
 ## Pendências suas
 
+- **Vídeos, melhorias (`video-melhorias.md`):** (1) decidir a série "Lançamentos da semana": roteiro criado na segunda e você aprova no mesmo dia (recomendado; exceção à regra qui/sáb/dom) ou série desligada por padrão; (2) depois da etapa 1, se o painel avisar que o token não tem permissão de estatísticas, gerar o token de novo marcando a permissão de insights e colar em `/admin/instagram`.
 - **Vídeos (fase 1):** a chave `ELEVENLABS_API_KEY` já está no hPanel. Falta: (1) escolher uma voz por editoria na ElevenLabs e colar os códigos (`voice_id`) em `/admin/videos` → Configuração; (2) gerar o primeiro vídeo (abrir uma matéria → "Fazer vídeo desta matéria" → aprovar) e ver se a montagem funciona na Hostinger (se não funcionar, tentamos outro dia; **sem GitHub Actions**, decisão do dono); (3) ligar "Ligado" quando quiser que o site escolha 1 matéria por dia.
 
 - **Stories e vídeos (2026-11-23, `instagram-stories-videos.md`):** responder as 9 perguntas do fim do plano. Para os

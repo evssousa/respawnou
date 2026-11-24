@@ -153,6 +153,40 @@ export async function publicarReel(opts: { contaId: string; token: string; video
   return { containerId: r.id, mediaId: pub.id, link: await permalink(pub.id, token).catch(() => null) };
 }
 
+export const METRICAS_REEL = ["views", "reach", "likes", "comments", "shares", "saved", "total_interactions", "ig_reels_avg_watch_time", "ig_reels_video_view_total_time"];
+
+/** Estatísticas de uma mídia (Reel). Métrica que a API não aceita (código 100) é tirada e tenta uma vez de novo. Devolve nome → número. */
+export async function insightsMidia(mediaId: string, token: string, metricas: string[] = METRICAS_REEL): Promise<Record<string, number>> {
+  type Resp = { data?: { name: string; values?: { value?: number }[]; total_value?: { value?: number } }[] };
+  const ler = (r: Resp) => {
+    const out: Record<string, number> = {};
+    for (const m of r.data ?? []) {
+      const v = m.total_value?.value ?? m.values?.[0]?.value;
+      if (typeof v === "number") out[m.name] = v;
+    }
+    return out;
+  };
+  try {
+    return ler(await chamar<Resp>(`/${mediaId}/insights`, token, { params: { metric: metricas.join(",") } }));
+  } catch (e) {
+    if (e instanceof ErroInstagram && e.codigo === 100) {
+      const citadas = metricas.filter((m) => e.message.includes(m));
+      const resto = metricas.filter((m) => !citadas.includes(m));
+      if (citadas.length && resto.length) return ler(await chamar<Resp>(`/${mediaId}/insights`, token, { params: { metric: resto.join(",") } }));
+    }
+    throw e;
+  }
+}
+
+/** Plano B sem permissão de estatísticas: só curtidas e comentários. */
+export async function contagensMidia(mediaId: string, token: string): Promise<{ likes: number | null; comments: number | null }> {
+  const r = await chamar<{ like_count?: number; comments_count?: number }>(`/${mediaId}`, token, { params: { fields: "like_count,comments_count" } });
+  return { likes: r.like_count ?? null, comments: r.comments_count ?? null };
+}
+
+/** Erro de permissão (códigos 10 e 200 da Meta). */
+export const semPermissao = (e: unknown) => e instanceof ErroInstagram && (e.codigo === 10 || e.codigo === 200 || e.subcodigo === 2108006);
+
 /** Últimas mídias (para achar um post que já foi publicado quando o processo caiu no meio). */
 export const ultimasMidias = (token: string) => chamar<{ data: { id: string; caption?: string; permalink?: string }[] }>("/me/media", token, { params: { fields: "id,caption,permalink,timestamp", limit: 5 } });
 

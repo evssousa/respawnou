@@ -40,6 +40,11 @@ export interface JobVideo {
   created_at: string;
   approved_at: string | null;
   rendered_at: string | null;
+  serie?: string;
+  model?: string | null;
+  facts?: unknown;
+  progress?: string | null;
+  metrics_checked_at?: string | null;
   ig_status?: "enviando" | "publicado" | "falhou" | null;
   ig_permalink?: string | null;
   ig_published_at?: string | null;
@@ -73,9 +78,9 @@ function linha(r: Record<string, unknown>): JobVideo {
 }
 
 /** Cria o job (a matéria precisa estar publicada e ter imagens). O roteiro é pedido na hora; se falhar, o job fica `falhou` com o motivo. */
-export async function criarJob(postId: number, origem: "auto" | "manual"): Promise<{ id: number } | { erro: string }> {
+export async function criarJob(postId: number, origem: "auto" | "manual", serie = ""): Promise<{ id: number } | { erro: string }> {
   if (!hasDatabase()) return { erro: "sem banco" };
-  const [ja] = await query<{ id: number; status: StatusVideo }>("SELECT id, status FROM video_jobs WHERE post_id = ?", [postId]);
+  const [ja] = await query<{ id: number; status: StatusVideo }>("SELECT id, status FROM video_jobs WHERE post_id = ? AND serie = ?", [postId, serie]);
   if (ja && ja.status !== "descartado") return { erro: "esta matéria já tem um vídeo (veja em /admin/videos)" };
   const e = await lerEntrada(postId);
   if (!e || !e.publicada) return { erro: "matéria não publicada" };
@@ -84,7 +89,7 @@ export async function criarJob(postId: number, origem: "auto" | "manual"): Promi
   if (imagens.length < (origem === "manual" ? 1 : VIDEO.minImagens)) return { erro: `poucas imagens utilizáveis (${imagens.length})` };
   const cfg = await lerConfig();
   if (ja) await exec("DELETE FROM video_jobs WHERE id = ?", [ja.id]); // descartado antes: recomeça
-  const r = await exec("INSERT INTO video_jobs (post_id, origin, images, voice_id, voice_model) VALUES (?, ?, ?, ?, ?)", [postId, origem, JSON.stringify(imagens), vozDaSecao(cfg, e.section) || null, cfg.model]);
+  const r = await exec("INSERT INTO video_jobs (post_id, origin, serie, model, images, voice_id, voice_model) VALUES (?, ?, ?, ?, ?, ?, ?)", [postId, origem, serie, escolherModelo(e), JSON.stringify(imagens), vozDaSecao(cfg, e.section) || null, cfg.model]);
   await gerarRoteiroDoJob(r.insertId);
   return { id: r.insertId };
 }

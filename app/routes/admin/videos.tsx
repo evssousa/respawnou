@@ -8,6 +8,8 @@ import { requireAdmin } from "~/lib/admin/auth.server";
 import { hasDatabase } from "~/lib/db.server";
 import { AlinharImagem } from "~/components/AlinharImagem";
 import { EscolherImagem } from "~/components/EscolherImagem";
+import { ChipsMetricas, TabelaDesempenho } from "~/components/video/Desempenho";
+import { avisoMetricas, desempenho, metricasDosJobs } from "~/video/metricas.server";
 import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
 import type { Foco } from "~/social/tipos";
 import { perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
@@ -23,11 +25,15 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!hasDatabase()) return { semBanco: true as const };
   const url = new URL(request.url);
   const busca = (url.searchParams.get("q") ?? "").slice(0, 80);
-  const [jobs, resumo, cfg, publicados] = await Promise.all([listarJobs(10), resumoMes(), lerConfig(), listarPublicados(busca)]);
+  const [jobs, resumo, cfg, publicados, desemp, avisoMet] = await Promise.all([listarJobs(10), resumoMes(), lerConfig(), listarPublicados(busca), desempenho(), avisoMetricas()]);
+  const metricas = await metricasDosJobs(publicados.itens.map((j) => j.id));
   return {
     semBanco: false as const,
     jobs,
     publicados,
+    metricas,
+    desemp,
+    avisoMet,
     busca,
     resumo,
     cfg,
@@ -347,12 +353,14 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
       {msg && <Notice>{msg}</Notice>}
       {d.aviso && <Notice tone="warn">{decodeURIComponent(d.aviso)}</Notice>}
       {d.erro && <Notice tone="warn">{decodeURIComponent(d.erro)}</Notice>}
+      {d.avisoMet && <Notice tone="warn">{d.avisoMet}</Notice>}
       {!d.chaveVoz && <Notice tone="warn">Falta cadastrar ELEVENLABS_API_KEY nas variáveis de ambiente do hPanel: sem ela o servidor não consegue gerar a voz.</Notice>}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Prontos este mês" value={d.resumo.prontos} />
         <Stat label="Créditos usados" value={`${d.resumo.creditos.toLocaleString("pt-BR")}/${cfg.creditsMonth.toLocaleString("pt-BR")}`} tone={pct >= 80 ? "warn" : undefined} />
         <Stat label="Aguardando aprovação" value={d.resumo.aguardando} />
+        <Stat label="Views médias (72 h)" value={d.desemp.viewsMedias72h == null ? "—" : d.desemp.viewsMedias72h.toLocaleString("pt-BR")} />
       </div>
 
       <div className="mt-4 flex flex-col gap-4">
@@ -379,6 +387,7 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
                   <span className="font-mono">{(j.section ?? "").toUpperCase()}</span>
                   <span className="min-w-0 flex-1 truncate text-body">{j.title}</span>
                   <span className="font-mono">{j.ig_published_at ? when(j.ig_published_at) : ""}</span>
+                  <span className="basis-full sm:basis-auto"><ChipsMetricas linhas={d.metricas[j.id] ?? []} duracaoS={j.duration_s} /></span>
                 </summary>
                 <div className="flex flex-col gap-3 border-t border-line-soft p-2">
                   <div className="flex flex-wrap gap-2">
@@ -402,6 +411,11 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
           ))}
         </ul>
         {d.publicados.total > d.publicados.itens.length && <p className="mt-2 text-xs text-muted">Mostrando os {d.publicados.itens.length} mais recentes de {d.publicados.total}. Use a busca para achar os outros.</p>}
+      </details>
+
+      <details className="mt-6 border border-line p-3" open={d.desemp.medidos >= 3}>
+        <summary className="cursor-pointer font-mono text-xs font-bold text-muted">DESEMPENHO POR FORMATO ({d.desemp.medidos} vídeo{d.desemp.medidos === 1 ? "" : "s"} medido{d.desemp.medidos === 1 ? "" : "s"})</summary>
+        <div className="mt-3"><TabelaDesempenho formatos={d.desemp.formatos} /></div>
       </details>
 
       <details className="mt-6 border border-line p-3" open={!cfg.enabled}>
