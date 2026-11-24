@@ -225,22 +225,44 @@ type Job = Extract<Route.ComponentProps["loaderData"], { semBanco: false }>["job
 function CapaEscolha({ j }: { j: Job }) {
   const [sel, setSel] = useState<string>(j.focus["_capa"] ?? "");
   const [v, setV] = useState(0);
-  const [falhou, setFalhou] = useState(false);
+  const [prev, setPrev] = useState<{ url: string | null; erro: string | null; carregando: boolean; indice: string }>({ url: null, erro: null, carregando: true, indice: "" });
   const indice = sel !== "" ? sel : String(j.script?.cenas[0]?.imagem ?? 0);
+  // Busca a prévia por fetch (sem cache) e mostra o resultado: assim a imagem sempre acompanha a escolha e qualquer erro aparece escrito.
+  useEffect(() => {
+    let vivo = true;
+    let objeto: string | null = null;
+    setPrev((p) => ({ ...p, carregando: true, erro: null }));
+    fetch(`/admin/videos/capa/${j.id}/${indice}/${Date.now()}-${v}`, { cache: "no-store", credentials: "same-origin" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error((await r.text()).slice(0, 160) || `HTTP ${r.status}`);
+        const b = await r.blob();
+        if (!/^image\//.test(b.type)) throw new Error("A resposta não era uma imagem (sessão expirada? recarregue a página).");
+        objeto = URL.createObjectURL(b);
+        if (vivo) setPrev({ url: objeto, erro: null, carregando: false, indice });
+      })
+      .catch((e) => vivo && setPrev({ url: null, erro: String(e?.message ?? e), carregando: false, indice }));
+    return () => {
+      vivo = false;
+      if (objeto) setTimeout(() => URL.revokeObjectURL(objeto!), 5000);
+    };
+  }, [indice, v, j.id]);
   return (
     <Field label="Imagem da capa e da abertura (a 1ª imagem do vídeo)">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex min-w-[220px] flex-1 flex-col gap-2">
           <input type="hidden" name="capa" value={sel} />
-          <EscolherImagem opcoes={j.images} valor={sel} onChange={(v) => { setSel(v); setFalhou(false); }} rotulo="Escolha a imagem da capa e da abertura" permitirAutomatica="a imagem da 1ª cena" semVideo />
-          <button type="button" className="min-h-9 self-start border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => { setV(v + 1); setFalhou(false); }}>Atualizar prévia</button>
+          <EscolherImagem opcoes={j.images} valor={sel} onChange={(x) => setSel(x)} rotulo="Escolha a imagem da capa e da abertura" permitirAutomatica="a imagem da 1ª cena" semVideo />
+          <button type="button" className="min-h-9 self-start border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setV(v + 1)}>Atualizar prévia</button>
           <p className="text-[11px] text-muted">A prévia usa o enquadramento já salvo da imagem. Mexeu no alinhamento? Clique em Salvar roteiro e depois em Atualizar prévia.</p>
         </div>
-        {falhou ? (
-          <div className="flex aspect-[9/16] w-[180px] items-center justify-center border border-line p-2 text-center text-xs text-muted">Sem prévia para esta opção</div>
-        ) : (
-          <img key={`${indice}-${v}`} src={`/admin/videos/capa/${j.id}/${indice}/${v}`} alt="Prévia da primeira tela do vídeo" width={180} height={320} className="aspect-[9/16] w-[180px] border border-line bg-ink object-cover" onError={() => setFalhou(true)} />
-        )}
+        <div className="flex flex-col gap-1">
+          {prev.url && !prev.erro ? (
+            <img src={prev.url} alt="Prévia da primeira tela do vídeo" width={180} height={320} className={`aspect-[9/16] w-[180px] border border-line bg-ink object-cover ${prev.carregando ? "opacity-50" : ""}`} />
+          ) : (
+            <div className="flex aspect-[9/16] w-[180px] items-center justify-center border border-line p-2 text-center text-xs text-muted">{prev.erro ?? "Carregando prévia…"}</div>
+          )}
+          <span className="font-mono text-[11px] text-muted">{prev.carregando ? "Atualizando…" : `Prévia da imagem ${Number(prev.indice) + 1}`}</span>
+        </div>
       </div>
     </Field>
   );
