@@ -31,7 +31,7 @@ export interface PlanoMontagem {
   total: number;
   fimAbertura: number;
   /** Nomes dos arquivos na pasta de trabalho. */
-  arq: { moldura: string; abertura: string; fechamento: string; audio: string; legenda: string; saida: string };
+  arq: { molduraTopo: string; molduraBase: string; abertura: string; fechamento: string; audio: string; legenda: string; saida: string };
   /** Servidor compartilhado: preset mais rápido e 2 threads. */
   leve?: boolean;
   /** Cor da barra de progresso, "#rrggbb" (cor de destaque da marca). */
@@ -85,28 +85,31 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
       args.push(...t1, "-ss", s3(c.video.ss), "-t", s3(dur), "-i", c.video.arquivo);
       partes.push(
         `[${idx}:v]fps=${FPS},split=2[va${k}][vb${k}];[va${k}]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=24:3,eq=brightness=-0.12[vf${k}];` +
-          `[vb${k}]scale=1080:1920:force_original_aspect_ratio=decrease[vg${k}];[vf${k}][vg${k}]overlay=(W-w)/2:(H-h)/2,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=3,trim=duration=${s3(dur)},setpts=PTS-STARTPTS,settb=AVTB[c${k}]`,
+          `[vb${k}]scale=1080:1920:force_original_aspect_ratio=decrease[vg${k}];[vf${k}][vg${k}]overlay=(W-w)/2:(H-h)/2,eq=contrast=1.07:saturation=1.22,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=3,trim=duration=${s3(dur)},setpts=PTS-STARTPTS,settb=AVTB[c${k}]`,
       );
       rotulos.push(`[c${k}]`);
       idx++;
       return;
     }
-    args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(dur), "-i", c.img);
+    // A imagem é lida UMA vez (1 quadro) e o filtro gera os quadros do clipe; antes o ffmpeg decodificava o JPEG a cada quadro.
+    const quadros = Math.max(1, Math.round(dur * FPS));
+    args.push(...t1, "-framerate", String(FPS), "-i", c.img);
     if (c.pan) {
       // Deslizar suave (começa e termina devagar) de x0 a x1; `t` é o tempo do próprio clipe.
       const u = `min(t/${s3(dur)},1)`;
-      partes.push(`[${idx}:v]crop=1080:1920:x='${c.pan.x0}+(${c.pan.x1}-${c.pan.x0})*(1-cos(PI*${u}))/2':y=0,setsar=1,fps=${FPS},format=yuv420p,settb=AVTB[c${k}]`);
+      partes.push(`[${idx}:v]loop=loop=${quadros - 1}:size=1,setpts=N/${FPS}/TB,crop=1080:1920:x='${c.pan.x0}+(${c.pan.x1}-${c.pan.x0})*(1-cos(PI*${u}))/2':y=0,setsar=1,fps=${FPS},format=yuv420p,settb=AVTB[c${k}]`);
       rotulos.push(`[c${k}]`);
       idx++;
       return;
     }
-    const m = movimento(k, Math.round(dur * FPS), c.suave, c.punch ? "punch" : c.fixo ? "fixo" : "livre");
-    partes.push(`[${idx}:v]zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=1:s=1080x1920:fps=${FPS},setsar=1,format=yuv420p,settb=AVTB[c${k}]`);
+    const m = movimento(k, quadros, c.suave, c.punch ? "punch" : c.fixo ? "fixo" : "livre");
+    partes.push(`[${idx}:v]zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=${quadros}:s=1080x1920:fps=${FPS},setsar=1,format=yuv420p,settb=AVTB[c${k}]`);
     rotulos.push(`[c${k}]`);
     idx++;
   });
-  args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(fechamento.dur + TRANSICAO / 2), "-i", arq.fechamento);
-  partes.push(`[${idx}:v]scale=1080:1920,setsar=1,fps=${FPS},format=yuv420p,settb=AVTB[cf]`);
+  const qFech = Math.max(1, Math.round((fechamento.dur + TRANSICAO / 2) * FPS));
+  args.push(...t1, "-framerate", String(FPS), "-i", arq.fechamento);
+  partes.push(`[${idx}:v]scale=1080:1920,setsar=1,format=yuv420p,loop=loop=${qFech - 1}:size=1,setpts=N/${FPS}/TB,fps=${FPS},settb=AVTB[cf]`);
   rotulos.push("[cf]");
   idx++;
   // Encadeia as transições: a k-ésima começa no início do clipe k.
@@ -119,10 +122,14 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
     atual = saida;
   }
   if (rotulos.length === 1) partes.push(`${atual}null[base]`);
-  const iMold = idx++;
-  args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(total), "-i", arq.moldura);
+  // Moldura e abertura: só as faixas que têm algo (topo 0–420, base 1100–1920, abertura 940–1520), lidas uma vez (1 quadro) e
+  // repetidas pelo overlay; antes eram PNGs de tela cheia decodificados a cada quadro durante o vídeo inteiro.
+  const iTopo = idx++;
+  args.push(...t1, "-framerate", String(FPS), "-i", arq.molduraTopo);
+  const iBase = idx++;
+  args.push(...t1, "-framerate", String(FPS), "-i", arq.molduraBase);
   const iAbert = idx++;
-  args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(total), "-i", arq.abertura);
+  args.push(...t1, "-framerate", String(FPS), "-i", arq.abertura);
   const iBarra = idx++;
   args.push(...t1, "-f", "lavfi", "-t", s3(total), "-i", `color=c=0x${(plano.corBarra ?? "#c8ff2e").replace("#", "")}:s=1080x8:r=${FPS}`);
   const iAudio = idx++;
@@ -130,15 +137,19 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   const iTrilha = plano.trilha ? idx++ : -1;
   if (plano.trilha) args.push(...t1, "-i", plano.trilha.arquivo);
 
-  partes.push(`[${iMold}:v]format=rgba[mold]`);
-  partes.push(`[${iAbert}:v]format=rgba,fade=t=out:st=${s3(Math.max(0, fimAbertura - 0.3))}:d=0.3:alpha=1[abert]`);
+  partes.push(`[${iTopo}:v]format=yuva420p[mtopo]`);
+  partes.push(`[${iBase}:v]format=yuva420p[mbase]`);
+  const qAbert = Math.max(1, Math.round(fimAbertura * FPS));
+  partes.push(`[${iAbert}:v]format=yuva420p,loop=loop=${qAbert - 1}:size=1,setpts=N/${FPS}/TB,fade=t=out:st=${s3(Math.max(0, fimAbertura - 0.3))}:d=0.3:alpha=1[abert]`);
   // Cor mais viva, vinheta e um pulso de brilho a cada batida da trilha (só durante as cenas).
   const B = plano.trilha ? 60 / plano.trilha.bpm : 0;
   const pulso = plano.trilha ? `:brightness='0.035*exp(-7*mod(t,${s3(B)}))'` : "";
-  partes.push(`[base]eq=contrast=1.07:saturation=1.22${pulso}:eval=frame,vignette=angle=PI/5:eval=init[grade]`);
-  partes.push(`[grade][mold]overlay=0:0:enable='lt(t,${s3(fechamento.ini)})'[v1]`);
+  // Contraste e saturação já vêm aplicados nas imagens (sharp, uma vez só); aqui fica só o pulso, que é barato (só a luminância).
+  partes.push(pulso ? `[base]eq=${pulso.slice(1)}:eval=frame[grade]` : `[base]null[grade]`);
+  partes.push(`[grade][mtopo]overlay=0:0:enable='lt(t,${s3(fechamento.ini)})':eof_action=repeat[v0]`);
+  partes.push(`[v0][mbase]overlay=0:1100:enable='lt(t,${s3(fechamento.ini)})':eof_action=repeat[v1]`);
   // Cartão de abertura: entra deslizando pela esquerda (desacelerando) e some com fade no fim do gancho.
-  partes.push(`[v1][abert]overlay=x='-1080*pow(1-min(t/0.45,1),2)':y=0:eval=frame:enable='lt(t,${s3(fimAbertura)})'[v2]`);
+  partes.push(`[v1][abert]overlay=x='-1080*pow(1-min(t/0.45,1),2)':y=940:eval=frame:enable='lt(t,${s3(fimAbertura)})':eof_action=pass[v2]`);
   // Barra de progresso (abaixo da zona do topo do app).
   partes.push(`[v2][${iBarra}:v]overlay=x='-w+w*t/${s3(total)}':y=226:eval=frame:enable='lt(t,${s3(fechamento.ini)})'[v3]`);
   partes.push(`[v3]subtitles=${arq.legenda}:fontsdir=fonts,format=yuv420p[vout]`);

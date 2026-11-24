@@ -327,12 +327,13 @@ Tabela a preencher pelo executor (deixar neste arquivo):
 
 | Medição | curto (≈35 s) local | longo (≈97 s) local | longo na Hostinger |
 |---|---|---|---|
-| Linha de base (T0/O1) | | ~520 s (nota de 2026-11-24) | |
-| Depois de O2 | | | |
-| Depois de O3 | | | |
-| Depois de O4 | | | |
+| Linha de base (T0/O1) | 411 s total (montagem 369 s; 39,7 s de vídeo) | ~520 s (nota de 2026-11-24; 97 s de vídeo) | |
+| Depois de O2+O3+O4 (feitos juntos em 2026-11-24) | **103 s total (montagem 75 s)** | **223 s total (montagem 175 s; 89,7 s de vídeo)** | a medir |
+| (O2, O3 e O4 não foram medidos separados) | | | |
 | Depois de S1 (paralelo 1) | | | |
 | S1 com paralelo 2 | | | |
+
+> **Resultado (2026-11-24):** O2, O3 e O4 feitos. Montagem de ~9,3 s por segundo de vídeo para ~1,9 s (≈ 5× mais rápida); total do vídeo curto 411 → 103 s; longo ~520 → 223 s. Quadros conferidos (moldura, título, legenda, barra e fechamento corretos). **O5 (x264 superfast) e S1 (montagem em partes) ficam adiados:** só voltam se, na Hostinger, o vídeo longo ainda demorar demais ou cair no meio.
 
 ## O1 (P) Medir
 

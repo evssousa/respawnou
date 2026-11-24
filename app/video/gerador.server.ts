@@ -81,12 +81,13 @@ export async function enquadrarVertical(buf: Buffer, w: number, h: number, foco:
   const larga = (meta.width ?? 1) / (meta.height ?? 1) >= 1.25;
   void larga;
   const inteira = foco === "inteira";
+  const cor = (b: Buffer) => sharp(b).linear(1.07, -128 * 0.07).modulate({ saturation: 1.22 }).jpeg({ quality: qualidade }).toBuffer();
   if (inteira) {
     const fundo = await sharp(buf).rotate().resize(w, h, { fit: "cover", position: sharp.strategy.attention }).blur(40).modulate({ brightness: 0.5 }).jpeg({ quality: 85 }).toBuffer();
     const frente = await sharp(buf).rotate().resize(w, h, { fit: "inside" }).toBuffer();
-    return { jpeg: await sharp(fundo).composite([{ input: frente, gravity: "centre" }]).jpeg({ quality: qualidade }).toBuffer(), inteira };
+    return { jpeg: await cor(await sharp(fundo).composite([{ input: frente, gravity: "centre" }]).jpeg({ quality: 95 }).toBuffer()), inteira };
   }
-  return { jpeg: await sharp(await recortarComFoco(buf, w, h, foco)).jpeg({ quality: qualidade }).toBuffer(), inteira };
+  return { jpeg: await cor(await recortarComFoco(buf, w, h, foco)), inteira };
 }
 
 export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador = {}): Promise<{ mp4: string; capa: Buffer; chars: number; duracao: number }> {
@@ -211,7 +212,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
       const dir_ = folgaDir >= x0 ? 1 : -1;
       const curso = Math.min(Math.max(dir_ === 1 ? folgaDir : x0, 0), 560);
       if (curso >= 80) {
-        await writeFile(join(dir, `cena${indice}_pan.jpg`), grande.data);
+        await writeFile(join(dir, `cena${indice}_pan.jpg`), await sharp(grande.data).linear(1.07, -128 * 0.07).modulate({ saturation: 1.22 }).jpeg({ quality: 90 }).toBuffer());
         capaArq = nome; // o quadro 9:16 já gravado serve para a capa
         pan = { x0, x1: x0 + dir_ * curso };
       }
@@ -242,8 +243,9 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   o.fase?.("quadros");
   // 5) Quadros (marca, abertura, fechamento) e montagem
   const q = await gerarQuadros({ titulo: p.titulo, secao: p.secao, cta: p.cta });
-  await writeFile(join(dir, "moldura.png"), q.moldura);
-  await writeFile(join(dir, "abertura.png"), q.abertura);
+  await sharp(q.moldura).extract({ left: 0, top: 0, width: 1080, height: 420 }).toFile(join(dir, "moldura_topo.png"));
+  await sharp(q.moldura).extract({ left: 0, top: 1100, width: 1080, height: 820 }).toFile(join(dir, "moldura_base.png"));
+  await sharp(q.abertura).extract({ left: 0, top: 940, width: 1080, height: 580 }).toFile(join(dir, "abertura.png"));
   await writeFile(join(dir, "fechamento.png"), q.fechamento);
   const fimAbertura = seg.segs.find((x) => x.tipo === "abertura")?.fim ?? 3;
   o.fase?.("trilha");
@@ -259,7 +261,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     fechamento: { ini: seg.inicioFechamento, dur: Math.max(0.5, seg.total - seg.inicioFechamento) },
     total: seg.total,
     fimAbertura,
-    arq: { moldura: "moldura.png", abertura: "abertura.png", fechamento: "fechamento.png", audio, legenda: "legenda.ass", saida: "saida.mp4" },
+    arq: { molduraTopo: "moldura_topo.png", molduraBase: "moldura_base.png", abertura: "abertura.png", fechamento: "fechamento.png", audio, legenda: "legenda.ass", saida: "saida.mp4" },
   });
   await writeFile(join(dir, "filtro.txt"), filtro);
   o.fase?.("montagem");
