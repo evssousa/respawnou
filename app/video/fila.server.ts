@@ -177,7 +177,6 @@ export async function adicionarImagem(id: number, file: File): Promise<string> {
 
 /** Aprova e começa a gerar o vídeo aqui no servidor (em segundo plano). */
 export async function aprovar(id: number): Promise<{ ok: boolean; aviso?: string }> {
-  await sincronizarVideoDaMateria(id);
   const r = await exec("UPDATE video_jobs SET status = 'aprovado', approved_at = UTC_TIMESTAMP(), error = NULL, attempts = 0, locked_at = NULL WHERE id = ? AND status IN ('aguardando','falhou','pronto') AND script IS NOT NULL", [id]);
   if (!r.affected) return { ok: false, aviso: "Este vídeo não pode ser aprovado agora (sem roteiro ou já em geração)." };
   void processarFilaNoServidor();
@@ -234,20 +233,8 @@ export async function descartar(id: number): Promise<boolean> {
   return true;
 }
 
-/** Jobs criados antes do suporte a vídeo não têm o vídeo da matéria na lista: acrescenta (no fim, sem mudar os números das imagens). */
-async function sincronizarVideoDaMateria(id: number): Promise<void> {
-  const [j] = await query<Record<string, unknown>>("SELECT j.images, p.body FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.id = ?", [id]);
-  if (!j) return;
-  const imagens = json<Imagem[]>(j.images, []);
-  if (imagens.some((x) => x.src.startsWith("yt:"))) return;
-  const yt = json<{ type: string; youtubeId?: string }[]>(j.body, []).find((b) => b.type === "video" && b.youtubeId);
-  if (!yt?.youtubeId) return;
-  await exec("UPDATE video_jobs SET images = ? WHERE id = ?", [JSON.stringify([...imagens, { src: `yt:${yt.youtubeId}`, alt: "Vídeo: trailer/vídeo da própria matéria (YouTube)" }]), id]);
-}
-
 /** "Editar e refazer": volta um vídeo pronto para o rascunho (roteiro, imagens e enquadramentos editáveis); só gera de novo ao aprovar. O MP4 antigo continua até o novo ficar pronto. */
 export async function reabrir(id: number): Promise<boolean> {
-  await sincronizarVideoDaMateria(id);
   const r = await exec("UPDATE video_jobs SET status = 'aguardando', error = NULL WHERE id = ? AND status = 'pronto' AND script IS NOT NULL", [id]);
   return r.affected > 0;
 }

@@ -257,7 +257,7 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
                 <Button name="intent" value="img_add" disabled={busy}>Enviar imagem (salva o roteiro)</Button>
               </div>
               <div className="flex flex-col gap-2 border border-dashed border-line-soft p-2">
-                <span className="text-xs text-muted">Se a matéria tiver vídeo do YouTube, o sistema já o usa sozinho. Quer outro? Envie o arquivo aqui (material que você pode usar). O sistema recorta cortes curtos de até 4,5 s, só com a sua narração (o áudio do vídeo não entra), no máximo 40% do vídeo, com o crédito na tela.</span>
+                <span className="text-xs text-muted">Envie aqui o arquivo do trailer/vídeo (material que você pode usar). O sistema recorta cortes curtos de até 4,5 s, só com a sua narração (o áudio do vídeo não entra), no máximo 40% do vídeo, com o crédito na tela.</span>
                 <div className="flex flex-wrap items-center gap-2">
                   <input type="file" name="video" accept="video/mp4,video/webm" className="max-w-full text-xs text-body" />
                   <input name="credito" placeholder="Crédito (ex.: Bandai Namco)" maxLength={60} className={`${inputCls} max-w-[240px]`} />

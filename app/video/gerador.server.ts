@@ -120,7 +120,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   const iVideo = p.imagens.findIndex((x) => ehVideoSrc(x.src));
   const escolhaDaCena = p.roteiro.cenas.map((c) => c.imagem);
   if (iVideo >= 0 && !escolhaDaCena.some(ehVideo) && escolhaDaCena.length >= 2) escolhaDaCena[Math.floor(escolhaDaCena.length / 2)] = iVideo;
-  const usaveis = p.imagens.map((x, i) => (x.url && !x.url.startsWith("arte:") && !ehVideoSrc(x.src) ? i : -1)).filter((i) => i >= 0);
+  const usaveis = p.imagens.map((x, i) => (x.url && !x.url.startsWith("arte:") && !x.url.startsWith("yt:") && !ehVideoSrc(x.src) ? i : -1)).filter((i) => i >= 0);
   if (!usaveis.length) throw new Error("nenhuma imagem utilizável");
   const cenasSeg = seg.segs.filter((x) => x.tipo === "cena").map((x) => ({ ...x }));
   if (cenasSeg.length) cenasSeg[0].ini = 0;
@@ -157,17 +157,11 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   for (const origem of new Set(plano.filter((x) => x.video).map((x) => x.img))) {
     const itens = plano.filter((x) => x.video && x.img === origem);
     const nome = `video${origem}.mp4`;
-    // Vídeo do YouTube da própria matéria: baixa aqui (até 720p). Se o YouTube bloquear, as cenas dele viram imagens (o vídeo não falha).
+    // Vídeo enviado pelo dono (arquivo em /media). Se não der para ler, as cenas dele viram imagens.
     try {
-      const yt = /^yt:([\w-]{11})$/.exec(p.imagens[origem].src);
-      if (yt) {
-        const { baixarPorLink } = await import("./ytdlp.server");
-        const v = await baixarPorLink(`https://www.youtube.com/watch?v=${yt[1]}`);
-        await writeFile(join(dir, nome), v.buf);
-        creditoDe.set(origem, `Vídeo: ${v.credito}`);
-      } else await writeFile(join(dir, nome), await baixar(p.imagens[origem].url));
+      await writeFile(join(dir, nome), await baixar(p.imagens[origem].url));
     } catch (err) {
-      console.warn("[video] não consegui o vídeo da matéria:", String((err as Error)?.message ?? err));
+      console.warn("[video] não consegui ler o vídeo enviado:", String((err as Error)?.message ?? err));
       itens.forEach(fundirEmImagem);
       continue;
     }
