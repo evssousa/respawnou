@@ -17,6 +17,8 @@ import { exec, hasDatabase, query } from "./db";
 import { gerarVideo } from "./gerador.server";
 import { legendasDoVideo } from "./legendas";
 import { textoFalado, type Imagem, type Roteiro } from "./roteiro";
+import type { ItemPronuncia } from "./pronuncia";
+import { dicionarioCompleto } from "./pronuncia.server";
 import { gerarRoteiro, imagensDisponiveis, validarRoteiro } from "./roteiro.server";
 
 export type StatusVideo = "aguardando" | "aprovado" | "gerando" | "pronto" | "falhou" | "descartado";
@@ -316,6 +318,8 @@ export interface PacoteWorker {
   modelo: string;
   velocidade: number;
   falado: string;
+  pronuncia: ItemPronuncia[];
+  pausa: number;
   chaveSecao: string;
   /** Índice da imagem escolhida para a capa/abertura (opcional). */
   capa?: number;
@@ -343,6 +347,7 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
   const [feed] = await query<{ images: unknown }>("SELECT images FROM social_posts WHERE post_id = ? AND network = 'instagram' AND kind = 'feed'", [job.post_id]);
   const arte1 = json<string[]>(feed?.images, [])[0] ?? null;
   const abs = (s: string) => (s === "arte:1" ? (arte1 ? `${SOCIAL.baseUrl}${arte1}` : s) : s.startsWith("http") || s.startsWith("arte:") || s.startsWith("yt:") ? s : `${SOCIAL.baseUrl}${s}`);
+  const dic = await dicionarioCompleto();
   return {
     id: job.id,
     titulo: e.titulo,
@@ -354,7 +359,9 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
     voz,
     modelo: job.voice_model || cfg.model,
     velocidade: cfg.speed,
-    falado: textoFalado(job.script),
+    falado: textoFalado(job.script, dic, VIDEO.voz.pausaAntesNumero),
+    pronuncia: dic,
+    pausa: VIDEO.voz.pausaAntesNumero,
     fechamento: VIDEO.fechamento,
     cta: VIDEO.ctaCartao,
     baseUrl: SOCIAL.baseUrl,

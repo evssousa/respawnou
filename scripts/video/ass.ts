@@ -45,10 +45,11 @@ export const contar = (t: string) => t.trim().split(/\s+/).filter(Boolean).lengt
  * A abertura vai de 0 até o início da 1ª cena; cada cena, até o início da seguinte; o fechamento, do início da fala dele
  * até o fim da voz + `folga` s.
  */
-export function segmentos(palavras: Palavra[], gancho: string, falas: string[], fechamento: string, folga = 0.6): { segs: Segmento[]; total: number; inicios: number[]; inicioFechamento: number } {
-  const nG = contar(gancho);
-  const nF = falas.map(contar);
-  const nC = contar(fechamento);
+export function segmentos(palavras: Palavra[], gancho: string | number, falas: (string | number)[], fechamento: string | number, folga = 0.6): { segs: Segmento[]; total: number; inicios: number[]; inicioFechamento: number } {
+  const cont = (x: string | number) => (typeof x === "number" ? x : contar(x));
+  const nG = cont(gancho);
+  const nF = falas.map(cont);
+  const nC = cont(fechamento);
   const inicios: number[] = [];
   let k = nG;
   for (const n of nF) {

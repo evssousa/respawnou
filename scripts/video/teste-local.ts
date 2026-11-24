@@ -10,6 +10,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import sharp from "sharp";
+import { MARCA } from "~/marca";
+import { VIDEO } from "~/video/config";
 import { caminhoFfmpeg, gerarVideo, type PacoteVideo } from "~/video/gerador.server";
 
 process.env.VIDEO_TESTE = "1";
@@ -45,7 +47,9 @@ const FALA = "Esta cena explica mais um ponto da matéria com calma, citando det
 
 function pacote(urls: string[]): PacoteVideo {
   const n = perfil === "longo" ? 10 : 4;
-  const cenas = Array.from({ length: n }, (_, i) => ({ fala: `${FALA} ${i + 1}`, imagem: i % urls.length }));
+  // As primeiras cenas usam algarismos, sigla e data de propósito: o gerador converte para a fala e remapeia a legenda.
+  const ESPECIAIS = ["GTA 6 chega em 28/11 no PS5 e no Xbox.", "Sai por R$ 249,90 e tem nota 8,7 da crítica.", "A RTX 4060 roda em 100% do tempo a 60 quadros?"];
+  const cenas = Array.from({ length: n }, (_, i) => ({ fala: ESPECIAIS[i] ?? `${FALA} ${i + 1}`, imagem: i % urls.length }));
   const gancho = "Olha só esta novidade que muda tudo";
   const fechamento = "Matéria completa no Respawnou. O link está no perfil.";
   const falado = [gancho, ...cenas.map((c) => c.fala), fechamento].map((t) => t.replace(/[.!?…]+$/, "")).join(". ") + ".";
@@ -59,6 +63,8 @@ function pacote(urls: string[]): PacoteVideo {
     modelo: "m",
     velocidade: 1,
     falado,
+    pronuncia: MARCA.video.pronunciaBase,
+    pausa: VIDEO.voz.pausaAntesNumero,
     fechamento,
     cta: "MATÉRIA COMPLETA: LINK NO PERFIL",
   };

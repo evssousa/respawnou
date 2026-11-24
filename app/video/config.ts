@@ -13,6 +13,8 @@ export const VIDEO = {
     curto: { rotulo: "30 a 60 s", cenas: [3, 6] as const, palavras: [70, 140] as const, cena: 200, alvoPalavras: "entre 85 e 130" },
     longo: { rotulo: "60 a 120 s", cenas: [6, 12] as const, palavras: [145, 290] as const, cena: 220, alvoPalavras: "entre 170 e 270" },
   },
+  /** Voz: pausa (s) antes de preço, nota e data para a pessoa acompanhar o número; 0 desliga. No máximo 4 por vídeo. */
+  voz: { pausaAntesNumero: 0.25 },
   /** Frase fixa do fechamento (falada) e texto do botão do cartão final. */
   fechamento: MARCA.video.fechamento,
   ctaCartao: MARCA.video.ctaCartao,

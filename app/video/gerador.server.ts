@@ -9,6 +9,7 @@ import { recortarComFoco } from "~/social/render/imagem.server";
 import { gerarQuadros } from "./render/quadros.server";
 import { gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/ass";
 import { alinhamentoFalso, sintetizar } from "../../scripts/video/elevenlabs";
+import { type ItemPronuncia, montarFala, remapear, semTags } from "../../scripts/video/falar";
 import { type Clip, instantesTransicao, montar } from "../../scripts/video/ffmpeg";
 import { comandoTrilha, estiloDoVideo } from "../../scripts/video/musica";
 import { comandoCortes, ehVideoSrc, escolherTrechos, FRACAO_MAX_VIDEO, lerCortes, lerDuracao, TRECHO_MAX_S } from "../../scripts/video/videoclip";
@@ -24,6 +25,9 @@ export interface PacoteVideo {
   modelo: string;
   velocidade: number;
   falado: string;
+  /** Dicionário de pronúncia (base + do dono). Presente = o gerador converte a tela em fala (números por extenso, pausas) e remapeia a legenda. */
+  pronuncia?: ItemPronuncia[];
+  pausa?: number;
   fechamento: string;
   cta: string;
 }
@@ -95,29 +99,46 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   const leve = o.qualidade === "leve";
   // libvips (sharp) cria uma thread por núcleo: no servidor compartilhado limita a 1 para sobrar espaço no limite da conta.
   if (leve) sharp.concurrency(1);
+  // 0) Texto falado: o roteiro vem escrito para a tela (algarismos); a conversão para a fala e o mapa de volta ficam aqui.
+  const fala = p.pronuncia ? montarFala([p.roteiro.gancho, ...p.roteiro.cenas.map((c) => c.fala), p.fechamento], p.pronuncia, p.pausa ?? 0) : null;
+  const falado = fala ? fala.falado : p.falado;
   // 1) Voz (ou voz falsa de teste)
   o.fase?.("voz");
   let alin;
   let audio = "voz.mp3";
   if (o.vozFalsa) {
-    alin = alinhamentoFalso(p.falado);
+    alin = alinhamentoFalso(falado);
     const dur = alin.character_end_times_seconds[alin.character_end_times_seconds.length - 1];
     await rodar(ff, ["-y", "-hide_banner", "-loglevel", "warning", "-f", "lavfi", "-i", `sine=frequency=220:duration=${dur.toFixed(2)}`, "-c:a", "libmp3lame", audio], dir);
   } else {
     const chave = o.chaveElevenLabs ?? process.env.ELEVENLABS_API_KEY;
     if (!chave) throw new Error("ELEVENLABS_API_KEY ausente");
     if (!p.voz) throw new Error("nenhuma voz configurada para esta editoria (painel /admin/videos)");
-    const s = await sintetizar({ chave, voz: p.voz, modelo: p.modelo, velocidade: p.velocidade, texto: p.falado });
+    const s = await sintetizar({ chave, voz: p.voz, modelo: p.modelo, velocidade: p.velocidade, texto: falado });
     alin = s.alinhamento;
     await writeFile(join(dir, audio), s.mp3);
   }
-  const palavras = palavrasDoAlinhamento(alin);
-  const falas = p.roteiro.cenas.map((c) => c.fala.replace(/[.!?…]+$/, ""));
-  const seg = segmentos(palavras, p.roteiro.gancho.replace(/[.!?…]+$/, ""), falas, p.fechamento.replace(/[.!?…]+$/, ""));
-
-  // 2) Legenda: só as palavras das cenas
-  const nG = p.roteiro.gancho.replace(/[.!?…]+$/, "").trim().split(/\s+/).length;
-  const nCenas = falas.reduce((a, f) => a + f.trim().split(/\s+/).length, 0);
+  let palavras = palavrasDoAlinhamento(alin);
+  const textos = fala ? fala.partes.map((x) => x.tela) : null;
+  const volta = fala && textos ? remapear(semTags(palavras), fala.mapa, textos.flat()) : null;
+  if (fala && !volta) console.warn("[video] as palavras da voz não bateram com o texto da tela: legenda com as palavras faladas");
+  let seg: ReturnType<typeof segmentos>;
+  let nG: number;
+  let nCenas: number;
+  if (fala && volta && textos) {
+    palavras = volta;
+    nG = textos[0].length;
+    const nF = textos.slice(1, -1).map((t) => t.length);
+    nCenas = nF.reduce((a, b) => a + b, 0);
+    seg = segmentos(palavras, nG, nF, textos[textos.length - 1].length);
+  } else {
+    if (fala) palavras = semTags(palavras);
+    const falas = p.roteiro.cenas.map((c) => c.fala.replace(/[.!?…]+$/, ""));
+    seg = segmentos(palavras, p.roteiro.gancho.replace(/[.!?…]+$/, ""), falas, p.fechamento.replace(/[.!?…]+$/, ""));
+    // 2) Legenda: só as palavras das cenas
+    nG = p.roteiro.gancho.replace(/[.!?…]+$/, "").trim().split(/\s+/).length;
+    nCenas = falas.reduce((a, f) => a + f.trim().split(/\s+/).length, 0);
+  }
   await mkdir(join(dir, "fonts"), { recursive: true });
   const ttf = MARCA.fontes.legenda.ttf;
   await copyFile(join(process.cwd(), ttf), join(dir, "fonts", basename(ttf)));
@@ -279,5 +300,5 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   if (clips[0].video) await rodar(ff, ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(clips[0].video.ss), "-i", clips[0].video.arquivo, "-frames:v", "1", "capa0.jpg"], dir);
   const base = await sharp(join(dir, clips[0].video ? "capa0.jpg" : capaDoPrimeiro)).resize(1080, 1920, { fit: "cover" }).toBuffer();
   const capa = await sharp(base).composite([{ input: q.moldura }, { input: q.abertura }]).jpeg({ quality: 88 }).toBuffer();
-  return { mp4: join(dir, "saida.mp4"), capa, chars: p.falado.length, duracao: seg.total };
+  return { mp4: join(dir, "saida.mp4"), capa, chars: falado.length, duracao: seg.total };
 }

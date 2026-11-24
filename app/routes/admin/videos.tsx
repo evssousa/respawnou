@@ -10,7 +10,10 @@ import { MARCA } from "~/marca";
 import { AlinharImagem } from "~/components/AlinharImagem";
 import { EscolherImagem } from "~/components/EscolherImagem";
 import { ChipsMetricas, TabelaDesempenho } from "~/components/video/Desempenho";
+import { CartaoPronuncia } from "~/components/video/Pronuncia";
 import { avisoMetricas, desempenho, metricasDosJobs } from "~/video/metricas.server";
+import { juntarDicionario, suspeitas, type ItemPronuncia } from "~/video/pronuncia";
+import { lerPronuncia, salvarPronuncia } from "~/video/pronuncia.server";
 import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
 import type { Foco } from "~/social/tipos";
 import { perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
@@ -28,11 +31,14 @@ export async function loader({ request }: Route.LoaderArgs) {
   const busca = (url.searchParams.get("q") ?? "").slice(0, 80);
   const [jobs, resumo, cfg, publicados, desemp, avisoMet] = await Promise.all([listarJobs(10), resumoMes(), lerConfig(), listarPublicados(busca), desempenho(), avisoMetricas()]);
   const metricas = await metricasDosJobs(publicados.itens.map((j) => j.id));
+  const pronunciaDono = await lerPronuncia();
   return {
     semBanco: false as const,
     jobs,
     publicados,
     metricas,
+    pronunciaDono,
+    nova: (url.searchParams.get("nova") ?? "").slice(0, 40),
     desemp,
     avisoMet,
     busca,
@@ -77,6 +83,12 @@ export async function action({ request }: Route.ActionArgs) {
       return back(r === "ok" ? "ok=roteiro" : `erro=${encodeURIComponent(r)}`);
     }
     if (intent === "descartar") return (await descartar(id)) ? back("ok=descartado") : back(`erro=${encodeURIComponent("Não dá para excluir um vídeo que está sendo gerado agora.")}`);
+    if (intent === "salvar_pronuncia") {
+      const de = f.getAll("p_de").map(String);
+      const para = f.getAll("p_para").map(String);
+      await salvarPronuncia(de.map((d, i) => ({ de: d, para: para[i] ?? "" })));
+      return back("ok=pronuncia");
+    }
     if (intent === "publicar_reel") {
       const r = await publicarReel(id);
       return r === "ok" ? back("ok=reel") : back(`erro=${encodeURIComponent(r)}`);
@@ -129,6 +141,7 @@ const MSG: Record<string, string> = {
   descartado: "Vídeo excluído (arquivos apagados).",
   imagem: "Imagem acrescentada (e o roteiro salvo). Escolha-a numa cena, ou como capa.",
   video: "Vídeo acrescentado (e o roteiro salvo). Escolha-o numa cena: o sistema recorta os melhores trechos sozinho.",
+  pronuncia: "Pronúncias salvas. Valem para os próximos vídeos (não mudam a legenda).",
   reel: "Enviando ao Instagram… o vídeo leva alguns minutos para processar. Esta tela atualiza sozinha.",
   reaberto: "Vídeo reaberto: mexa no roteiro, nas imagens e no enquadramento e clique em Aprovar e gerar quando quiser.",
   aprovado: "Aprovado. O vídeo fica pronto em alguns minutos: recarregue a página.",
@@ -215,11 +228,12 @@ function CenaLinha({ i, c, images, focus, max }: { max: number; i: number; c: { 
   );
 }
 
-function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }) {
+function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; busy: boolean; dicionario: ItemPronuncia[] }) {
   const perfil = perfilDaSecao(j.section ?? "");
   const r = j.script;
   const palavras = r ? palavrasDoRoteiro(r) : 0;
-  const chars = r ? caracteresDoRoteiro(r) : 0;
+  const chars = r ? caracteresDoRoteiro(r, dicionario) : 0;
+  const duvidas = r ? suspeitas([r.gancho, ...r.cenas.map((c) => c.fala)], dicionario) : [];
   const custo = ((chars * (cfg.model === "eleven_flash_v2_5" ? 0.5 : 1)) / 1000) * VIDEO.usdPorMilCreditos;
   const editavel = (j.status === "aguardando" || j.status === "falhou") && !!r;
   const capa = j.post_image ?? undefined;
@@ -277,6 +291,14 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
                   <Button name="intent" value="vid_add" disabled={busy}>Enviar vídeo (salva o roteiro)</Button>
                 </div>
               </div>
+              {duvidas.length > 0 && (
+                <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                  Confira a pronúncia:
+                  {duvidas.map((w) => (
+                    <a key={w} href={`/admin/videos?nova=${encodeURIComponent(w)}#pronuncia`} className="inline-flex min-h-8 items-center border border-line-soft px-2 font-mono text-[11px] text-paper hover:border-acc">{w}</a>
+                  ))}
+                </p>
+              )}
               <p className="text-xs text-muted">Fechamento fixo: “{VIDEO.fechamento}”</p>
               <p className="font-mono text-xs text-body">≈ {Math.round(palavras / 2.5 + 3)} s (alvo {perfil.rotulo}: {perfil.palavras[0]} a {perfil.palavras[1]} palavras; tem {palavras}) · {chars} caracteres · ~US$ {custo.toFixed(2).replace(".", ",")}</p>
               <div className="flex flex-wrap gap-2">
@@ -368,7 +390,7 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
         {d.jobs.length === 0 ? (
           <Card title="Vídeos"><p className="text-sm text-muted">Nenhum vídeo ainda. O próximo é escolhido sozinho depois das {cfg.hour}h (se estiver ligado), ou abra uma matéria e clique em “Fazer vídeo desta matéria”.</p></Card>
         ) : (
-          d.jobs.map((j) => <CartaoJob key={j.id} j={j} cfg={cfg} busy={busy} />)
+          d.jobs.map((j) => <CartaoJob key={j.id} j={j} cfg={cfg} busy={busy} dicionario={juntarDicionario(d.pronunciaDono)} />)
         )}
       </div>
 
@@ -418,6 +440,8 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
         <summary className="cursor-pointer font-mono text-xs font-bold text-muted">DESEMPENHO POR FORMATO ({d.desemp.medidos} vídeo{d.desemp.medidos === 1 ? "" : "s"} medido{d.desemp.medidos === 1 ? "" : "s"})</summary>
         <div className="mt-3"><TabelaDesempenho formatos={d.desemp.formatos} /></div>
       </details>
+
+      <CartaoPronuncia dono={d.pronunciaDono} base={MARCA.video.pronunciaBase} nova={d.nova} busy={busy} />
 
       <details className="mt-6 border border-line p-3" open={!cfg.enabled}>
         <summary className="cursor-pointer font-mono text-xs font-bold text-acc">CONFIGURAÇÃO</summary>
