@@ -73,7 +73,8 @@ async function baixar(url: string): Promise<Buffer> {
 export async function enquadrarVertical(buf: Buffer, w: number, h: number, foco: string, qualidade = 90): Promise<{ jpeg: Buffer; inteira: boolean }> {
   const meta = await sharp(buf).metadata();
   const larga = (meta.width ?? 1) / (meta.height ?? 1) >= 1.25;
-  const inteira = foco === "inteira" || (foco === "auto" && larga);
+  void larga;
+  const inteira = foco === "inteira";
   if (inteira) {
     const fundo = await sharp(buf).rotate().resize(w, h, { fit: "cover", position: sharp.strategy.attention }).blur(40).modulate({ brightness: 0.5 }).jpeg({ quality: 85 }).toBuffer();
     const frente = await sharp(buf).rotate().resize(w, h, { fit: "inside" }).toBuffer();
@@ -179,7 +180,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   //    bordas); vertical/quadrada: recorte pelo foco (ou pela parte mais chamativa). Foco "inteira" força o primeiro modo.
   const LARG = leve ? 1620 : 2160;
   const ALT = leve ? 2880 : 3840;
-  const prep = new Map<number, { nome: string; suave: boolean; fixo: boolean }>();
+  const prep = new Map<number, { nome: string; suave: boolean; fixo: boolean; pan?: { x0: number; x1: number }; capaArq?: string }>();
   const preparar = async (indice: number) => {
     const feito = prep.get(indice);
     if (feito) return feito;
@@ -189,12 +190,30 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     const nome = `cena${indice}.jpg`;
     const { jpeg, inteira } = await enquadrarVertical(buf, LARG, ALT, foco);
     await writeFile(join(dir, nome), jpeg);
+    // Imagem larga no automático: preenche a tela (recorte pela parte mais chamativa) e a câmera desliza para o lado, mostrando mais da cena.
+    let pan: { x0: number; x1: number } | undefined;
+    let capaArq: string | undefined;
+    const meta = await sharp(buf).metadata();
+    if (foco === "auto" && (meta.width ?? 1) / (meta.height ?? 1) >= 1.25) {
+      const grande = await sharp(buf).rotate().resize({ height: 1920 }).jpeg({ quality: 90 }).toBuffer({ resolveWithObject: true });
+      const att = await sharp(buf).rotate().resize(1080, 1920, { fit: "cover", position: sharp.strategy.attention }).toBuffer({ resolveWithObject: true });
+      const x0 = Math.abs(att.info.cropOffsetLeft ?? 0);
+      const folgaDir = grande.info.width - 1080 - x0;
+      const dir_ = folgaDir >= x0 ? 1 : -1;
+      const curso = Math.min(Math.max(dir_ === 1 ? folgaDir : x0, 0), 560);
+      if (curso >= 80) {
+        await writeFile(join(dir, `cena${indice}_pan.jpg`), grande.data);
+        capaArq = nome; // o quadro 9:16 já gravado serve para a capa
+        pan = { x0, x1: x0 + dir_ * curso };
+      }
+    }
     // Alinhamento manual ou recorte escolhido pelo dono: a câmera só respira no centro, para o enquadramento dele aparecer como ele deixou.
-    const r = { nome, suave: inteira, fixo: !inteira && foco !== "auto" };
+    const r = { nome: pan ? `cena${indice}_pan.jpg` : nome, suave: inteira, fixo: !inteira && foco !== "auto", pan, capaArq };
     prep.set(indice, r);
     return r;
   };
   const clips: Clip[] = [];
+  let capaDoPrimeiro = "";
   const creditos: { ini: number; fim: number; texto: string }[] = [];
   for (const c of plano) {
     if (c.video) {
@@ -203,7 +222,10 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
       continue;
     }
     const x = await preparar(c.img);
-    clips.push({ img: x.nome, ini: c.ini, dur: c.dur, suave: x.suave, fixo: x.fixo, punch: c.punch && !x.suave });
+    // Clipes seguidos da mesma imagem alternam o sentido do deslize (o primeiro sempre parte do quadro da capa).
+    const volta = x.pan && clips.length > 0 && clips.length % 2 === 1;
+    clips.push({ img: x.nome, ini: c.ini, dur: c.dur, suave: x.suave, fixo: x.fixo, punch: c.punch && !x.suave && !x.pan, pan: x.pan && (volta ? { x0: x.pan.x1, x1: x.pan.x0 } : x.pan) });
+    if (clips.length === 1) capaDoPrimeiro = x.capaArq ?? x.nome;
   }
 
   await writeFile(join(dir, "legenda.ass"), gerarAss(palavras.slice(nG, nG + nCenas), { creditos }));
@@ -239,7 +261,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
 
   // 6) Capa: 1º quadro com moldura e cartão de abertura por cima
   if (clips[0].video) await rodar(ff, ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(clips[0].video.ss), "-i", clips[0].video.arquivo, "-frames:v", "1", "capa0.jpg"], dir);
-  const base = await sharp(join(dir, clips[0].video ? "capa0.jpg" : clips[0].img)).resize(1080, 1920, { fit: "cover" }).toBuffer();
+  const base = await sharp(join(dir, clips[0].video ? "capa0.jpg" : capaDoPrimeiro)).resize(1080, 1920, { fit: "cover" }).toBuffer();
   const capa = await sharp(base).composite([{ input: q.moldura }, { input: q.abertura }]).jpeg({ quality: 88 }).toBuffer();
   return { mp4: join(dir, "saida.mp4"), capa, chars: p.falado.length, duracao: seg.total };
 }

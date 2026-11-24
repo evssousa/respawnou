@@ -7,6 +7,7 @@ import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { hasDatabase } from "~/lib/db.server";
 import { AlinharImagem } from "~/components/AlinharImagem";
+import { EscolherImagem } from "~/components/EscolherImagem";
 import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
 import type { Foco } from "~/social/tipos";
 import { SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
@@ -151,10 +152,8 @@ function CapaEscolha({ j }: { j: Job }) {
     <Field label="Imagem da capa e da abertura (a 1ª imagem do vídeo)">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex min-w-[220px] flex-1 flex-col gap-2">
-          <select name="capa" value={sel} onChange={(e) => { setSel(e.target.value); setFalhou(false); }} className={inputCls}>
-            <option value="">Automática (a da 1ª cena)</option>
-            {j.images.map((x, k) => (x.src.startsWith("arte:") || x.src.startsWith("yt:") || /\.(mp4|webm)$/i.test(x.src) ? null : <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>))}
-          </select>
+          <input type="hidden" name="capa" value={sel} />
+          <EscolherImagem opcoes={j.images} valor={sel} onChange={(v) => { setSel(v); setFalhou(false); }} rotulo="Escolha a imagem da capa e da abertura" permitirAutomatica="a imagem da 1ª cena" semVideo />
           <button type="button" className="min-h-9 self-start border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => { setV(v + 1); setFalhou(false); }}>Atualizar prévia</button>
           <p className="text-[11px] text-muted">A prévia usa o enquadramento já salvo da imagem. Mexeu no alinhamento? Clique em Salvar roteiro e depois em Atualizar prévia.</p>
         </div>
@@ -192,9 +191,7 @@ function CenaLinha({ i, c, images, focus }: { i: number; c: { fala: string; imag
         <input type="hidden" name={`img_${i}`} value={img} />
         <input type="hidden" name={`foco_${i}`} value={foco} />
         <div className="flex flex-wrap gap-2">
-          <select value={img} onChange={(e) => { const n = Number(e.target.value); setImg(n); setFoco(focus[String(n)] ?? "auto"); }} aria-label="Imagem da cena" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
-            {images.map((x, k) => <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>)}
-          </select>
+          <EscolherImagem opcoes={images} valor={String(img)} onChange={(v) => { const n = Number(v); setImg(n); setFoco(focus[String(n)] ?? "auto"); }} rotulo={`Imagem da cena ${i + 1}`} />
           <select value={foco} onChange={(e) => setFoco(e.target.value)} aria-label="Enquadramento" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
             {ehFocoManual(foco) && <option value={foco}>{`Manual (${foco.replace(",", "% / ")}%)`}</option>}
             <option value="inteira">Imagem inteira (fundo desfocado)</option>

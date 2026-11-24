@@ -17,6 +17,8 @@ export interface Clip {
   suave: boolean;
   /** O dono alinhou o enquadramento à mão (ou por preset): só zoom centrado, sem panorâmica, para manter o que ele escolheu. */
   fixo?: boolean;
+  /** Imagem larga que preenche a tela: a imagem tem 1920 px de altura e a janela 1080×1920 desliza de x0 a x1 (px) durante o clipe. */
+  pan?: { x0: number; x1: number };
   /** Trecho de vídeo (material enviado pelo dono) no lugar da imagem: arquivo na pasta de trabalho e instante inicial. */
   video?: { arquivo: string; ss: number };
   /** Corte de aproximação (zoom forte e centrado) para dar ritmo quando a mesma imagem segue na tela. */
@@ -88,6 +90,14 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
       return;
     }
     args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(dur), "-i", c.img);
+    if (c.pan) {
+      // Deslizar suave (começa e termina devagar) de x0 a x1; `t` é o tempo do próprio clipe.
+      const u = `min(t/${s3(dur)},1)`;
+      partes.push(`[${idx}:v]crop=1080:1920:x='${c.pan.x0}+(${c.pan.x1}-${c.pan.x0})*(1-cos(PI*${u}))/2':y=0,setsar=1,fps=${FPS},format=yuv420p,settb=AVTB[c${k}]`);
+      rotulos.push(`[c${k}]`);
+      idx++;
+      return;
+    }
     const m = movimento(k, Math.round(dur * FPS), c.suave, c.punch ? "punch" : c.fixo ? "fixo" : "livre");
     partes.push(`[${idx}:v]zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=1:s=1080x1920:fps=${FPS},setsar=1,format=yuv420p,settb=AVTB[c${k}]`);
     rotulos.push(`[c${k}]`);
