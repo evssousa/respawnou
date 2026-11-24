@@ -1,7 +1,7 @@
 // Painel de vídeos (/admin/videos): roteiro para aprovar, vídeo pronto para baixar e legendas por rede, configuração e uso da voz.
 // Módulo: app/video (docs/instagram-stories-videos.md, frente B).
-import { useState } from "react";
-import { Form, redirect, useNavigation } from "react-router";
+import { useEffect, useState } from "react";
+import { Form, redirect, useNavigation, useRevalidator } from "react-router";
 import type { Route } from "./+types/videos";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
@@ -12,7 +12,7 @@ import type { Foco } from "~/social/tipos";
 import { SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
 import { ErroUpload } from "~/social/server/uploads.server";
-import { adicionarImagem, adicionarVideo, aprovar, descartar, gerarRoteiroDoJob, listarJobs, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { adicionarImagem, adicionarVideo, aprovar, descartar, gerarRoteiroDoJob, listarJobs, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -66,6 +66,10 @@ export async function action({ request }: Route.ActionArgs) {
       return back(r === "ok" ? "ok=roteiro" : `erro=${encodeURIComponent(r)}`);
     }
     if (intent === "descartar") return (await descartar(id)) ? back("ok=descartado") : back(`erro=${encodeURIComponent("Não dá para excluir um vídeo que está sendo gerado agora.")}`);
+    if (intent === "publicar_reel") {
+      const r = await publicarReel(id);
+      return r === "ok" ? back("ok=reel") : back(`erro=${encodeURIComponent(r)}`);
+    }
     if (intent === "reabrir") return (await reabrir(id)) ? back("ok=reaberto") : back(`erro=${encodeURIComponent("Este vídeo não pode ser reaberto agora.")}`);
     if (intent === "salvar" || intent === "aprovar" || intent === "refazer" || intent === "img_add" || intent === "vid_add") {
       if (intent !== "refazer") {
@@ -114,6 +118,7 @@ const MSG: Record<string, string> = {
   descartado: "Vídeo excluído (arquivos apagados).",
   imagem: "Imagem acrescentada (e o roteiro salvo). Escolha-a numa cena, ou como capa.",
   video: "Vídeo acrescentado (e o roteiro salvo). Escolha-o numa cena: o sistema recorta os melhores trechos sozinho.",
+  reel: "Enviando ao Instagram… o vídeo leva alguns minutos para processar. Esta tela atualiza sozinha.",
   reaberto: "Vídeo reaberto: mexa no roteiro, nas imagens e no enquadramento e clique em Aprovar e gerar quando quiser.",
   aprovado: "Aprovado. O vídeo fica pronto em alguns minutos: recarregue a página.",
 };
@@ -283,6 +288,18 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
             <>
               <div className="flex flex-wrap gap-2">
                 {j.video && <a href={j.video} download className="inline-flex min-h-10 items-center bg-acc px-4 font-mono text-xs font-bold text-ink">Baixar MP4</a>}
+                {j.ig_status === "publicado" ? (
+                  <span className="inline-flex min-h-10 items-center gap-2 border border-acc px-4 font-mono text-xs font-bold text-acc">
+                    Publicado no Instagram{j.ig_published_at ? ` · ${when(j.ig_published_at)}` : ""}
+                    {j.ig_permalink && <a href={j.ig_permalink} target="_blank" rel="noreferrer" className="underline">ver</a>}
+                  </span>
+                ) : j.ig_status === "enviando" ? (
+                  <span className="inline-flex min-h-10 animate-pulse items-center border border-line-soft px-4 font-mono text-xs font-bold text-paper">Enviando ao Instagram… (até 6 min)</span>
+                ) : (
+                  <Form method="post" onSubmit={(e) => { if (!confirm("Publicar este vídeo AGORA como Reels no Instagram do Respawnou (valendo, fora do modo de teste)?")) e.preventDefault(); }}>
+                    <input type="hidden" name="id" value={j.id} /><Button tone="primary" name="intent" value="publicar_reel" disabled={busy}>Publicar no Instagram (Reels)</Button>
+                  </Form>
+                )}
                 {j.cover && <a href={j.cover} download className="inline-flex min-h-10 items-center border border-line-soft px-4 font-mono text-xs font-bold text-paper hover:border-acc">Baixar capa</a>}
                 <Form method="post">
                   <input type="hidden" name="id" value={j.id} /><Button name="intent" value="reabrir" disabled={busy}>Editar e refazer (não gera ainda)</Button>
@@ -291,6 +308,7 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
                   <input type="hidden" name="id" value={j.id} /><Button name="intent" value="descartar" disabled={busy}>Excluir vídeo</Button>
                 </Form>
               </div>
+              {j.ig_status === "falhou" && j.ig_error && <Notice tone="warn">Instagram: {j.ig_error}</Notice>}
               {j.captions && (
                 <div className="flex flex-col gap-3">
                   <Copiavel titulo="Legenda do Instagram (Reels)" texto={j.captions.instagram} />
@@ -309,6 +327,14 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
 
 export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
   const busy = useNavigation().state !== "idle";
+  // Enquanto algo está sendo gerado ou enviado ao Instagram, a tela se atualiza sozinha a cada 8 s.
+  const revalidador = useRevalidator();
+  const ativo = !d.semBanco && d.jobs.some((j) => j.ig_status === "enviando" || j.status === "gerando" || j.status === "aprovado");
+  useEffect(() => {
+    if (!ativo) return;
+    const t = setInterval(() => revalidador.revalidate(), 8000);
+    return () => clearInterval(t);
+  }, [ativo]); // eslint-disable-line react-hooks/exhaustive-deps
   if (d.semBanco) return <><PageTitle>Vídeos</PageTitle><Notice tone="warn">Precisa do banco de dados.</Notice></>;
   const { cfg } = d;
   const estado = !cfg.enabled ? "DESLIGADO" : d.resumo.aguardando ? "AGUARDANDO VOCÊ" : "LIGADO";

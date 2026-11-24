@@ -40,6 +40,10 @@ export interface JobVideo {
   created_at: string;
   approved_at: string | null;
   rendered_at: string | null;
+  ig_status?: "enviando" | "publicado" | "falhou" | null;
+  ig_permalink?: string | null;
+  ig_published_at?: string | null;
+  ig_error?: string | null;
   title?: string;
   section?: string;
   post_image?: string | null;
@@ -175,6 +179,60 @@ export async function adicionarImagem(id: number, file: File): Promise<string> {
   return "ok";
 }
 
+/**
+ * Botão "Publicar no Instagram (Reels)": envia o MP4 pronto, com a legenda sugerida e a capa. Roda em segundo plano (o Instagram leva
+ * minutos para processar o vídeo); o painel atualiza sozinho. Só um envio por vídeo: publicado ou em andamento não repete.
+ */
+export async function publicarReel(id: number): Promise<string> {
+  const { getConta, getToken, marcarTokenInvalido } = await import("~/social/server/conta.server");
+  const conta = await getConta();
+  const token = await getToken();
+  if (!conta.hasToken || !token || conta.token_status !== "ok" || !conta.account_id) return "Instagram não conectado ou com token inválido (veja /admin/instagram).";
+  const [j] = await query<Record<string, unknown>>("SELECT * FROM video_jobs WHERE id = ?", [id]);
+  if (!j || j.status !== "pronto" || !j.video) return "O vídeo precisa estar pronto para publicar.";
+  const job = linha(j);
+  if (job.ig_status === "publicado") return "Este vídeo já foi publicado no Instagram.";
+  const { containerStatus, publicarReel: enviarReel, classificar } = await import("~/social/server/instagram.server");
+  // Envio travado (processo caiu): se o Instagram já publicou aquele contêiner, não envia de novo.
+  const antigo = typeof j.ig_container_id === "string" ? j.ig_container_id : "";
+  if (job.ig_status === "enviando" && antigo) {
+    try {
+      if ((await containerStatus(antigo, token)) === "PUBLISHED") {
+        await exec("UPDATE video_jobs SET ig_status = 'publicado', ig_published_at = UTC_TIMESTAMP(), ig_error = NULL WHERE id = ?", [id]);
+        return "O Instagram já tinha publicado este vídeo (marquei como publicado).";
+      }
+    } catch {
+      /* segue para tentar de novo */
+    }
+  }
+  const r = await exec(
+    "UPDATE video_jobs SET ig_status = 'enviando', ig_started_at = UTC_TIMESTAMP(), ig_error = NULL, ig_container_id = NULL WHERE id = ? AND status = 'pronto' AND (ig_status IS NULL OR ig_status = 'falhou' OR (ig_status = 'enviando' AND ig_started_at < UTC_TIMESTAMP() - INTERVAL 15 MINUTE))",
+    [id],
+  );
+  if (!r.affected) return "Este vídeo já está sendo enviado ao Instagram.";
+  const legenda = (job.captions?.instagram ?? "").trim() || `${job.title ?? "Respawnou"}`;
+  void (async () => {
+    try {
+      const { cota } = await import("~/social/server/instagram.server");
+      if ((await cota(conta.account_id!, token)).uso >= 95) throw new Error("Cota diária da API do Instagram quase cheia: tente mais tarde.");
+      const res = await enviarReel({
+        contaId: conta.account_id!,
+        token,
+        videoUrl: `${SOCIAL.baseUrl}${job.video}`,
+        legenda: legenda.slice(0, 2200),
+        capaUrl: job.cover ? `${SOCIAL.baseUrl}${job.cover}` : undefined,
+        aoCriarContainer: async (cid) => void (await exec("UPDATE video_jobs SET ig_container_id = ? WHERE id = ?", [cid, id])),
+      });
+      await exec("UPDATE video_jobs SET ig_status = 'publicado', ig_media_id = ?, ig_permalink = ?, ig_published_at = UTC_TIMESTAMP(), ig_error = NULL WHERE id = ?", [res.mediaId, res.link, id]);
+    } catch (err) {
+      const msg = String((err as Error)?.message ?? err).slice(0, 450);
+      if (classificar(err).acao === "token") await marcarTokenInvalido("Token do Instagram inválido: gere outro e cole em /admin/instagram.");
+      await exec("UPDATE video_jobs SET ig_status = 'falhou', ig_error = ? WHERE id = ?", [msg, id]);
+    }
+  })();
+  return "ok";
+}
+
 /** Aprova e começa a gerar o vídeo aqui no servidor (em segundo plano). */
 export async function aprovar(id: number): Promise<{ ok: boolean; aviso?: string }> {
   const r = await exec("UPDATE video_jobs SET status = 'aprovado', approved_at = UTC_TIMESTAMP(), error = NULL, attempts = 0, locked_at = NULL WHERE id = ? AND status IN ('aguardando','falhou','pronto') AND script IS NOT NULL", [id]);
@@ -235,7 +293,7 @@ export async function descartar(id: number): Promise<boolean> {
 
 /** "Editar e refazer": volta um vídeo pronto para o rascunho (roteiro, imagens e enquadramentos editáveis); só gera de novo ao aprovar. O MP4 antigo continua até o novo ficar pronto. */
 export async function reabrir(id: number): Promise<boolean> {
-  const r = await exec("UPDATE video_jobs SET status = 'aguardando', error = NULL WHERE id = ? AND status = 'pronto' AND script IS NOT NULL", [id]);
+  const r = await exec("UPDATE video_jobs SET status = 'aguardando', error = NULL, ig_status = NULL, ig_container_id = NULL, ig_media_id = NULL, ig_permalink = NULL, ig_published_at = NULL, ig_error = NULL WHERE id = ? AND status = 'pronto' AND script IS NOT NULL AND (ig_status IS NULL OR ig_status <> 'enviando')", [id]);
   return r.affected > 0;
 }
 

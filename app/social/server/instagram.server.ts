@@ -90,15 +90,15 @@ export async function cota(id: string, token: string) {
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Espera o contêiner ficar FINISHED (a cada 3 s, até 20 vezes). */
-async function esperar(idContainer: string, token: string) {
-  for (let i = 0; i < 20; i++) {
+/** Espera o contêiner ficar FINISHED (a cada 3 s, até 20 vezes; vídeo demora mais: a cada 5 s, até 72 vezes = 6 min). */
+async function esperar(idContainer: string, token: string, tentativas = 20, intervaloMs = 3000) {
+  for (let i = 0; i < tentativas; i++) {
     const r = await chamar<{ status_code?: string }>(`/${idContainer}`, token, { params: { fields: "status_code" } });
     if (r.status_code === "FINISHED") return;
     if (r.status_code === "ERROR" || r.status_code === "EXPIRED") throw new ErroInstagram(`contêiner ${r.status_code}`, null, null, 200);
-    await dormir(3000);
+    await dormir(intervaloMs);
   }
-  throw new ErroInstagram("tempo esgotado esperando o Instagram processar a imagem", null, null, 200);
+  throw new ErroInstagram("tempo esgotado esperando o Instagram processar a mídia", null, null, 200);
 }
 
 export async function containerStatus(idContainer: string, token: string) {
@@ -138,6 +138,19 @@ export async function publicarStory(opts: { contaId: string; token: string; imag
   await esperar(r.id, token);
   const pub = await chamar<{ id: string }>(`/${contaId}/media_publish`, token, { metodo: "POST", params: { creation_id: r.id } });
   return { containerId: r.id, mediaId: pub.id, link: null as string | null };
+}
+
+/** Publica 1 Reel (vídeo 9:16 em MP4/H.264 numa URL pública). Contêiner → FINISHED (o vídeo demora para processar) → media_publish. */
+export async function publicarReel(opts: { contaId: string; token: string; videoUrl: string; legenda: string; capaUrl?: string; aoCriarContainer?: (id: string) => Promise<void> }) {
+  const { contaId, token } = opts;
+  const r = await chamar<{ id: string }>(`/${contaId}/media`, token, {
+    metodo: "POST",
+    params: { media_type: "REELS", video_url: opts.videoUrl, caption: opts.legenda, share_to_feed: true, cover_url: opts.capaUrl },
+  });
+  await opts.aoCriarContainer?.(r.id);
+  await esperar(r.id, token, 72, 5000);
+  const pub = await chamar<{ id: string }>(`/${contaId}/media_publish`, token, { metodo: "POST", params: { creation_id: r.id } });
+  return { containerId: r.id, mediaId: pub.id, link: await permalink(pub.id, token).catch(() => null) };
 }
 
 /** Últimas mídias (para achar um post que já foi publicado quando o processo caiu no meio). */
