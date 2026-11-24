@@ -2,7 +2,7 @@
 // Painel de vídeos (/admin/videos): roteiro para aprovar, vídeo pronto para baixar e legendas por rede, configuração e uso da voz.
 // Módulo: app/video (docs/instagram-stories-videos.md, frente B).
 import { useEffect, useState } from "react";
-import { Form, redirect, useNavigation, useRevalidator } from "react-router";
+import { Form, isRouteErrorResponse, redirect, useNavigation, useRevalidator } from "react-router";
 import type { Route } from "./+types/videos";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
@@ -27,7 +27,34 @@ import { caracteresDoRoteiro, palavrasDoRoteiro, textoFalado } from "~/video/rot
 
 export const meta = () => adminMeta("Vídeos");
 
+/** Erro do painel com a mensagem de verdade (o React Router esconde a de erros do servidor em produção). */
+function falha(onde: string, e: unknown): Response {
+  if (e instanceof Response) return e;
+  const msg = String((e as Error)?.message ?? e).slice(0, 400);
+  console.error(`[videos] ${onde}:`, e);
+  return new Response(`Não consegui ${onde}: ${msg}`, { status: 500 });
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
+  try {
+    return await carregar(request);
+  } catch (e) {
+    throw falha("carregar o painel de vídeos", e);
+  }
+}
+
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  const msg = isRouteErrorResponse(error) ? String(error.data ?? error.statusText) : error instanceof Error ? error.message : "Erro desconhecido";
+  return (
+    <>
+      <PageTitle>Vídeos</PageTitle>
+      <Notice tone="warn">{msg}</Notice>
+      <p className="mt-3 text-xs text-muted">Copie esta mensagem e mande no chat para eu corrigir.</p>
+    </>
+  );
+}
+
+async function carregar(request: Request) {
   await requireAdmin(request);
   if (!hasDatabase()) return { semBanco: true as const };
   const url = new URL(request.url);

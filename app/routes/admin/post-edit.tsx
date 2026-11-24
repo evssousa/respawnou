@@ -57,8 +57,13 @@ export async function action({ request, params }: Route.ActionArgs) {
   if (intent === "video") {
     // Vídeo curto desta matéria: cria o job e o roteiro (Gemini); a revisão e a aprovação são em /admin/videos.
     const formato = String(form.get("formato") ?? "auto");
-    const r = await criarJobDoFormato(id, ["auto", "avulso", "review-60", "top5"].includes(formato) ? formato : "auto");
-    return redirect("erro" in r ? `/admin/videos?erro=${encodeURIComponent(r.erro)}` : "/admin/videos?ok=roteiro");
+    try {
+      const r = await criarJobDoFormato(id, ["auto", "avulso", "review-60", "top5"].includes(formato) ? formato : "auto");
+      return redirect("erro" in r ? `/admin/videos?erro=${encodeURIComponent(r.erro)}` : "/admin/videos?ok=roteiro");
+    } catch (e) {
+      console.error("[video] criar vídeo da matéria:", e);
+      return redirect(`/admin/videos?erro=${encodeURIComponent(`Não consegui criar o vídeo: ${String((e as Error)?.message ?? e).slice(0, 300)}`)}`);
+    }
   }
   if (intent === "refazer") {
     publish({ redoPostId: id }).catch((err) => console.error("[admin] refazer:", err));
