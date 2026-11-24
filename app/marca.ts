@@ -28,6 +28,7 @@ export const MARCA = {
     destaque: "#c8ff2e",
     destaqueFundo: "#3d5200",
     alerta: "#ffb020",
+    ruim: "#ff5a3c",
     sobreDestaque: "#060807",
   },
   /**

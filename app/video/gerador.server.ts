@@ -6,6 +6,9 @@ import { basename, join } from "node:path";
 import { MARCA } from "~/marca";
 import sharp from "sharp";
 import { recortarComFoco } from "~/social/render/imagem.server";
+import { type FatosVideo, planoCartoes } from "./cartoes";
+import type { Roteiro } from "./roteiro";
+import { gerarCartao } from "./render/cartao.server";
 import { gerarQuadros } from "./render/quadros.server";
 import { gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/ass";
 import { alinhamentoFalso, sintetizar } from "../../scripts/video/elevenlabs";
@@ -18,17 +21,21 @@ export interface PacoteVideo {
   id: number;
   titulo: string;
   secao: string;
-  roteiro: { gancho: string; cenas: { fala: string; imagem: number }[]; titulo_curto: string };
+  roteiro: Roteiro;
   imagens: { src: string; url: string; foco: string; alt?: string }[];
   capa?: number;
   voz: string;
   modelo: string;
   velocidade: number;
+  estabilidade?: number;
+  estilo?: number;
   falado: string;
   /** Dicionário de pronúncia (base + do dono). Presente = o gerador converte a tela em fala (números por extenso, pausas) e remapeia a legenda. */
   pronuncia?: ItemPronuncia[];
   /** Termos para destacar em verde na legenda (destaques do roteiro, nome do jogo...). */
   termos?: string[];
+  /** Fatos da matéria (cartões de dados). */
+  fatos?: FatosVideo | null;
   pausa?: number;
   fechamento: string;
   pergunta?: string | null;
@@ -117,7 +124,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     const chave = o.chaveElevenLabs ?? process.env.ELEVENLABS_API_KEY;
     if (!chave) throw new Error("ELEVENLABS_API_KEY ausente");
     if (!p.voz) throw new Error("nenhuma voz configurada para esta editoria (painel /admin/videos)");
-    const s = await sintetizar({ chave, voz: p.voz, modelo: p.modelo, velocidade: p.velocidade, texto: falado });
+    const s = await sintetizar({ chave, voz: p.voz, modelo: p.modelo, velocidade: p.velocidade, estabilidade: p.estabilidade, estilo: p.estilo, texto: falado });
     alin = s.alinhamento;
     await writeFile(join(dir, audio), s.mp3);
   }
@@ -277,7 +284,29 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   const estilo = estiloDoVideo(p.id);
   const fechIni = seg.inicioFechamento;
   await rodar(ff, comandoTrilha(estilo, seg.total, instantesTransicao(clips, fechIni), "trilha.wav", leve), dir);
+  // Cartões de dados (só no caminho novo, em que as palavras da tela estão mapeadas): PNG por cartão e o plano de tempo.
+  const cartoes: { arquivo: string; ini: number; fim: number; tipo: string }[] = [];
+  if (fala && volta && textos && p.fatos) {
+    let pos = textos[0].length;
+    const porCena = seg.segs
+      .filter((x) => x.tipo === "cena")
+      .map((x) => {
+        const n = textos[1 + x.cena]?.length ?? 0;
+        const palavrasCena = palavras.slice(pos, pos + n);
+        pos += n;
+        return { ini: x.ini, fim: x.fim, palavras: palavrasCena };
+      });
+    // a 1ª cena começa em 0 (junto com a abertura); o plano respeita fimAbertura
+    for (const c of planoCartoes(porCena, p.roteiro, p.fatos, fimAbertura)) {
+      const r = await gerarCartao(c.tipo, p.fatos, c.item ?? 0);
+      if (!r) continue;
+      const arquivo = `cartao_${cartoes.length}.png`;
+      await writeFile(join(dir, arquivo), r.png);
+      cartoes.push({ arquivo, ini: c.ini, fim: c.fim, tipo: c.tipo });
+    }
+  }
   const { args, filtro } = montar({
+    cartoes,
     corBarra: MARCA.cores.destaque,
     trilha: { arquivo: "trilha.wav", bpm: estilo.bpm },
     leve,

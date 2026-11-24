@@ -11,7 +11,7 @@ import { SOCIAL } from "~/social/config";
 import { escolherModelo, lerEntrada, urlDaMateria } from "~/social/site.server";
 import type { Foco } from "~/social/tipos";
 import { lerDuracao } from "../../scripts/video/videoclip";
-import { VIDEO, vozDaSecao } from "./config";
+import { VIDEO, vozDaSecao, ENERGIA_VOZ } from "./config";
 import { lerConfig } from "./config.server";
 import { exec, hasDatabase, query } from "./db";
 import { gerarVideo } from "./gerador.server";
@@ -322,9 +322,12 @@ export interface PacoteWorker {
   voz: string;
   modelo: string;
   velocidade: number;
+  estabilidade: number;
+  estilo: number;
   falado: string;
   pronuncia: ItemPronuncia[];
   termos: string[];
+  fatos: FatosVideo | null;
   pausa: number;
   chaveSecao: string;
   /** Índice da imagem escolhida para a capa/abertura (opcional). */
@@ -366,9 +369,12 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
     capa: job.focus["_capa"] != null && Number.isInteger(Number(job.focus["_capa"])) ? Number(job.focus["_capa"]) : undefined,
     voz,
     modelo: job.voice_model || cfg.model,
-    velocidade: cfg.speed,
+    velocidade: Math.min(1.2, Math.max(0.7, cfg.speed * ENERGIA_VOZ[cfg.energia].velocidade)),
+    estabilidade: ENERGIA_VOZ[cfg.energia].estabilidade,
+    estilo: ENERGIA_VOZ[cfg.energia].estilo,
     falado: textoFalado(job.script, dic, VIDEO.voz.pausaAntesNumero),
     pronuncia: dic,
+    fatos: (job.facts as FatosVideo | null) ?? null,
     termos: termosDeDestaque(job.script, (job.facts as FatosVideo | null) ?? null),
     pausa: VIDEO.voz.pausaAntesNumero,
     fechamento: fechamentoFinal(job.script),

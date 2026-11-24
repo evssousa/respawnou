@@ -49,7 +49,8 @@ function pacote(urls: string[]): PacoteVideo {
   const n = perfil === "longo" ? 10 : 4;
   // As primeiras cenas usam algarismos, sigla e data de propósito: o gerador converte para a fala e remapeia a legenda.
   const ESPECIAIS = ["GTA 6 chega em 28/11 no PS5 e no Xbox.", "Sai por R$ 249,90 e tem nota 8,7 da crítica.", "A RTX 4060 roda em 100% do tempo a 60 quadros?"];
-  const cenas = Array.from({ length: n }, (_, i) => ({ fala: ESPECIAIS[i] ?? `${FALA} ${i + 1}`, imagem: i % urls.length }));
+  const CARTAO = ["lancamento", "preco", "plataformas", "gratis"] as const;
+  const cenas = Array.from({ length: n }, (_, i) => ({ fala: ESPECIAIS[i] ?? `${FALA} ${i + 1}`, imagem: i % urls.length, ...(CARTAO[i] ? { cartao: CARTAO[i] } : {}) }));
   const gancho = "Olha só esta novidade que muda tudo";
   // --pergunta: fechamento com pergunta (voz e cartão de fechamento novo).
   const pergunta = process.argv.includes("--pergunta") ? "Você pagaria R$ 349 nele?" : null;
@@ -68,6 +69,14 @@ function pacote(urls: string[]): PacoteVideo {
     pronuncia: MARCA.video.pronunciaBase,
     pausa: VIDEO.voz.pausaAntesNumero,
     termos: ["GTA 6", "Xbox"],
+    fatos: {
+      jogo: "GTA 6",
+      preco: "R$ 249,90",
+      lancamento: { data: "28/11", diaSemana: "SEXTA", ano: 2026 },
+      plataformas: ["PC", "PS", "XBOX"],
+      nota: { valor: 8.7, veiculos: 12, veredito: "Elogiado pela direção de arte" },
+      gratis: [{ nome: "Hades II", loja: "Epic Games Store", ate: "QUI, 27/11, ÀS 13H", precoNormal: "R$ 89,99" }],
+    },
     fechamento,
     pergunta,
     cta: "MATÉRIA COMPLETA: LINK NO PERFIL",

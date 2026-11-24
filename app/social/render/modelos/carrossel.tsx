@@ -1,4 +1,5 @@
 // Modelo C: carrossel (artigos, reviews e guias), 5 a 7 slides: capa, pontos/notas/requisitos e CTA final.
+import { corNota, dec } from "~/social/core/nota";
 import type { ReactElement } from "react";
 import { COR, SOCIAL } from "../../config";
 import { cortar, frasesInteiras } from "../../core/texto";
@@ -17,8 +18,6 @@ export interface InsumosCarrossel {
   imagens: (string | null)[];
 }
 
-const dec = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const corNota = (n: number) => (n >= 7.5 ? COR.destaque : n >= 5.5 ? COR.alerta : "#ff5a3c");
 const nn = (i: number, t: number) => `${String(i).padStart(2, "0")}/${String(t).padStart(2, "0")}`;
 
 function Titulo({ texto, tam, cor = COR.texto, largura = 952 }: { texto: string; tam: number; cor?: string; largura?: number }) {

@@ -37,6 +37,8 @@ export const VIDEO = {
     autoApprove: false,
     model: "eleven_multilingual_v2",
     speed: 0.95,
+    /** Energia da voz: calma, normal ou animada (estabilidade menor, mais estilo e um pouco mais rápida). */
+    energia: "animada" as "calma" | "normal" | "animada",
     creditsMonth: 30000,
     /** Uma voz por editoria (seção da matéria). Vazio = usa a voz padrão. */
     voiceDefault: "",
@@ -45,6 +47,14 @@ export const VIDEO = {
 };
 
 export type VideoConfig = typeof VIDEO.padrao;
+export type Energia = VideoConfig["energia"];
+
+/** Ajustes da ElevenLabs por energia: estabilidade (menor = mais expressiva), estilo (0 a 1) e multiplicador da velocidade. */
+export const ENERGIA_VOZ: Record<Energia, { estabilidade: number; estilo: number; velocidade: number; rotulo: string }> = {
+  calma: { estabilidade: 0.6, estilo: 0, velocidade: 1, rotulo: "Calma (como era antes)" },
+  normal: { estabilidade: 0.5, estilo: 0.15, velocidade: 1.03, rotulo: "Normal" },
+  animada: { estabilidade: 0.35, estilo: 0.45, velocidade: 1.08, rotulo: "Animada (recomendada)" },
+};
 
 export type PerfilVideo = keyof typeof VIDEO.perfis;
 /** Editorias com matéria longa ganham vídeo mais longo. */

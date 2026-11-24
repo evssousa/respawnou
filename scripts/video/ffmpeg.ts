@@ -34,6 +34,8 @@ export interface PlanoMontagem {
   arq: { molduraTopo: string; molduraBase: string; abertura: string; fechamento: string; audio: string; legenda: string; saida: string };
   /** Servidor compartilhado: preset mais rápido e 2 threads. */
   leve?: boolean;
+  /** Cartões de dados: PNG pequeno (932 px de largura) que sobe e some no intervalo dado (segundos do vídeo). */
+  cartoes?: { arquivo: string; ini: number; fim: number }[];
   /** Cor da barra de progresso, "#rrggbb" (cor de destaque da marca). */
   corBarra?: string;
   /** Trilha pronta (música + whooshes, ver musica.ts) e o andamento dela, para a imagem pulsar no ritmo. */
@@ -132,6 +134,11 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   args.push(...t1, "-framerate", String(FPS), "-i", arq.abertura);
   const iBarra = idx++;
   args.push(...t1, "-f", "lavfi", "-t", s3(total), "-i", `color=c=0x${(plano.corBarra ?? "#c8ff2e").replace("#", "")}:s=1080x8:r=${FPS}`);
+  // Cartões de dados: cada PNG é lido uma vez (1 quadro) e repetido pelo overlay.
+  const iCartoes = (plano.cartoes ?? []).map((c) => {
+    args.push(...t1, "-framerate", String(FPS), "-i", c.arquivo);
+    return idx++;
+  });
   const iAudio = idx++;
   args.push(...t1, "-i", arq.audio);
   const iTrilha = plano.trilha ? idx++ : -1;
@@ -148,8 +155,17 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   partes.push(pulso ? `[base]eq=${pulso.slice(1)}:eval=frame[grade]` : `[base]null[grade]`);
   partes.push(`[grade][mtopo]overlay=0:0:enable='lt(t,${s3(fechamento.ini)})':eof_action=repeat[v0]`);
   partes.push(`[v0][mbase]overlay=0:1100:enable='lt(t,${s3(fechamento.ini)})':eof_action=repeat[v1]`);
+  // Cartões de dados (um por vez): sobem 48 px desacelerando em 0,3 s com fade de entrada e saem com fade de 0,2 s. Ficam abaixo
+  // da abertura e da legenda (a legenda é sempre a última camada).
+  let camada = "v1";
+  (plano.cartoes ?? []).forEach((c, k) => {
+    const q = Math.max(1, Math.round(c.fim * FPS));
+    partes.push(`[${iCartoes[k]}:v]format=yuva420p,loop=loop=${q - 1}:size=1,setpts=N/${FPS}/TB,fade=t=in:st=${s3(c.ini)}:d=0.25:alpha=1,fade=t=out:st=${s3(Math.max(c.ini, c.fim - 0.2))}:d=0.2:alpha=1[ct${k}]`);
+    partes.push(`[${camada}][ct${k}]overlay=x=24:y='560+48*pow(1-min(max((t-${s3(c.ini)})/0.3,0),1),3)':eval=frame:enable='between(t,${s3(c.ini)},${s3(c.fim)})':eof_action=pass[vc${k}]`);
+    camada = `vc${k}`;
+  });
   // Cartão de abertura: entra deslizando pela esquerda (desacelerando) e some com fade no fim do gancho.
-  partes.push(`[v1][abert]overlay=x='-1080*pow(1-min(t/0.45,1),2)':y=940:eval=frame:enable='lt(t,${s3(fimAbertura)})':eof_action=pass[v2]`);
+  partes.push(`[${camada}][abert]overlay=x='-1080*pow(1-min(t/0.45,1),2)':y=940:eval=frame:enable='lt(t,${s3(fimAbertura)})':eof_action=pass[v2]`);
   // Barra de progresso (abaixo da zona do topo do app).
   partes.push(`[v2][${iBarra}:v]overlay=x='-w+w*t/${s3(total)}':y=226:eval=frame:enable='lt(t,${s3(fechamento.ini)})'[v3]`);
   partes.push(`[v3]subtitles=${arq.legenda}:fontsdir=fonts,format=yuv420p[vout]`);

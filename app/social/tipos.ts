@@ -61,6 +61,8 @@ export interface EntradaSocial {
   requisitos?: Requisitos[];
   jogoNome?: string | null;
   lancamento?: string | null;
+  /** Data de lançamento completa (AAAA-MM-DD), para o cartão do vídeo. */
+  lancamentoIso?: string | null;
   precoBrl?: string | null;
   /** Jogo grátis (P1). */
   gratis?: { nome: string; loja: string; precoNormal: string | null; ate: string; arte: string | null };

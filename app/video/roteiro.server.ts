@@ -54,6 +54,7 @@ export const systemDoPerfil = (secao: string) => {
 
 REGRAS
 - Use SOMENTE o que está no texto da matéria. Não invente nome, número, data, preço ou declaração.
+- Tom ANIMADO e enérgico, como um apresentador empolgado com o assunto (não leia como notícia de telejornal): frases com ritmo, verbos de ação e "!" nas frases de impacto (no máximo 2 no vídeo todo). Sem exagero e sem inventar.
 - Rumor é dito como rumor ("segundo rumores", "ainda não foi confirmado").
 - Frases curtas, no máximo 18 palavras. ${MARCA.tom} Sem gíria forçada, sem "fala, galera", sem emoji, sem pergunta no meio do texto.
 - Escreva preços, datas, notas e números com ALGARISMOS, como aparecem na matéria (R$ 249,90; 28/11; nota 8,7; 2026). O sistema converte para a fala. Nomes de jogos como no texto.

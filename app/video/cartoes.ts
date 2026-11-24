@@ -75,3 +75,76 @@ export function termosDeDestaque(roteiro: { destaques?: string[] } | null | unde
     .filter((x) => x.length >= 2 && x.length <= 40);
   return [...new Set(todos.map((x) => x.toLowerCase()))].slice(0, 30).map((l) => todos.find((x) => x.toLowerCase() === l)!);
 }
+
+// ───────────── Tempo de tela de cada cartão ─────────────
+export interface CartaoPlanejado {
+  tipo: TipoCartao;
+  item: number | null;
+  ini: number;
+  fim: number;
+}
+
+const NBSP = "\u00a0";
+
+/**
+ * Quando cada cartão entra e sai. Entra um pouco antes da palavra do dado (preço, nota ou data) na fala da cena; sem a palavra,
+ * 0,35 s depois do início da cena. Nunca antes do fim da abertura (+0,25 s) nem antes do fim do cartão anterior (+0,3 s). Sai
+ * 0,15 s antes do fim da cena ou 4,5 s depois de entrar (ranking e dia ficam até o fim da cena). Menos de 1,6 s: não entra.
+ */
+export function planoCartoes(
+  cenas: { ini: number; fim: number; palavras: { texto: string; ini: number }[] }[],
+  roteiro: { cenas: { cartao?: TipoCartao | null; item?: number | null }[] },
+  fatos: FatosVideo | null | undefined,
+  fimAbertura: number,
+): CartaoPlanejado[] {
+  const out: CartaoPlanejado[] = [];
+  const nota = fatos?.nota ? fatos.nota.valor.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : null;
+  const acha: Partial<Record<TipoCartao, (t: string) => boolean>> = {
+    preco: (t) => /R\$|\d,\d{2}$/.test(t),
+    nota: (t) => (nota ? t.replace(NBSP, " ").replace(/[^\d,]/g, "") === nota : false),
+    lancamento: (t) => /^\d{1,2}\/\d{1,2}/.test(t),
+  };
+  cenas.forEach((c, k) => {
+    const rc = roteiro.cenas[k];
+    const tipo = rc?.cartao;
+    if (!tipo) return;
+    const palavra = acha[tipo] ? c.palavras.find((p) => acha[tipo]!(p.texto)) : undefined;
+    let ini = palavra ? palavra.ini - 0.15 : c.ini + 0.35;
+    const anterior = out[out.length - 1];
+    ini = Math.max(ini, fimAbertura + 0.25, anterior ? anterior.fim + 0.3 : 0);
+    const semTeto = tipo === "ranking" || tipo === "dia";
+    const fim = semTeto ? c.fim - 0.15 : Math.min(c.fim - 0.15, ini + 4.5);
+    if (fim - ini < 1.6) return;
+    out.push({ tipo, item: rc?.item ?? null, ini: Number(ini.toFixed(2)), fim: Number(fim.toFixed(2)) });
+  });
+  return out;
+}
+
+const MESES = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+/** "28/11" → "28 NOV" (com o ano só quando não é o atual). */
+export const dataCurta = (dm: string, ano?: number) => {
+  const m = /^(\d{1,2})\/(\d{1,2})$/.exec(dm);
+  if (!m) return dm;
+  const anoAtual = new Date().getFullYear();
+  return `${Number(m[1])} ${MESES[Number(m[2]) - 1] ?? ""}${ano && ano !== anoAtual ? ` ${ano}` : ""}`.trim();
+};
+
+/** Texto da opção do cartão no painel ("Preço: R$ 249,90"). */
+export function rotuloOpcaoCartao(tipo: TipoCartao, f: FatosVideo | null | undefined): string {
+  switch (tipo) {
+    case "preco":
+      return `Preço: ${f?.preco ?? ""}`;
+    case "nota":
+      return `Nota: ${f?.nota ? f.nota.valor.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : ""}`;
+    case "lancamento":
+      return `Lançamento: ${f?.lancamento ? dataCurta(f.lancamento.data, f.lancamento.ano) : ""}`;
+    case "gratis":
+      return `Grátis: ${f?.gratis?.[0]?.nome ?? ""}`;
+    case "plataformas":
+      return `Plataformas: ${(f?.plataformas ?? []).join(", ")}`;
+    case "requisitos":
+      return "Requisitos mínimos";
+    default:
+      return ROTULO_CARTAO[tipo];
+  }
+}

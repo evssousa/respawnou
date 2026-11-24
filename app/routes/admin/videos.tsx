@@ -7,6 +7,7 @@ import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { hasDatabase } from "~/lib/db.server";
 import { MARCA } from "~/marca";
+import { cartoesDisponiveis, rotuloOpcaoCartao, type FatosVideo } from "~/video/cartoes";
 import { AlinharImagem } from "~/components/AlinharImagem";
 import { EscolherImagem } from "~/components/EscolherImagem";
 import { ChipsMetricas, TabelaDesempenho } from "~/components/video/Desempenho";
@@ -17,7 +18,7 @@ import { juntarDicionario, suspeitas, type ItemPronuncia } from "~/video/pronunc
 import { lerPronuncia, salvarPronuncia } from "~/video/pronuncia.server";
 import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
 import type { Foco } from "~/social/tipos";
-import { perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
+import { ENERGIA_VOZ, perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
 import { ErroUpload } from "~/social/server/uploads.server";
 import { adicionarImagem, adicionarVideo, aprovar, descartar, gerarRoteiroDoJob, listarJobs, listarPublicados, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
@@ -72,6 +73,7 @@ export async function action({ request }: Route.ActionArgs) {
         autoApprove: f.get("autoApprove") === "on",
         model: f.get("model") === "eleven_flash_v2_5" ? "eleven_flash_v2_5" : "eleven_multilingual_v2",
         speed: num("speed", 0.85, 1.1, atual.speed),
+        energia: f.get("energia") === "calma" || f.get("energia") === "normal" ? (String(f.get("energia")) as "calma" | "normal") : "animada",
         creditsMonth: Math.round(num("creditsMonth", 1000, 1_000_000, atual.creditsMonth)),
         voiceDefault: String(f.get("voiceDefault") ?? "").trim().slice(0, 40),
         voices: Object.fromEntries(SECOES_VOZ.map((s) => [s.id, String(f.get(`voz_${s.id}`) ?? "").trim().slice(0, 40)]).filter(([, v]) => v)),
@@ -212,10 +214,13 @@ function CapaEscolha({ j }: { j: Job }) {
 }
 
 /** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
-function CenaLinha({ i, c, images, focus, max }: { max: number; i: number; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
+function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados }: { max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
   const [img, setImg] = useState(c.imagem);
   const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
+  const [cartao, setCartao] = useState<string>(c.cartao ?? "");
+  const [semPrevia, setSemPrevia] = useState(false);
+  const disponiveis = fatos ? cartoesDisponiveis(fatos) : [];
   const src = images[img]?.src;
   const ehVid = !!src && /\.(mp4|webm)$/i.test(src);
   const real = src && !src.startsWith("arte:") && !ehVid ? src : null;
@@ -234,7 +239,7 @@ function CenaLinha({ i, c, images, focus, max }: { max: number; i: number; c: { 
         <textarea name={`fala_${i}`} defaultValue={c.fala} rows={2} maxLength={max} aria-label={`Fala da cena ${i + 1}`} className={inputCls} />
         <input type="hidden" name={`img_${i}`} value={img} />
         <input type="hidden" name={`foco_${i}`} value={foco} />
-        <input type="hidden" name={`cartao_${i}`} value={c.cartao ?? ""} />
+        <input type="hidden" name={`cartao_${i}`} value={cartao} />
         <input type="hidden" name={`item_${i}`} value={c.item ?? ""} />
         <div className="flex flex-wrap gap-2">
           <EscolherImagem opcoes={images} valor={String(img)} onChange={(v) => { const n = Number(v); setImg(n); setFoco(focus[String(n)] ?? "auto"); }} rotulo={`Imagem da cena ${i + 1}`} />
@@ -244,6 +249,19 @@ function CenaLinha({ i, c, images, focus, max }: { max: number; i: number; c: { 
             {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
           </select>
           {real && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando(true)}>Ver maior e alinhar</button>}
+          {fatos && (
+            <span className="flex items-center gap-2">
+              <select value={cartao} onChange={(e) => { setCartao(e.target.value); setSemPrevia(false); }} aria-label="Cartão de dados desta cena" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+                <option value="">Cartão: nenhum</option>
+                {disponiveis.map((t) => {
+                  const outra = usados[t] != null && usados[t] !== i;
+                  return <option key={t} value={t} disabled={outra}>{`${rotuloOpcaoCartao(t, fatos)}${outra ? ` (já na cena ${usados[t] + 1})` : ""}`}</option>;
+                })}
+              </select>
+              {cartao && !semPrevia && <img key={cartao} src={`/admin/videos/cartao/${jobId}?tipo=${cartao}`} alt="" height={60} className="h-[60px] border border-line" onError={() => setSemPrevia(true)} />}
+              {cartao && semPrevia && <span className="text-[11px] text-muted">sem prévia</span>}
+            </span>
+          )}
         </div>
       </div>
       {alinhando && real && <AlinharImagem src={real} aspecto={9 / 16} inicial={foco} titulo={`CENA ${i + 1} · enquadramento no vídeo (9:16)`} onSalvar={(f) => { setFoco(f); setAlinhando(false); }} onFechar={() => setAlinhando(false)} />}
@@ -299,7 +317,7 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
               </Field>
               <CapaEscolha j={j} />
               {r.cenas.map((c, i) => (
-                <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} max={perfil.cena} />
+                <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} max={perfil.cena} jobId={j.id} fatos={(j.facts as unknown as FatosVideo | null) ?? null} usados={Object.fromEntries(r.cenas.flatMap((x, k) => (x.cartao ? [[x.cartao, k]] : [])))} />
               ))}
               <div className="flex flex-wrap items-center gap-2 border border-dashed border-line-soft p-2">
                 <span className="text-xs text-muted">A imagem não combina com o texto? Envie outra ({j.images.length} no vídeo):</span>
@@ -476,6 +494,11 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
             <Field label="Vídeos por dia (0–3)"><input name="perDay" type="number" min={0} max={3} defaultValue={cfg.perDay} className={inputCls} /></Field>
             <Field label="Escolhe depois das (h)"><input name="hour" type="number" min={0} max={23} defaultValue={cfg.hour} className={inputCls} /></Field>
             <Field label="Velocidade da voz"><input name="speed" type="number" step="0.01" min={0.85} max={1.1} defaultValue={cfg.speed} className={inputCls} /></Field>
+            <Field label="Energia da voz">
+              <select name="energia" defaultValue={cfg.energia} className={inputCls}>
+                {(Object.keys(ENERGIA_VOZ) as (keyof typeof ENERGIA_VOZ)[]).map((k) => <option key={k} value={k}>{ENERGIA_VOZ[k].rotulo}</option>)}
+              </select>
+            </Field>
             <Field label="Cota mensal (créditos)"><input name="creditsMonth" type="number" min={1000} defaultValue={cfg.creditsMonth} className={inputCls} /></Field>
           </div>
           <Field label="Modelo da voz">

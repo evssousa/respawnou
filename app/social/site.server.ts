@@ -86,6 +86,7 @@ export async function lerEntrada(postId: number, dica?: DicaSocial): Promise<(En
     requisitos,
     jogoNome: p.game_name,
     lancamento: p.release_date ? `${String(p.release_date).slice(8, 10)}/${String(p.release_date).slice(5, 7)}` : null,
+    lancamentoIso: p.release_date ? String(p.release_date).slice(0, 10) : null,
     precoBrl: p.price_brl,
     gratis: gratis ? { nome: gratis.name, loja: gratis.store, precoNormal: gratis.worth, ate: prazo(String(gratis.ends_at)), arte: gratis.image_url } : undefined,
     semana: dica?.semana,
