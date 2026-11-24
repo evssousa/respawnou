@@ -62,8 +62,8 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 4 | Bing Webmaster Tools importado do Search Console (2026-11-14) | ✅ |
 | 4 | Search Console, relatório de Páginas (2026-11-16, dado de 12/11): 33 indexadas, 33 não indexadas (26 noindex de propósito, 1 redirecionamento, 6 "rastreada, mas não indexada") | ✅ |
 | 4 | Acompanhar o Bing (Sitemaps) e o crescimento das indexadas | ⏳ |
-| 4 | Anúncios preparados no código: locais/formatos, `<AdSlot>`, IDs no `/admin/config`, modo "ver espaços" (anuncios.md, fase A: AN1–AN13) — **prioridade, antes do pedido** | ⏳ |
-| 4 | Pedido do AdSense (ver checklist em adsense.md e fase B de anuncios.md) | 💤 |
+| 4 | Anúncios preparados no código: locais/formatos, `<AdSlot>`, IDs no `/admin/config`, modo "ver espaços" (anuncios.md, fase A) | ✅ 2026-11-22 |
+| 4 | Pedido do AdSense (checklist em adsense.md): pedido de revisão feito em 2026-11-22; `ads.txt` e sitemap conferidos no ar em 2026-11-24 (136 endereços, 15 fichas liberadas) | ⏳ aguardando resposta do Google |
 | 4 | Ao aprovar: painel do AdSense (automáticos desligados, 4 blocos, exclusão `/arcade/*`, categorias, CMP Europa) — anuncios.md fase C | 💤 dono |
 | 4 | Cadastrar `ADSENSE_CLIENT` no hPanel ao se inscrever no AdSense | 💤 dono |
 | 4 | Ao aprovar o AdSense: e-mail para partner@igdb.com (parceria comercial do IGDB; Claude redige, dono envia) — ver adsense.md | 💤 dono |
@@ -86,16 +86,18 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 7 | Instagram automático (módulo `app/social/`: arte por tipo de matéria, legenda, fila, painel `/admin/instagram`, `/links`; migration 012) — `instagram.md` (2026-11-22) | ✅ código pronto e testado; falta o dono conectar a conta (IG0) |
 | 8 | Anúncios: espaços prontos e inertes (`<AdSlot>`, modo "ver espaços", card em `/admin/config`, locais por página, banner x aviso europeu do Google) — `anuncios.md` fase A (2026-11-22) | ✅ pedido de revisão feito no AdSense em 2026-11-22; falta, depois da aprovação, criar os 4 blocos e colar os IDs (`anuncios.md`, Fase C) |
 | 7 | Crescimento orgânico, frente 1: SEO das páginas do Arcade (A1–A9: títulos/H1 de busca, textos, JSON-LD, imagem de compartilhamento, jogos parecidos, card nas matérias) | ✅ 2026-11-20 (falta você revisar os textos, A10) |
-| 7 | Frente 2: fichas de jogos úteis + critério de indexação (migration 010, passos B1–B7) | ⏳ |
-| 7 | Frente 3: cardápio evergreen e cadência do robô (passos C1–C6) | ⏳ |
-| 7 | Frente 4: Google Discover (auditoria feita; passos D1–D10) | ⏳ |
+| 7 | Frente 2: fichas de jogos úteis + critério de indexação (migration 010, passos B1–B7; docs em `automacao.md` e `banco-de-dados.md`) | ✅ 2026-11-24 (15 fichas liberadas no sitemap, todas `index, follow`) |
+| 7 | Frente 3: cardápio evergreen e cadência do robô (passos C1–C7) | ✅ 2026-11-22 (falta ver o texto do Gemini em produção e você revisar a peça da quinta) |
+| 7 | Frente 4: Google Discover (D1–D4, D6–D9 feitos) | 🔄 faltam D5 (robô prefere capa grande e única) e D10 (Publisher Center, opcional, seu) |
 | 7 | Instagram: **Stories** 1080×1920 junto de cada matéria (ST1–ST11, migration 013) — `instagram-stories-videos.md`, frente A | 🔄 ST1–ST9 feitos e testados (2026-11-23); falta ST10 (testar em produção) e ST11 (1º Story real) |
-| 7 | Instagram: **imagens próprias** nos slides da fila (UP1–UP8, migration 014) — frente C | ⏳ plano pronto |
-| 7 | **Vídeos curtos** (fase 1 gerar e baixar V1–V12; fase 2 Reels; fase 3 YouTube; fase 4 TikTok manual; migration 015) — frente B | 💤 plano pronto; depende do dono (ElevenLabs Starter, voz) |
-| 7 | **Vídeos: melhorias** (etapas 0–12: teste local, métricas, marca única, montagem em partes, pronúncia, roteiro v2, gancho/pergunta, legenda, cartões, efeitos, séries, peso por métricas, módulo copiável; migration 017) — `video-melhorias.md` | 🔄 etapas 0 a 10 e 12 feitas; faltam a 11 e a conferência com vídeo real |
+| 7 | Instagram: **imagens próprias** nos slides da fila (UP1–UP8, migration 014) — frente C | ✅ código pronto (2026-11-24); falta usar em produção |
+| 7 | **Vídeos curtos** fase 1 (gerar no próprio servidor com ffmpeg, voz ElevenLabs, baixar MP4 e legendas; botão "Publicar no Instagram (Reels)"; migrations 015 e 016) — frente B | ✅ no ar: o 1º vídeo foi gerado na Hostinger em 2026-11-24. YouTube e TikTok automáticos ficam para depois (fases 3 e 4) |
+| 7 | **Vídeos: melhorias** (etapas 0–12, `video-melhorias.md`; migration 017) | 🔄 etapas 0 a 10 e 12 feitas; falta a 11 (peso por métricas, só com 6+ Reels medidos) e conferir com serviços reais (voz, Gemini, série, botão de Reels) |
+| 7 | Vídeos, estabilidade na Hostinger (2026-11-24): roteiro em segundo plano com tentativas automáticas quando o Gemini está sobrecarregado, correção automática de roteiro reprovado, montagem em 2 passadas com imagens pelo filtro `movie` (~5 threads em vez de ~25), nova tentativa automática quando a conta fica sem processos (`pthread_create`), prévia da capa sem cache e com "Mover e alinhar", cartões liberados na hora | ✅ no ar; vigiar o limite de processos da conta |
 
 ## Próximos passos
 
+- **Estado em 2026-11-24 (resumo):** FEITO: AdSense pedido e conferido no ar, crescimento orgânico (Arcade, fichas B1–B7, evergreen C1–C7, Discover quase todo), Instagram (feed, Stories, imagens próprias), vídeos fase 1 no ar com melhorias 0–10 e 12. EM ANDAMENTO: vídeos em produção (primeiro vídeo gerado; ajustar voz, séries e o limite de processos da hospedagem) e Stories em teste (ST10/ST11). PRÓXIMO: aguardar o AdSense e, ao aprovar, criar os 4 blocos (`anuncios.md`, fase C) e escrever ao IGDB; D5 (capa grande no robô); conferir os vídeos reais; ligar o Instagram (IG0). DEPOIS: etapa 11 dos vídeos (peso por métricas, 6+ Reels), vídeo semanal horizontal de ~5 min e programa no PC (na Caixa de entrada do `PLANEJAMENTO.md`), copiar o módulo de vídeos para animeprofile/vibecoin/criasite (`modulo-video.md`), mídia kit (só depois do AdSense), YouTube e TikTok automáticos.
 - **Vídeos, melhorias (plano `video-melhorias.md`), 2026-11-24: FEITAS as etapas 0 a 10 e 12** (teste local, métricas dos Reels, marca única `app/marca.ts`, montagem ≈ 5× mais rápida, pronúncia e pausas, roteiro v2, escolha do gancho + pergunta no fechamento, legenda com destaque, cartões de dados, efeitos sonoros, séries, módulo copiável: `docs/modulo-video.md`). ADIADAS: etapa 3 S1/O5 (montagem em partes; só se a Hostinger ficar lenta) e etapa 11 (peso por métricas; só com 6+ vídeos medidos). FALTA CONFERIR COM VÍDEO REAL (não testado com a voz/Gemini/Instagram/Hostinger reais): voz animada, pausa antes de números, pronúncias, roteiro v2 do Gemini, volume dos efeitos, tempo de montagem, cada série, e o botão de Reels.
 - **Vídeos curtos, fase 1 pronta no código (2026-11-24):** `/admin/videos` (roteiro pelo Gemini → você revisa e aprova → o próprio servidor gera voz + vídeo → você baixa o MP4 e copia as legendas de Instagram, YouTube e TikTok). Escolha automática de 1 matéria por dia (desligada até você ligar), voz por editoria, migration 015. Falta só o que é seu (veja "Pendências suas"). Reels automático, YouTube e TikTok são as fases 2 a 4.
 - **Imagens próprias nos slides (2026-11-24, frente C do plano `instagram-stories-videos.md`):** em `/admin/instagram`, cada item da fila do feed tem o bloco "Imagens dos slides": trocar a imagem de um slide (com foco do recorte), acrescentar slides de foto (até 10 no total) e "Gerar de novo com as minhas imagens". Migration 014 (`overrides`). Itens já publicados não aceitam troca.
@@ -122,6 +124,8 @@ Em ordem (atualizado em 2026-11-22):
 
 ## Pendências suas
 
+- **Vídeos em produção (2026-11-24):** gerar vídeos reais e conferir voz (animada, pausas, pronúncias), tempo de montagem, cada série (Grátis, Lançamentos, Review, Top 5) e o botão "Publicar no Instagram (Reels)". Se aparecer erro, copiar a mensagem inteira. Se `pthread_create` voltar, olhar no hPanel o gráfico de processos da conta.
+- **AdSense:** acompanhar a resposta; conferir no Search Console o sitemap e as páginas indexadas; revisar e publicar a peça da quinta (`pauta-semana`).
 - **Vídeos, melhorias (`video-melhorias.md`):** (1) decidir a série "Lançamentos da semana": roteiro criado na segunda e você aprova no mesmo dia (recomendado; exceção à regra qui/sáb/dom) ou série desligada por padrão; (2) depois da etapa 1, se o painel avisar que o token não tem permissão de estatísticas, gerar o token de novo marcando a permissão de insights e colar em `/admin/instagram`.
 - **Vídeos (fase 1):** a chave `ELEVENLABS_API_KEY` já está no hPanel. Falta: (1) escolher uma voz por editoria na ElevenLabs e colar os códigos (`voice_id`) em `/admin/videos` → Configuração; (2) gerar o primeiro vídeo (abrir uma matéria → "Fazer vídeo desta matéria" → aprovar) e ver se a montagem funciona na Hostinger (se não funcionar, tentamos outro dia; **sem GitHub Actions**, decisão do dono); (3) ligar "Ligado" quando quiser que o site escolha 1 matéria por dia.
 
