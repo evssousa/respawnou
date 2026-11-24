@@ -277,7 +277,7 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
   // "arte:1" = o slide 1 do post do feed (já gerado, se existir); sem ele, o worker usa a primeira imagem comum.
   const [feed] = await query<{ images: unknown }>("SELECT images FROM social_posts WHERE post_id = ? AND network = 'instagram' AND kind = 'feed'", [job.post_id]);
   const arte1 = json<string[]>(feed?.images, [])[0] ?? null;
-  const abs = (s: string) => (s === "arte:1" ? (arte1 ? `${SOCIAL.baseUrl}${arte1}` : s) : s.startsWith("http") || s.startsWith("arte:") ? s : `${SOCIAL.baseUrl}${s}`);
+  const abs = (s: string) => (s === "arte:1" ? (arte1 ? `${SOCIAL.baseUrl}${arte1}` : s) : s.startsWith("http") || s.startsWith("arte:") || s.startsWith("yt:") ? s : `${SOCIAL.baseUrl}${s}`);
   return {
     id: job.id,
     titulo: e.titulo,

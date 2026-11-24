@@ -99,6 +99,10 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   //    imagem escolhida para ela (voz e imagem combinam). Cena longa vira cortes de ~4 s na mesma imagem, alternando o quadro
   //    aberto com uma aproximação (punch-in) para dar ritmo sem trocar de assunto.
   const ehVideo = (i: number) => ehVideoSrc(p.imagens[i]?.src ?? "");
+  // A matéria tem vídeo (trailer) e nenhuma cena o escolheu: a cena do meio passa a usá-lo.
+  const iVideo = p.imagens.findIndex((x) => ehVideoSrc(x.src));
+  const escolhaDaCena = p.roteiro.cenas.map((c) => c.imagem);
+  if (iVideo >= 0 && !escolhaDaCena.some(ehVideo) && escolhaDaCena.length >= 2) escolhaDaCena[Math.floor(escolhaDaCena.length / 2)] = iVideo;
   const usaveis = p.imagens.map((x, i) => (x.url && !x.url.startsWith("arte:") && !ehVideoSrc(x.src) ? i : -1)).filter((i) => i >= 0);
   if (!usaveis.length) throw new Error("nenhuma imagem utilizável");
   const cenasSeg = seg.segs.filter((x) => x.tipo === "cena").map((x) => ({ ...x }));
@@ -107,7 +111,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   let anterior = -1;
   for (const c of cenasSeg) {
     const dur = c.fim - c.ini;
-    let img = p.roteiro.cenas[c.cena]?.imagem ?? 0;
+    let img = escolhaDaCena[c.cena] ?? 0;
     // A imagem escolhida para a capa vale para a abertura (1ª cena), desde que seja uma imagem (não um vídeo).
     if (plano.length === 0 && p.capa != null && !ehVideo(p.capa)) img = p.capa;
     const video = ehVideo(img) && !!p.imagens[img]?.url;
@@ -132,10 +136,24 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     else segundosVideo += it.dur;
   }
   const arquivosVideo = new Map<number, string>();
+  const creditoDe = new Map<number, string>();
   for (const origem of new Set(plano.filter((x) => x.video).map((x) => x.img))) {
     const itens = plano.filter((x) => x.video && x.img === origem);
     const nome = `video${origem}.mp4`;
-    await writeFile(join(dir, nome), await baixar(p.imagens[origem].url));
+    // Vídeo do YouTube da própria matéria: baixa aqui (até 720p). Se o YouTube bloquear, as cenas dele viram imagens (o vídeo não falha).
+    try {
+      const yt = /^yt:([\w-]{11})$/.exec(p.imagens[origem].src);
+      if (yt) {
+        const { baixarPorLink } = await import("./ytdlp.server");
+        const v = await baixarPorLink(`https://www.youtube.com/watch?v=${yt[1]}`);
+        await writeFile(join(dir, nome), v.buf);
+        creditoDe.set(origem, `Vídeo: ${v.credito}`);
+      } else await writeFile(join(dir, nome), await baixar(p.imagens[origem].url));
+    } catch (err) {
+      console.warn("[video] não consegui o vídeo da matéria:", String((err as Error)?.message ?? err));
+      itens.forEach(fundirEmImagem);
+      continue;
+    }
     const info = await rodar(ff, comandoCortes(nome), dir).catch(() => "");
     const trechos = escolherTrechos(lerDuracao(info), lerCortes(info), itens.map((x) => x.dur));
     itens.forEach((it, k) => {
@@ -178,7 +196,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   for (const c of plano) {
     if (c.video) {
       clips.push({ img: "", ini: c.ini, dur: c.dur, suave: true, video: { arquivo: arquivosVideo.get(c.img)!, ss: c.ss } });
-      creditos.push({ ini: c.ini, fim: c.ini + c.dur, texto: p.imagens[c.img].alt || "Vídeo: material de divulgação" });
+      creditos.push({ ini: c.ini, fim: c.ini + c.dur, texto: creditoDe.get(c.img) ?? (p.imagens[c.img].alt || "Vídeo: material de divulgação") });
       continue;
     }
     const x = await preparar(c.img);

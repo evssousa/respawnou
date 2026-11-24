@@ -19,8 +19,11 @@ export function imagensDisponiveis(e: EntradaSocial, ov: Overrides = {}): Imagem
   for (const x of ov.extras ?? []) add(x.src, x.legenda ?? "imagem escolhida pelo dono");
   for (const b of e.corpo) if (b.type === "img") add(b.src, b.alt || "imagem da matéria");
   if (e.gratis?.arte) add(e.gratis.arte, "arte do jogo");
+  // Vídeo da própria matéria (trailer do YouTube): entra à parte, não conta no limite de 8 imagens.
+  const yt = e.corpo.find((b) => b.type === "video");
   if (e.review) add("arte:1", "quadro com a nota média da crítica");
   if (e.requisitos) add("arte:1", "quadro com os requisitos mínimos e recomendados");
+  if (yt && yt.type === "video") out.push({ src: `yt:${yt.youtubeId}`, alt: "Vídeo: trailer/vídeo da própria matéria (YouTube)" });
   return out;
 }
 

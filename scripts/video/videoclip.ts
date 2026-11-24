@@ -5,7 +5,8 @@
 export const TRECHO_MAX_S = 4.5;
 export const FRACAO_MAX_VIDEO = 0.4;
 
-export const ehVideoSrc = (src: string) => /\.(mp4|webm|mov)$/i.test(src);
+/** Item de vídeo: arquivo enviado (.mp4/.webm) ou o vídeo do YouTube que a própria matéria traz (`yt:<id>`). */
+export const ehVideoSrc = (src: string) => /\.(mp4|webm|mov)$/i.test(src) || /^yt:[\w-]{11}$/.test(src);
 
 /** Comando que lista os cortes de cena (baixa resolução, 1 thread). Os instantes saem no stderr como `pts_time:`. */
 export const comandoCortes = (arquivo: string): string[] => ["-hide_banner", "-nostats", "-threads", "1", "-filter_threads", "1", "-i", arquivo, "-an", "-vf", "scale=256:-2,select='gt(scene,0.32)',showinfo", "-f", "null", "-"];
