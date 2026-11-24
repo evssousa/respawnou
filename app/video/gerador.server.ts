@@ -74,7 +74,7 @@ export async function caminhoFfmpeg(): Promise<string> {
 
 /**
  * Roda o ffmpeg. Na hospedagem compartilhada o limite de processos/threads da conta às vezes estoura por um instante
- * ("pthread_create() failed: Resource temporarily unavailable"): espera e tenta de novo (até 5 vezes, 4 s a mais a cada vez).
+ * ("pthread_create() failed: Resource temporarily unavailable"): espera e tenta de novo (até 6 vezes, 5 s a mais a cada vez).
  */
 async function rodar(cmd: string, args: string[], cwd: string): Promise<string> {
   for (let tentativa = 1; ; tentativa++) {
@@ -82,8 +82,8 @@ async function rodar(cmd: string, args: string[], cwd: string): Promise<string> 
       return await rodarUma(cmd, args, cwd);
     } catch (e) {
       const m = String((e as Error)?.message ?? e);
-      if (tentativa >= 5 || !/pthread_create|Resource temporarily unavailable|Cannot allocate memory|EAGAIN/i.test(m)) throw e;
-      await new Promise((r) => setTimeout(r, 4000 * tentativa));
+      if (tentativa >= 6 || !/pthread_create|Resource temporarily unavailable|Cannot allocate memory|EAGAIN/i.test(m)) throw e;
+      await new Promise((r) => setTimeout(r, 5000 * tentativa));
     }
   }
 }

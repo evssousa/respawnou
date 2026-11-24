@@ -312,24 +312,38 @@ export async function aprovar(id: number): Promise<{ ok: boolean; aviso?: string
 }
 
 let gerandoAgora = false;
+/** Quantas vezes cada vídeo já esperou a hospedagem liberar processos (o limite da conta estoura por instantes). */
+const esperasDeProcesso = new Map<number, number>();
 
 /** Gera, aqui no servidor, o próximo vídeo aprovado (um por vez; em segundo plano). O que sobrar fica `aprovado` e sai na próxima chamada. */
 export async function processarFilaNoServidor(): Promise<void> {
   if (gerandoAgora || !hasDatabase()) return;
   gerandoAgora = true;
   try {
-    for (let n = 0; n < 5; n++) {
+    for (let n = 0, parar = false; n < 5 && !parar; n++) {
       const pacote = await proximo();
       if (!pacote) break;
       const dir = await mkdtemp(join(tmpdir(), "video-"));
       try {
         const out = await gerarVideo(pacote, dir, { qualidade: "leve" });
         await concluir(pacote.id, { video: await readFile(join(dir, "saida.mp4")), capa: out.capa, chars: out.chars, duracao: out.duracao });
+        esperasDeProcesso.delete(pacote.id);
       } catch (err) {
         let msg = String((err as Error)?.message ?? err);
         if (/ENOENT/.test(msg) && /ffmpeg/i.test(msg)) msg = "ffmpeg não encontrado neste servidor. Confira se o ffmpeg-static foi instalado no deploy.";
-        console.error(`[video] #${pacote.id} falhou: ${msg.slice(0, 200)}`);
-        await falhar(pacote.id, msg);
+        const espera = (esperasDeProcesso.get(pacote.id) ?? 0) + 1;
+        if (/pthread_create|Resource temporarily unavailable/i.test(msg) && espera <= 4) {
+          // A hospedagem ficou sem folga de processos por alguns instantes (limite da conta): volta para a fila e tenta de novo sozinho.
+          esperasDeProcesso.set(pacote.id, espera);
+          console.warn(`[video] #${pacote.id}: hospedagem sem processos livres; nova tentativa ${espera}/4 em ${espera * 3} min`);
+          await exec("UPDATE video_jobs SET status = 'aprovado', error = ?, locked_at = NULL, attempts = 0 WHERE id = ?", [`A hospedagem estava sem processos livres (limite da conta). Tento de novo sozinho em ${espera * 3} min (tentativa ${espera} de 4).`, pacote.id]);
+          setTimeout(() => void processarFilaNoServidor(), espera * 3 * 60_000);
+          parar = true;
+        } else {
+          esperasDeProcesso.delete(pacote.id);
+          console.error(`[video] #${pacote.id} falhou: ${msg.slice(0, 200)}`);
+          await falhar(pacote.id, msg);
+        }
       } finally {
         await rm(dir, { recursive: true, force: true }).catch(() => undefined);
       }
