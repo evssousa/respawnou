@@ -115,6 +115,21 @@ export async function salvarRoteiro(id: number, roteiro: unknown, focus: Record<
   return "ok";
 }
 
+export const MAX_IMAGENS = 14;
+
+/** O dono enviou uma imagem própria para o vídeo: entra no fim da lista (os números das imagens existentes não mudam). */
+export async function adicionarImagem(id: number, file: File): Promise<string> {
+  const [j] = await query<Record<string, unknown>>("SELECT * FROM video_jobs WHERE id = ?", [id]);
+  if (!j) return "Job não encontrado.";
+  const job = linha(j);
+  if (job.status !== "aguardando" && job.status !== "falhou") return "Só dá para acrescentar imagens enquanto o vídeo está em rascunho (use Editar e refazer).";
+  if (job.images.length >= MAX_IMAGENS) return `Limite de ${MAX_IMAGENS} imagens por vídeo.`;
+  const { salvarUpload } = await import("~/social/server/uploads.server");
+  const up = await salvarUpload(id, file);
+  await exec("UPDATE video_jobs SET images = ? WHERE id = ?", [JSON.stringify([...job.images, { src: up.src, alt: "imagem enviada por você" }]), id]);
+  return "ok";
+}
+
 /** Aprova e começa a gerar o vídeo aqui no servidor (em segundo plano). */
 export async function aprovar(id: number): Promise<{ ok: boolean; aviso?: string }> {
   const r = await exec("UPDATE video_jobs SET status = 'aprovado', approved_at = UTC_TIMESTAMP(), error = NULL, attempts = 0, locked_at = NULL WHERE id = ? AND status IN ('aguardando','falhou','pronto') AND script IS NOT NULL", [id]);

@@ -11,7 +11,8 @@ import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/c
 import type { Foco } from "~/social/tipos";
 import { SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
-import { aprovar, descartar, gerarRoteiroDoJob, listarJobs, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { ErroUpload } from "~/social/server/uploads.server";
+import { adicionarImagem, aprovar, descartar, gerarRoteiroDoJob, listarJobs, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -66,7 +67,7 @@ export async function action({ request }: Route.ActionArgs) {
     }
     if (intent === "descartar") return (await descartar(id)) ? back("ok=descartado") : back(`erro=${encodeURIComponent("Não dá para excluir um vídeo que está sendo gerado agora.")}`);
     if (intent === "reabrir") return (await reabrir(id)) ? back("ok=reaberto") : back(`erro=${encodeURIComponent("Este vídeo não pode ser reaberto agora.")}`);
-    if (intent === "salvar" || intent === "aprovar" || intent === "refazer") {
+    if (intent === "salvar" || intent === "aprovar" || intent === "refazer" || intent === "img_add") {
       if (intent !== "refazer") {
         const cenas: { fala: string; imagem: number }[] = [];
         const focus: Record<string, Foco> = {};
@@ -82,12 +83,19 @@ export async function action({ request }: Route.ActionArgs) {
         const erro = await salvarRoteiro(id, { gancho: String(f.get("gancho") ?? ""), titulo_curto: String(f.get("titulo_curto") ?? ""), cenas }, focus);
         if (erro !== "ok") return back(`erro=${encodeURIComponent(erro)}`);
       }
+      if (intent === "img_add") {
+        const file = f.get("file");
+        if (!(file instanceof File) || !file.size) return back(`erro=${encodeURIComponent("Escolha uma imagem primeiro.")}`);
+        const r = await adicionarImagem(id, file);
+        return r === "ok" ? back("ok=imagem") : back(`erro=${encodeURIComponent(r)}`);
+      }
       if (intent === "salvar") return back("ok=salvo");
       const r = await aprovar(id);
       if (!r.ok) return back(`erro=${encodeURIComponent(r.aviso ?? "não aprovou")}`);
       return back(`ok=aprovado${r.aviso ? `&aviso=${encodeURIComponent(r.aviso)}` : ""}`);
     }
   } catch (e) {
+    if (e instanceof ErroUpload) return back(`erro=${encodeURIComponent(e.message)}`);
     return back(`erro=${encodeURIComponent(String((e as Error)?.message ?? e).slice(0, 240))}`);
   }
   return back(`erro=${encodeURIComponent(`Ação desconhecida: ${intent}.`)}`);
@@ -98,6 +106,7 @@ const MSG: Record<string, string> = {
   roteiro: "Roteiro novo gerado.",
   salvo: "Roteiro salvo.",
   descartado: "Vídeo excluído (arquivos apagados).",
+  imagem: "Imagem acrescentada (e o roteiro salvo). Escolha-a numa cena, ou como capa.",
   reaberto: "Vídeo reaberto: mexa no roteiro, nas imagens e no enquadramento e clique em Aprovar e gerar quando quiser.",
   aprovado: "Aprovado. O vídeo fica pronto em alguns minutos: recarregue a página.",
 };
@@ -193,7 +202,7 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
           {j.error && j.status === "falhou" && r && <Notice tone="warn">{j.error}</Notice>}
 
           {editavel && r && (
-            <Form method="post" className="flex flex-col gap-3">
+            <Form method="post" encType="multipart/form-data" className="flex flex-col gap-3">
               <input type="hidden" name="id" value={j.id} />
               <Field label={`Gancho (${r.gancho.length}/${VIDEO.limites.gancho})`}>
                 <input name="gancho" defaultValue={r.gancho} maxLength={VIDEO.limites.gancho} className={inputCls} />
@@ -210,6 +219,11 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
               {r.cenas.map((c, i) => (
                 <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} />
               ))}
+              <div className="flex flex-wrap items-center gap-2 border border-dashed border-line-soft p-2">
+                <span className="text-xs text-muted">A imagem não combina com o texto? Envie outra ({j.images.length} no vídeo):</span>
+                <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/avif" className="max-w-full text-xs text-body" />
+                <Button name="intent" value="img_add" disabled={busy}>Enviar imagem (salva o roteiro)</Button>
+              </div>
               <p className="text-xs text-muted">Fechamento fixo: “{VIDEO.fechamento}”</p>
               <p className="font-mono text-xs text-body">≈ {Math.round(palavras / 2.5 + 3)} s · {chars} caracteres · ~US$ {custo.toFixed(2).replace(".", ",")}</p>
               <div className="flex flex-wrap gap-2">
