@@ -208,7 +208,18 @@ ${imagens.map((x, i) => `${i}: ${x.alt}`).join("\n")}`;
   // Modelos próprios do vídeo (o robô de matérias usa o gemini-3.5-flash e esgota a cota dele). GEMINI_MODEL_VIDEO sobrescreve o primeiro.
   const modelos = [process.env.GEMINI_MODEL_VIDEO, "gemini-3.5-flash-lite", "gemini-3.8-flash"].filter(Boolean) as string[];
   const { data } = await generateJson<unknown>({ system: systemDoPerfil(e.section, serie), prompt, schema: schemaDoJob(cartoes), temperature: 0.6, modelos });
-  const v = validarRoteiro(data, imagens.length, e.section, fatosVideo, serie);
+  let v = validarRoteiro(data, imagens.length, e.section, fatosVideo, serie);
+  if (!v.ok && !/vazio/.test(v.erro)) {
+    // Uma única correção: devolve o motivo ao Gemini (ex.: "62 palavras, precisa de 70 a 140") e pede de novo.
+    const { data: data2 } = await generateJson<unknown>({
+      system: systemDoPerfil(e.section, serie),
+      prompt: `${prompt}\n\nCORREÇÃO OBRIGATÓRIA: o roteiro que você mandou foi recusado: ${v.erro}. Escreva de novo, corrigindo exatamente isso e mantendo todas as outras regras.`,
+      schema: schemaDoJob(cartoes),
+      temperature: 0.5,
+      modelos,
+    });
+    v = validarRoteiro(data2, imagens.length, e.section, fatosVideo, serie);
+  }
   if (!v.ok) throw new Error(`roteiro inválido: ${v.erro}`);
   const r = reforcarCartoes(v.roteiro, fatosVideo, serie);
   return serie && fatosVideo ? normalizarSerie(r, serie, fatosVideo, imagens) : r;

@@ -22,7 +22,7 @@ import type { Foco } from "~/social/tipos";
 import { ENERGIA_VOZ, perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
 import { ErroUpload } from "~/social/server/uploads.server";
-import { adicionarImagem, adicionarVideo, aprovar, descartar, gerarRoteiroDoJob, listarJobs, listarPublicados, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { adicionarImagem, adicionarVideo, aprovar, descartar, listarJobs, listarPublicados, pedirRoteiro, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro, textoFalado } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -115,7 +115,7 @@ export async function action({ request }: Route.ActionArgs) {
       return back("ok=config");
     }
     if (intent === "gerar_roteiro") {
-      const r = await gerarRoteiroDoJob(id);
+      const r = await pedirRoteiro(id);
       return back(r === "ok" ? "ok=roteiro" : `erro=${encodeURIComponent(r)}`);
     }
     if (intent === "descartar") return (await descartar(id)) ? back("ok=descartado") : back(`erro=${encodeURIComponent("Não dá para excluir um vídeo que está sendo gerado agora.")}`);
@@ -192,7 +192,7 @@ export async function action({ request }: Route.ActionArgs) {
 
 const MSG: Record<string, string> = {
   config: "Configuração salva.",
-  roteiro: "Roteiro novo gerado.",
+  roteiro: "Pedi o roteiro ao Gemini. Ele aparece aqui sozinho em até 2 minutos (a tela atualiza sozinha).",
   salvo: "Roteiro salvo.",
   descartado: "Vídeo excluído (arquivos apagados).",
   imagem: "Imagem acrescentada (e o roteiro salvo). Escolha-a numa cena, ou como capa.",
@@ -327,6 +327,7 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
               {capa && <img src={capa} alt="" className="h-full w-full object-cover" loading="lazy" />}
               <div className="absolute inset-x-0 bottom-0 bg-ink/80 p-2 text-xs font-bold text-paper">{j.title}</div>
               {j.status === "gerando" && <div className="absolute inset-x-0 top-0 animate-pulse bg-acc px-2 py-1 font-mono text-xs font-bold text-ink">GERANDO… 2 A 5 MIN</div>}
+              {j.progress === "roteiro" && <div className="absolute inset-x-0 top-0 animate-pulse bg-acc px-2 py-1 font-mono text-xs font-bold text-ink">GERANDO O ROTEIRO… ATÉ 2 MIN</div>}
             </div>
           )}
         </div>
@@ -383,7 +384,7 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
           )}
           {(j.status === "aguardando" || j.status === "falhou") && (
             <div className="flex flex-wrap gap-2">
-              <Form method="post"><input type="hidden" name="id" value={j.id} /><Button name="intent" value="gerar_roteiro" disabled={busy}>Gerar outro roteiro (usa 1 pedido do Gemini)</Button></Form>
+              <Form method="post"><input type="hidden" name="id" value={j.id} /><Button name="intent" value="gerar_roteiro" disabled={busy || j.progress === "roteiro"}>Gerar outro roteiro (usa 1 pedido do Gemini)</Button></Form>
               <Form method="post" onSubmit={(e) => { if (!confirm("Excluir este vídeo?")) e.preventDefault(); }}><input type="hidden" name="id" value={j.id} /><Button name="intent" value="descartar" disabled={busy}>Excluir</Button></Form>
             </div>
           )}
@@ -433,7 +434,7 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
   const busy = useNavigation().state !== "idle";
   // Enquanto algo está sendo gerado ou enviado ao Instagram, a tela se atualiza sozinha a cada 8 s.
   const revalidador = useRevalidator();
-  const ativo = !d.semBanco && d.jobs.some((j) => j.ig_status === "enviando" || j.status === "gerando" || j.status === "aprovado" || (j.status === "falhou" && /tentando de novo/.test(j.error ?? "")));
+  const ativo = !d.semBanco && d.jobs.some((j) => j.ig_status === "enviando" || j.status === "gerando" || j.status === "aprovado" || (j.status === "falhou" && /tentando de novo/.test(j.error ?? "")) || j.progress === "roteiro");
   useEffect(() => {
     if (!ativo) return;
     const t = setInterval(() => revalidador.revalidate(), 8000);

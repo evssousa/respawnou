@@ -100,7 +100,9 @@ export async function criarJob(postId: number, origem: "auto" | "manual", serie 
   const cfg = await lerConfig();
   if (ja) await exec("DELETE FROM video_jobs WHERE id = ?", [ja.id]); // descartado antes: recomeça
   const r = await exec("INSERT INTO video_jobs (post_id, origin, serie, model, images, voice_id, voice_model) VALUES (?, ?, ?, ?, ?, ?, ?)", [postId, origem, serie, escolherModelo(e), JSON.stringify(imagens), vozDaSecao(cfg, e.section) || null, cfg.model]);
-  await gerarRoteiroDoJob(r.insertId);
+  // O roteiro (Gemini) pode levar minutos: roda em segundo plano e a tela se atualiza sozinha (senão a hospedagem derruba o pedido com 503).
+  await exec("UPDATE video_jobs SET progress = 'roteiro', locked_at = UTC_TIMESTAMP() WHERE id = ?", [r.insertId]);
+  void gerarRoteiroDoJob(r.insertId).catch((e) => console.error("[video] roteiro:", e));
   return { id: r.insertId };
 }
 
@@ -135,7 +137,7 @@ export async function gerarRoteiroDoJob(id: number): Promise<string> {
     const dadosSerie = job.serie ? await dadosDaSerie(job.serie, e) : null;
     const fatosVideo: FatosVideo = { ...fatosDe(e), ...(dadosSerie?.fatos ?? {}) };
     const roteiro = await gerarRoteiro(e, job.images, fatosVideo, job.serie ?? "");
-    await exec("UPDATE video_jobs SET script = ?, facts = ?, status = 'aguardando', error = NULL WHERE id = ?", [JSON.stringify(roteiro), JSON.stringify(fatosVideo), id]);
+    await exec("UPDATE video_jobs SET script = ?, facts = ?, status = 'aguardando', error = NULL, progress = NULL WHERE id = ?", [JSON.stringify(roteiro), JSON.stringify(fatosVideo), id]);
     tentativasGemini.delete(id);
     return "ok";
   } catch (err) {
@@ -148,14 +150,31 @@ export async function gerarRoteiroDoJob(id: number): Promise<string> {
       const espera = 3 * (n + 1);
       setTimeout(() => void gerarRoteiroDoJob(id).catch(() => undefined), espera * 60_000);
       const aviso = `O Gemini está sobrecarregado agora (erro 503, passa sozinho). Estou tentando de novo em ${espera} min (tentativa ${n + 2} de 4); você também pode clicar em "Gerar outro roteiro".`;
-      await exec("UPDATE video_jobs SET status = 'falhou', error = ? WHERE id = ?", [aviso, id]);
+      await exec("UPDATE video_jobs SET status = 'falhou', error = ?, progress = NULL WHERE id = ?", [aviso, id]);
       return aviso;
     }
     tentativasGemini.delete(id);
     const msg = bruto.slice(0, 400);
-    await exec("UPDATE video_jobs SET status = 'falhou', error = ? WHERE id = ?", [msg, id]);
+    await exec("UPDATE video_jobs SET status = 'falhou', error = ?, progress = NULL WHERE id = ?", [msg, id]);
     return msg;
   }
+}
+
+/**
+ * Pede um roteiro novo SEM esperar: marca o job como "gerando o roteiro" e roda o Gemini em segundo plano (pode levar minutos; o
+ * pedido do navegador voltaria com 503 da hospedagem). A tela se atualiza sozinha quando termina.
+ */
+export async function pedirRoteiro(id: number): Promise<string> {
+  const [j] = await query<{ status: string; progress: string | null; recente: number }>(
+    "SELECT status, progress, (locked_at IS NOT NULL AND locked_at > UTC_TIMESTAMP() - INTERVAL 10 MINUTE) AS recente FROM video_jobs WHERE id = ?",
+    [id],
+  );
+  if (!j) return "Job não encontrado.";
+  if (j.status === "gerando" || j.status === "pronto") return "Este vídeo já foi gerado ou está sendo gerado.";
+  if (j.progress === "roteiro" && Number(j.recente)) return "Já estou gerando o roteiro deste vídeo; aguarde um instante.";
+  await exec("UPDATE video_jobs SET progress = 'roteiro', locked_at = UTC_TIMESTAMP(), error = NULL WHERE id = ?", [id]);
+  void gerarRoteiroDoJob(id).catch((e) => console.error("[video] roteiro:", e));
+  return "ok";
 }
 
 /** O dono ajustou o roteiro (e o foco por imagem): valida antes de gravar. */
@@ -514,6 +533,7 @@ export async function obterJob(id: number): Promise<(JobVideo & { titulo_post: s
 
 /** Vídeos em andamento e prontos ainda não publicados (os já publicados vão para a lista recolhida). */
 export async function listarJobs(limite = 10): Promise<JobVideo[]> {
+  await exec("UPDATE video_jobs SET progress = NULL WHERE progress = 'roteiro' AND (locked_at IS NULL OR locked_at < UTC_TIMESTAMP() - INTERVAL 10 MINUTE)").catch(() => undefined);
   const rows = await query<Record<string, unknown>>(
     "SELECT j.*, p.title, p.section, p.image_url AS post_image FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.status <> 'descartado' AND (j.ig_status IS NULL OR j.ig_status <> 'publicado') ORDER BY j.created_at DESC, j.id DESC LIMIT ?",
     [limite],
