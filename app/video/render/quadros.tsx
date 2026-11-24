@@ -44,8 +44,40 @@ export function Abertura({ titulo, secao }: { titulo: string; secao: string }) {
   );
 }
 
-/** Fechamento (opaco): logo, "SIGA", o @ e o botão com o CTA. */
-export function Fechamento({ logoGrande, grade, cta }: { logoGrande: string; grade: string; cta: string }) {
+/** Fechamento (opaco): logo, "SIGA", o @ e o botão com o CTA. Com pergunta: chip "RESPONDA NOS COMENTÁRIOS" e a pergunta em destaque. */
+export function Fechamento({ logoGrande, grade, cta, pergunta }: { logoGrande: string; grade: string; cta: string; pergunta?: string | null }) {
+  if (pergunta) {
+    const semInterrogacao = pergunta.replace(/\?+$/, "").trim();
+    const t = ajustarTitulo(cortar(semInterrogacao, 90), 852, 3, [88, 76, 64]);
+    const palavrasPergunta = caixa(t.texto).split(/\s+/).filter(Boolean);
+    return (
+      <Tela grade={grade} altura={H}>
+        <div style={{ position: "absolute", left: 0, top: 0, width: W, height: H, backgroundImage: "radial-gradient(circle at 540px 900px, rgba(200,255,46,0.18), rgba(200,255,46,0) 560px)" }} />
+        <div style={{ position: "absolute", left: 0, top: 260, width: W, display: "flex", justifyContent: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", height: 56, padding: "0 22px", border: `3px solid ${COR.destaque}`, color: COR.destaque, fontFamily: MONO, fontWeight: 700, fontSize: 26 }}>RESPONDA NOS COMENTÁRIOS</div>
+        </div>
+        <div style={{ position: "absolute", left: 114, top: 350, width: 852, display: "flex", flexWrap: "wrap", justifyContent: "center", fontFamily: ANTON, fontSize: t.tam, lineHeight: 1.04, color: COR.texto }}>
+          {palavrasPergunta.map((w, i) => (
+            <div key={i} style={{ display: "flex", marginRight: i === palavrasPergunta.length - 1 ? 0 : Math.round(t.tam * 0.28) }}>
+              <span>{w}</span>
+              {i === palavrasPergunta.length - 1 && <span style={{ color: COR.destaque }}>?</span>}
+            </div>
+          ))}
+        </div>
+        <div style={{ position: "absolute", left: 0, top: 740, width: W, display: "flex", justifyContent: "center" }}>
+          <img src={logoGrande} width={160} height={160} />
+        </div>
+        <div style={{ position: "absolute", left: 0, top: 920, width: W, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ display: "flex", fontFamily: ANTON, fontSize: 104, color: COR.texto }}>SIGA</div>
+          <div style={{ display: "flex", fontFamily: ANTON, fontSize: 64, color: COR.destaque, marginTop: 10 }}>{`@${caixa(SOCIAL.handle)}`}</div>
+        </div>
+        <div style={{ position: "absolute", left: 114, top: 1250, width: 852, height: 84, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: COR.destaque, color: COR.sobreDestaque, fontFamily: MONO, fontWeight: 700, fontSize: 30 }}>
+          {cta}
+          <Seta tam={30} />
+        </div>
+      </Tela>
+    );
+  }
   return (
     <Tela grade={grade} altura={H}>
       <div style={{ position: "absolute", left: 0, top: 0, width: W, height: H, backgroundImage: "radial-gradient(circle at 540px 700px, rgba(200,255,46,0.18), rgba(200,255,46,0) 560px)" }} />

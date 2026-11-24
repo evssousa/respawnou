@@ -33,7 +33,7 @@ export function hashtags(e: EntradaSocial, m: Modelo, extra: string[] = []): str
 const escolher = (lista: string[], id: number) => lista[id % lista.length];
 
 /** Monta a legenda. Alvo de 250 a 450 caracteres; máximo duro de 700. */
-export function montarLegenda(e: EntradaSocial, m: Modelo): string {
+export function montarLegenda(e: EntradaSocial, m: Modelo, opts: { pergunta?: string | null } = {}): string {
   const cta = SOCIAL.frases.legenda;
   const gancho = limparLinks(e.titulo);
   const contexto = frasesInteiras(sobreposicao(e.excerpt, e.titulo) >= 0.7 && e.metaDescription ? e.metaDescription : e.excerpt, 220);
@@ -52,7 +52,7 @@ export function montarLegenda(e: EntradaSocial, m: Modelo): string {
     const resto = Math.max(0, e.semana.total - nomes.length);
     partes = [
       `Lançamentos da semana (${e.semana.periodo}): ${nomes.join(", ")}${resto ? ` e mais ${resto}` : ""}.`,
-      escolher(SOCIAL.perguntas.semana, e.postId),
+      opts.pergunta || escolher(SOCIAL.perguntas.semana, e.postId),
       "Calendário completo no link da bio.",
     ];
     tags = hashtags(e, m, ["lancamentosdejogos", "games", paraHashtag(nomes[0] ?? "")]);
@@ -74,7 +74,7 @@ export function montarLegenda(e: EntradaSocial, m: Modelo): string {
     tags = hashtags(e, m);
   } else {
     const rumor = /rumor|vazamento/i.test(`${e.titulo} ${e.tags.join(" ")}`);
-    partes = [rumor && !/^rumor/i.test(gancho) ? `RUMOR: ${gancho}` : gancho, contexto, rumor ? "" : escolher(SOCIAL.perguntas.noticia, e.postId), cta];
+    partes = [rumor && !/^rumor/i.test(gancho) ? `RUMOR: ${gancho}` : gancho, contexto, rumor ? "" : opts.pergunta || escolher(SOCIAL.perguntas.noticia, e.postId), cta];
     tags = hashtags(e, m);
   }
 

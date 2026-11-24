@@ -35,8 +35,17 @@ export interface Roteiro {
 export const contarPalavras = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
 export const palavrasDoRoteiro = (r: Roteiro) => contarPalavras(r.gancho) + r.cenas.reduce((a, c) => a + contarPalavras(c.fala), 0);
 
-/** Partes do roteiro na ordem falada: gancho, cenas e fechamento fixo (texto da TELA). */
-export const partesDoRoteiro = (r: Roteiro) => [r.gancho, ...r.cenas.map((c) => c.fala), VIDEO.fechamento];
+/** Pergunta que vale para o fechamento (só se o dono deixou ligada e ela existe). */
+export const perguntaDoFechamento = (r: Roteiro): string | null => (r.usarPergunta && r.pergunta ? r.pergunta.trim() : null);
+
+/** Fechamento falado: com pergunta, "<pergunta> Responde aí nos comentários. Matéria completa no link do perfil."; sem, o fixo. */
+export const fechamentoFinal = (r: Roteiro) => {
+  const p = perguntaDoFechamento(r);
+  return p ? `${p} ${VIDEO.fechamentoPergunta}` : VIDEO.fechamento;
+};
+
+/** Partes do roteiro na ordem falada: gancho, cenas e fechamento (texto da TELA). */
+export const partesDoRoteiro = (r: Roteiro) => [r.gancho, ...r.cenas.map((c) => c.fala), fechamentoFinal(r)];
 
 /** Texto que vai para a ElevenLabs: o da tela convertido (números por extenso, siglas pelo dicionário, pausas antes de números). */
 export const textoFalado = (r: Roteiro, dic: ItemPronuncia[] = [], pausa = 0) => montarFala(partesDoRoteiro(r), dic, pausa).falado;

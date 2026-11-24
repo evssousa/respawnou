@@ -16,7 +16,7 @@ import { lerConfig } from "./config.server";
 import { exec, hasDatabase, query } from "./db";
 import { gerarVideo } from "./gerador.server";
 import { legendasDoVideo } from "./legendas";
-import { textoFalado, type Imagem, type Roteiro } from "./roteiro";
+import { fechamentoFinal, perguntaDoFechamento, textoFalado, type Imagem, type Roteiro } from "./roteiro";
 import type { ItemPronuncia } from "./pronuncia";
 import { dicionarioCompleto } from "./pronuncia.server";
 import type { FatosVideo } from "./cartoes";
@@ -329,6 +329,8 @@ export interface PacoteWorker {
   /** Índice da imagem escolhida para a capa/abertura (opcional). */
   capa?: number;
   fechamento: string;
+  /** Pergunta do cartão de fechamento (null = cartão de sempre). */
+  pergunta: string | null;
   cta: string;
   baseUrl: string;
 }
@@ -367,7 +369,8 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
     falado: textoFalado(job.script, dic, VIDEO.voz.pausaAntesNumero),
     pronuncia: dic,
     pausa: VIDEO.voz.pausaAntesNumero,
-    fechamento: VIDEO.fechamento,
+    fechamento: fechamentoFinal(job.script),
+    pergunta: perguntaDoFechamento(job.script),
     cta: VIDEO.ctaCartao,
     baseUrl: SOCIAL.baseUrl,
   };

@@ -51,7 +51,9 @@ function pacote(urls: string[]): PacoteVideo {
   const ESPECIAIS = ["GTA 6 chega em 28/11 no PS5 e no Xbox.", "Sai por R$ 249,90 e tem nota 8,7 da crítica.", "A RTX 4060 roda em 100% do tempo a 60 quadros?"];
   const cenas = Array.from({ length: n }, (_, i) => ({ fala: ESPECIAIS[i] ?? `${FALA} ${i + 1}`, imagem: i % urls.length }));
   const gancho = "Olha só esta novidade que muda tudo";
-  const fechamento = "Matéria completa no Respawnou. O link está no perfil.";
+  // --pergunta: fechamento com pergunta (voz e cartão de fechamento novo).
+  const pergunta = process.argv.includes("--pergunta") ? "Você pagaria R$ 349 nele?" : null;
+  const fechamento = pergunta ? `${pergunta} ${VIDEO.fechamentoPergunta}` : VIDEO.fechamento;
   const falado = [gancho, ...cenas.map((c) => c.fala), fechamento].map((t) => t.replace(/[.!?…]+$/, "")).join(". ") + ".";
   return {
     id: 7,
@@ -66,6 +68,7 @@ function pacote(urls: string[]): PacoteVideo {
     pronuncia: MARCA.video.pronunciaBase,
     pausa: VIDEO.voz.pausaAntesNumero,
     fechamento,
+    pergunta,
     cta: "MATÉRIA COMPLETA: LINK NO PERFIL",
   };
 }

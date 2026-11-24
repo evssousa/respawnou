@@ -10,6 +10,7 @@ import { MARCA } from "~/marca";
 import { AlinharImagem } from "~/components/AlinharImagem";
 import { EscolherImagem } from "~/components/EscolherImagem";
 import { ChipsMetricas, TabelaDesempenho } from "~/components/video/Desempenho";
+import { BlocoFechamento, BlocoGancho } from "~/components/video/Ganchos";
 import { CartaoPronuncia } from "~/components/video/Pronuncia";
 import { avisoMetricas, desempenho, metricasDosJobs } from "~/video/metricas.server";
 import { juntarDicionario, suspeitas, type ItemPronuncia } from "~/video/pronuncia";
@@ -20,7 +21,7 @@ import { perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/conf
 import { lerConfig, salvarConfig } from "~/video/config.server";
 import { ErroUpload } from "~/social/server/uploads.server";
 import { adicionarImagem, adicionarVideo, aprovar, descartar, gerarRoteiroDoJob, listarJobs, listarPublicados, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
-import { caracteresDoRoteiro, palavrasDoRoteiro } from "~/video/roteiro";
+import { caracteresDoRoteiro, palavrasDoRoteiro, textoFalado } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
 
@@ -255,6 +256,7 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
   const r = j.script;
   const palavras = r ? palavrasDoRoteiro(r) : 0;
   const chars = r ? caracteresDoRoteiro(r, dicionario) : 0;
+  const palavrasFaladas = r ? textoFalado(r, dicionario).split(/\s+/).filter(Boolean).length : 0;
   const duvidas = r ? suspeitas([r.gancho, ...r.cenas.map((c) => c.fala)], dicionario) : [];
   const custo = ((chars * (cfg.model === "eleven_flash_v2_5" ? 0.5 : 1)) / 1000) * VIDEO.usdPorMilCreditos;
   const editavel = (j.status === "aguardando" || j.status === "falhou") && !!r;
@@ -290,17 +292,8 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
           {editavel && r && (
             <Form method="post" encType="multipart/form-data" className="flex flex-col gap-3">
               <input type="hidden" name="id" value={j.id} />
-              <Field label={`Gancho (${r.gancho.length}/${VIDEO.limites.gancho})`}>
-                <input name="gancho" defaultValue={r.gancho} maxLength={VIDEO.limites.gancho} className={inputCls} />
-                {r.v === 2 && (
-                  <>
-                    <input type="hidden" name="ganchos_json" value={JSON.stringify(r.ganchos ?? [])} />
-                    <input type="hidden" name="pergunta" value={r.pergunta ?? ""} />
-                    {r.usarPergunta && <input type="hidden" name="usar_pergunta" value="on" />}
-                    <input type="hidden" name="destaques_json" value={JSON.stringify(r.destaques ?? [])} />
-                  </>
-                )}
-              </Field>
+              <BlocoGancho r={r} />
+              {r.v === 2 && <input type="hidden" name="destaques_json" value={JSON.stringify(r.destaques ?? [])} />}
               <Field label={`Título do vídeo (até ${VIDEO.limites.tituloCurto})`}>
                 <input name="titulo_curto" defaultValue={r.titulo_curto} maxLength={VIDEO.limites.tituloCurto} className={inputCls} />
               </Field>
@@ -329,8 +322,8 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
                   ))}
                 </p>
               )}
-              <p className="text-xs text-muted">Fechamento fixo: “{VIDEO.fechamento}”</p>
-              <p className="font-mono text-xs text-body">≈ {Math.round(palavras / 2.5 + 3)} s (alvo {perfil.rotulo}: {perfil.palavras[0]} a {perfil.palavras[1]} palavras; tem {palavras}) · {chars} caracteres · ~US$ {custo.toFixed(2).replace(".", ",")}</p>
+              {r.v === 2 ? <BlocoFechamento r={r} /> : <p className="text-xs text-muted">Fechamento fixo: “{VIDEO.fechamento}”</p>}
+              <p className="font-mono text-xs text-body">≈ {Math.round(palavrasFaladas / 2.5 + 1)} s (alvo {perfil.rotulo}: {perfil.palavras[0]} a {perfil.palavras[1]} palavras; tem {palavras}) · {chars} caracteres · ~US$ {custo.toFixed(2).replace(".", ",")}</p>
               <div className="flex flex-wrap gap-2">
                 <Button tone="primary" name="intent" value="aprovar" disabled={busy}>Aprovar e gerar</Button>
                 <Button name="intent" value="salvar" disabled={busy}>Salvar roteiro</Button>

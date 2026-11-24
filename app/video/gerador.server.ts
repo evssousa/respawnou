@@ -29,6 +29,7 @@ export interface PacoteVideo {
   pronuncia?: ItemPronuncia[];
   pausa?: number;
   fechamento: string;
+  pergunta?: string | null;
   cta: string;
 }
 
@@ -263,7 +264,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
 
   o.fase?.("quadros");
   // 5) Quadros (marca, abertura, fechamento) e montagem
-  const q = await gerarQuadros({ titulo: p.titulo, secao: p.secao, cta: p.cta });
+  const q = await gerarQuadros({ titulo: p.titulo, secao: p.secao, cta: p.cta, pergunta: p.pergunta ?? null });
   await sharp(q.moldura).extract({ left: 0, top: 0, width: 1080, height: 420 }).toFile(join(dir, "moldura_topo.png"));
   await sharp(q.moldura).extract({ left: 0, top: 1100, width: 1080, height: 820 }).toFile(join(dir, "moldura_base.png"));
   await sharp(q.abertura).extract({ left: 0, top: 940, width: 1080, height: 580 }).toFile(join(dir, "abertura.png"));

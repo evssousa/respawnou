@@ -3,7 +3,7 @@ import { SOCIAL } from "~/social/config";
 import { hashtags, montarLegenda } from "~/social/core/legenda";
 import type { EntradaSocial, Modelo } from "~/social/tipos";
 import { VIDEO } from "./config";
-import type { Roteiro } from "./roteiro";
+import { perguntaDoFechamento, type Roteiro } from "./roteiro";
 
 export interface LegendasVideo {
   instagram: string;
@@ -17,11 +17,11 @@ export function legendasDoVideo(e: EntradaSocial, modelo: Modelo, roteiro: Rotei
   const tags = hashtags(e, modelo);
   const sufixo = " #Shorts";
   return {
-    instagram: montarLegenda(e, modelo),
+    instagram: montarLegenda(e, modelo, { pergunta: perguntaDoFechamento(roteiro) }),
     youtube: {
       title: `${cortar(roteiro.titulo_curto, 100 - sufixo.length)}${sufixo}`,
       description: [e.excerpt, `Matéria completa: ${urlMateria}?utm_source=youtube&utm_medium=shorts`, VIDEO.avisoVoz, tags.join(" ")].filter(Boolean).join("\n\n"),
     },
-    tiktok: [roteiro.gancho, `Matéria completa no link do perfil. Siga @${SOCIAL.handle}.`, [...tags, `#${VIDEO.hashtagTikTokExtra}`].join(" ")].join("\n\n"),
+    tiktok: [roteiro.gancho, perguntaDoFechamento(roteiro), `Matéria completa no link do perfil. Siga @${SOCIAL.handle}.`, [...tags, `#${VIDEO.hashtagTikTokExtra}`].join(" ")].join("\n\n"),
   };
 }

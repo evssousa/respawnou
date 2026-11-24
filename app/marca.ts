@@ -126,6 +126,8 @@ export const MARCA = {
   video: {
     /** Frase fixa do fechamento (falada) e texto do botão do cartão final. */
     fechamento: "Matéria completa no Respawnou. O link está no perfil.",
+    /** Fechamento quando há pergunta: a pergunta vem antes (falada e no cartão). */
+    fechamentoPergunta: "Responde aí nos comentários. Matéria completa no link do perfil.",
     ctaCartao: "MATÉRIA COMPLETA: LINK NO PERFIL",
     /** Hashtag extra do TikTok e frase de aviso de voz sintética. */
     hashtagTikTokExtra: "gamesbr",

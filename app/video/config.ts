@@ -17,6 +17,7 @@ export const VIDEO = {
   voz: { pausaAntesNumero: 0.25 },
   /** Frase fixa do fechamento (falada) e texto do botão do cartão final. */
   fechamento: MARCA.video.fechamento,
+  fechamentoPergunta: MARCA.video.fechamentoPergunta,
   ctaCartao: MARCA.video.ctaCartao,
   /** Ordem de preferência na escolha automática do dia (modelo da matéria no feed). */
   ordemTipos: ["C-review", "P1", "S", "C-artigo", "N"] as const,
