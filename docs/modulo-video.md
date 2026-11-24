@@ -79,7 +79,7 @@ Pontos de acoplamento que **não** são genéricos (ajustar ao copiar):
 12. No painel do site novo: voz de cada editoria, pronúncias, séries (as de calendário vêm desligadas), energia da voz.
 
 Observações da hospedagem compartilhada (Hostinger): o ffmpeg roda com 1 thread por entrada/filtro e `/tmp` é `noexec`
-(não rodar programas ali); vídeo longo demora (uns 2 a 4 s de montagem por segundo de vídeo, mais com cartões).
+(não rodar programas ali); a montagem roda em 2 passadas (cenas → `base.mp4`; moldura, cartões, legenda e áudio por cima) para usar menos threads (limite da conta); vídeo longo demora (uns 2 a 4 s de montagem por segundo de vídeo, mais com cartões).
 
 Ordem sugerida de cópia: animeprofile só depois de migrar para MySQL/Hostinger; vibecoin e criasite quando tiverem o módulo
 social (Instagram) funcionando.

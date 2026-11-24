@@ -35,6 +35,8 @@ export interface PlanoMontagem {
   arq: { molduraTopo: string; molduraBase: string; abertura: string; fechamento: string; audio: string; legenda: string; saida: string };
   /** Servidor compartilhado: preset mais rápido e 2 threads. */
   leve?: boolean;
+  /** Montagem em duas passadas (poucos threads): 1 = só as cenas e transições (grava `base.mp4`); 2 = moldura, cartões, legenda e áudio sobre `base.mp4`. Sem isso, tudo de uma vez. */
+  etapa?: 1 | 2;
   /** Cartões de dados: PNG pequeno (932 px de largura) que sobe e some no intervalo dado (segundos do vídeo). */
   cartoes?: { arquivo: string; ini: number; fim: number; y?: number }[];
   /** Cor da barra de progresso, "#rrggbb" (cor de destaque da marca). */
@@ -77,12 +79,13 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   const { clips, fechamento, total, fimAbertura, arq } = plano;
   // Servidor compartilhado: o limite de processos/threads da conta é baixo ("pthread_create failed"). Cada entrada e cada filtro
   // usam 1 thread só (o padrão do ffmpeg é 1 por núcleo, por entrada).
+  const etapa = plano.etapa ?? 0;
   const t1 = plano.leve ? ["-threads", "1"] : [];
   const args: string[] = ["-y", "-hide_banner", "-loglevel", "warning", ...(plano.leve ? ["-filter_threads", "1", "-filter_complex_threads", "1"] : [])];
   const partes: string[] = [];
   const rotulos: string[] = [];
   let idx = 0;
-  clips.forEach((c, k) => {
+  if (etapa !== 2) clips.forEach((c, k) => {
     // A transição fica centrada na fronteira da fala: o clipe começa T/2 antes do seu início e sobra T/2 depois do fim.
     const dur = c.dur + TRANSICAO;
     if (c.video) {
@@ -112,6 +115,7 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
     rotulos.push(`[c${k}]`);
     idx++;
   });
+  if (etapa !== 2) {
   const qFech = Math.max(1, Math.round((fechamento.dur + TRANSICAO / 2) * FPS));
   args.push(...t1, "-framerate", String(FPS), "-i", arq.fechamento);
   partes.push(`[${idx}:v]scale=1080:1920,setsar=1,format=yuv420p,loop=loop=${qFech - 1}:size=1,setpts=N/${FPS}/TB,fps=${FPS},settb=AVTB[cf]`);
@@ -127,6 +131,18 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
     atual = saida;
   }
   if (rotulos.length === 1) partes.push(`${atual}null[base]`);
+  }
+  if (etapa === 1) {
+    // Passada 1: só as cenas; vídeo quase sem compressão (rápido) para a passada 2 reler.
+    return {
+      args: [...args, "-filter_complex_script", "filtro.txt", "-map", "[base]", "-t", s3(total), "-an", "-c:v", "libx264", "-preset", "ultrafast", ...(plano.leve ? ["-threads", "1", "-x264-params", "threads=1:lookahead-threads=1:sliced-threads=0"] : []), "-crf", "14", "-pix_fmt", "yuv420p", "-r", String(FPS), "base.mp4"],
+      filtro: partes.join(";\n"),
+    };
+  }
+  if (etapa === 2) {
+    args.push(...t1, "-i", "base.mp4");
+    partes.push(`[${idx++}:v]null[base]`);
+  }
   // Moldura e abertura: só as faixas que têm algo (topo 0–420, base 1100–1920, abertura 940–1520), lidas uma vez (1 quadro) e
   // repetidas pelo overlay; antes eram PNGs de tela cheia decodificados a cada quadro durante o vídeo inteiro.
   const iTopo = idx++;

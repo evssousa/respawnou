@@ -339,7 +339,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
       console.warn("[video] efeitos sonoros não saíram (o vídeo segue sem eles):", String((err as Error)?.message ?? err).slice(0, 120));
     }
   }
-  const { args, filtro } = montar({
+  const planoMontagem = {
     cartoes,
     efeitos,
     corBarra: MARCA.cores.destaque,
@@ -350,15 +350,12 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     total: seg.total,
     fimAbertura,
     arq: { molduraTopo: "moldura_topo.png", molduraBase: "moldura_base.png", abertura: "abertura.png", fechamento: "fechamento.png", audio, legenda: "legenda.ass", saida: "saida.mp4" },
-  });
-  await writeFile(join(dir, "filtro.txt"), filtro);
+  };
   o.fase?.("montagem");
-  try {
-    await rodar(ff, args, dir);
-  } catch (err) {
-    // Limite de processos/threads da hospedagem estourou no meio: espera um pouco e tenta uma vez de novo.
-    if (!/pthread_create|Resource temporarily unavailable/i.test(String((err as Error)?.message ?? err))) throw err;
-    await new Promise((ok) => setTimeout(ok, 20_000));
+  // Servidor compartilhado: duas passadas, cada uma com metade das entradas (cada entrada do ffmpeg usa threads e o limite da conta é baixo).
+  for (const etapa of leve ? ([1, 2] as const) : ([0] as const)) {
+    const { args, filtro } = montar({ ...planoMontagem, etapa: etapa || undefined });
+    await writeFile(join(dir, "filtro.txt"), filtro);
     await rodar(ff, args, dir);
   }
 
