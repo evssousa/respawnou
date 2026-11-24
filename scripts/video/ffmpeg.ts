@@ -101,26 +101,22 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
     }
     // A imagem é lida UMA vez (1 quadro) e o filtro gera os quadros do clipe; antes o ffmpeg decodificava o JPEG a cada quadro.
     const quadros = Math.max(1, Math.round(dur * FPS));
-    args.push(...t1, "-framerate", String(FPS), "-i", c.img);
+    const fonte = `movie=${c.img}`;
     if (c.pan) {
       // Deslizar suave (começa e termina devagar) de x0 a x1; `t` é o tempo do próprio clipe.
       const u = `min(t/${s3(dur)},1)`;
-      partes.push(`[${idx}:v]loop=loop=${quadros - 1}:size=1,setpts=N/${FPS}/TB,crop=1080:1920:x='${c.pan.x0}+(${c.pan.x1}-${c.pan.x0})*(1-cos(PI*${u}))/2':y=0,setsar=1,fps=${FPS},format=yuv420p,settb=AVTB[c${k}]`);
+      partes.push(`${fonte},loop=loop=${quadros - 1}:size=1,setpts=N/${FPS}/TB,crop=1080:1920:x='${c.pan.x0}+(${c.pan.x1}-${c.pan.x0})*(1-cos(PI*${u}))/2':y=0,setsar=1,fps=${FPS},format=yuv420p,settb=AVTB[c${k}]`);
       rotulos.push(`[c${k}]`);
-      idx++;
       return;
     }
     const m = movimento(k, quadros, c.suave, c.punch ? "punch" : c.fixo ? "fixo" : "livre");
-    partes.push(`[${idx}:v]zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=${quadros}:s=1080x1920:fps=${FPS},setsar=1,format=yuv420p,settb=AVTB[c${k}]`);
+    partes.push(`${fonte},zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=${quadros}:s=1080x1920:fps=${FPS},setsar=1,format=yuv420p,settb=AVTB[c${k}]`);
     rotulos.push(`[c${k}]`);
-    idx++;
   });
   if (etapa !== 2) {
   const qFech = Math.max(1, Math.round((fechamento.dur + TRANSICAO / 2) * FPS));
-  args.push(...t1, "-framerate", String(FPS), "-i", arq.fechamento);
-  partes.push(`[${idx}:v]scale=1080:1920,setsar=1,format=yuv420p,loop=loop=${qFech - 1}:size=1,setpts=N/${FPS}/TB,fps=${FPS},settb=AVTB[cf]`);
+  partes.push(`movie=${arq.fechamento},scale=1080:1920,setsar=1,format=yuv420p,loop=loop=${qFech - 1}:size=1,setpts=N/${FPS}/TB,fps=${FPS},settb=AVTB[cf]`);
   rotulos.push("[cf]");
-  idx++;
   // Encadeia as transições: a k-ésima começa no início do clipe k.
   const inicios = [...clips.map((c) => c.ini), fechamento.ini];
   let atual = rotulos[0];
@@ -145,19 +141,6 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   }
   // Moldura e abertura: só as faixas que têm algo (topo 0–420, base 1100–1920, abertura 940–1520), lidas uma vez (1 quadro) e
   // repetidas pelo overlay; antes eram PNGs de tela cheia decodificados a cada quadro durante o vídeo inteiro.
-  const iTopo = idx++;
-  args.push(...t1, "-framerate", String(FPS), "-i", arq.molduraTopo);
-  const iBase = idx++;
-  args.push(...t1, "-framerate", String(FPS), "-i", arq.molduraBase);
-  const iAbert = idx++;
-  args.push(...t1, "-framerate", String(FPS), "-i", arq.abertura);
-  const iBarra = idx++;
-  args.push(...t1, "-f", "lavfi", "-t", s3(total), "-i", `color=c=0x${(plano.corBarra ?? "#c8ff2e").replace("#", "")}:s=1080x8:r=${FPS}`);
-  // Cartões de dados: cada PNG é lido uma vez (1 quadro) e repetido pelo overlay.
-  const iCartoes = (plano.cartoes ?? []).map((c) => {
-    args.push(...t1, "-framerate", String(FPS), "-i", c.arquivo);
-    return idx++;
-  });
   const iAudio = idx++;
   args.push(...t1, "-i", arq.audio);
   const iTrilha = plano.trilha ? idx++ : -1;
@@ -165,10 +148,10 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   const iEfeitos = plano.trilha && plano.efeitos ? idx++ : -1;
   if (plano.trilha && plano.efeitos) args.push(...t1, "-i", plano.efeitos.arquivo);
 
-  partes.push(`[${iTopo}:v]format=yuva420p[mtopo]`);
-  partes.push(`[${iBase}:v]format=yuva420p[mbase]`);
+  partes.push(`movie=${arq.molduraTopo},format=yuva420p[mtopo]`);
+  partes.push(`movie=${arq.molduraBase},format=yuva420p[mbase]`);
   const qAbert = Math.max(1, Math.round(fimAbertura * FPS));
-  partes.push(`[${iAbert}:v]format=yuva420p,loop=loop=${qAbert - 1}:size=1,setpts=N/${FPS}/TB,fade=t=out:st=${s3(Math.max(0, fimAbertura - 0.3))}:d=0.3:alpha=1[abert]`);
+  partes.push(`movie=${arq.abertura},format=yuva420p,loop=loop=${qAbert - 1}:size=1,setpts=N/${FPS}/TB,fade=t=out:st=${s3(Math.max(0, fimAbertura - 0.3))}:d=0.3:alpha=1[abert]`);
   // Cor mais viva, vinheta e um pulso de brilho a cada batida da trilha (só durante as cenas).
   const B = plano.trilha ? 60 / plano.trilha.bpm : 0;
   const pulso = plano.trilha ? `:brightness='0.035*exp(-7*mod(t,${s3(B)}))'` : "";
@@ -181,14 +164,14 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   let camada = "v1";
   (plano.cartoes ?? []).forEach((c, k) => {
     const q = Math.max(1, Math.round(c.fim * FPS));
-    partes.push(`[${iCartoes[k]}:v]format=yuva420p,loop=loop=${q - 1}:size=1,setpts=N/${FPS}/TB,fade=t=in:st=${s3(c.ini)}:d=0.25:alpha=1,fade=t=out:st=${s3(Math.max(c.ini, c.fim - 0.2))}:d=0.2:alpha=1[ct${k}]`);
+    partes.push(`movie=${c.arquivo},format=yuva420p,loop=loop=${q - 1}:size=1,setpts=N/${FPS}/TB,fade=t=in:st=${s3(c.ini)}:d=0.25:alpha=1,fade=t=out:st=${s3(Math.max(c.ini, c.fim - 0.2))}:d=0.2:alpha=1[ct${k}]`);
     partes.push(`[${camada}][ct${k}]overlay=x=24:y='${c.y ?? 560}+48*pow(1-min(max((t-${s3(c.ini)})/0.3,0),1),3)':eval=frame:enable='between(t,${s3(c.ini)},${s3(c.fim)})':eof_action=pass[vc${k}]`);
     camada = `vc${k}`;
   });
   // Cartão de abertura: entra deslizando pela esquerda (desacelerando) e some com fade no fim do gancho.
   partes.push(`[${camada}][abert]overlay=x='-1080*pow(1-min(t/0.45,1),2)':y=940:eval=frame:enable='lt(t,${s3(fimAbertura)})':eof_action=pass[v2]`);
   // Barra de progresso (abaixo da zona do topo do app).
-  partes.push(`[v2][${iBarra}:v]overlay=x='-w+w*t/${s3(total)}':y=226:eval=frame:enable='lt(t,${s3(fechamento.ini)})'[v3]`);
+  partes.push(`color=c=0x${(plano.corBarra ?? "#c8ff2e").replace("#", "")}:s=1080x8:r=${FPS}:d=${s3(total)}[barra];[v2][barra]overlay=x='-w+w*t/${s3(total)}':y=226:eval=frame:enable='lt(t,${s3(fechamento.ini)})'[v3]`);
   partes.push(`[v3]subtitles=${arq.legenda}:fontsdir=fonts,format=yuv420p[vout]`);
   if (plano.trilha) {
     // Voz normalizada; a música fica baixa e abaixa mais ainda quando alguém fala (sidechain), depois soma e limita.
