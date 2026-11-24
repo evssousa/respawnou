@@ -10,10 +10,10 @@ import { AlinharImagem } from "~/components/AlinharImagem";
 import { EscolherImagem } from "~/components/EscolherImagem";
 import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
 import type { Foco } from "~/social/tipos";
-import { SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
+import { perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
 import { ErroUpload } from "~/social/server/uploads.server";
-import { adicionarImagem, adicionarVideo, aprovar, descartar, gerarRoteiroDoJob, listarJobs, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { adicionarImagem, adicionarVideo, aprovar, descartar, gerarRoteiroDoJob, listarJobs, listarPublicados, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -22,10 +22,13 @@ export async function loader({ request }: Route.LoaderArgs) {
   await requireAdmin(request);
   if (!hasDatabase()) return { semBanco: true as const };
   const url = new URL(request.url);
-  const [jobs, resumo, cfg] = await Promise.all([listarJobs(10), resumoMes(), lerConfig()]);
+  const busca = (url.searchParams.get("q") ?? "").slice(0, 80);
+  const [jobs, resumo, cfg, publicados] = await Promise.all([listarJobs(10), resumoMes(), lerConfig(), listarPublicados(busca)]);
   return {
     semBanco: false as const,
     jobs,
+    publicados,
+    busca,
     resumo,
     cfg,
     chaveVoz: Boolean(process.env.ELEVENLABS_API_KEY),
@@ -168,7 +171,7 @@ function CapaEscolha({ j }: { j: Job }) {
 }
 
 /** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
-function CenaLinha({ i, c, images, focus }: { i: number; c: { fala: string; imagem: number }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
+function CenaLinha({ i, c, images, focus, max }: { max: number; i: number; c: { fala: string; imagem: number }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
   const [img, setImg] = useState(c.imagem);
   const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
@@ -187,7 +190,7 @@ function CenaLinha({ i, c, images, focus }: { i: number; c: { fala: string; imag
         <div className="flex h-[114px] w-16 items-center justify-center border border-line text-[10px] text-muted">ARTE</div>
       )}
       <div className="flex flex-col gap-2">
-        <textarea name={`fala_${i}`} defaultValue={c.fala} rows={2} maxLength={VIDEO.limites.cena} aria-label={`Fala da cena ${i + 1}`} className={inputCls} />
+        <textarea name={`fala_${i}`} defaultValue={c.fala} rows={2} maxLength={max} aria-label={`Fala da cena ${i + 1}`} className={inputCls} />
         <input type="hidden" name={`img_${i}`} value={img} />
         <input type="hidden" name={`foco_${i}`} value={foco} />
         <div className="flex flex-wrap gap-2">
@@ -206,6 +209,7 @@ function CenaLinha({ i, c, images, focus }: { i: number; c: { fala: string; imag
 }
 
 function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }) {
+  const perfil = perfilDaSecao(j.section ?? "");
   const r = j.script;
   const palavras = r ? palavrasDoRoteiro(r) : 0;
   const chars = r ? caracteresDoRoteiro(r) : 0;
@@ -251,7 +255,7 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
               </Field>
               <CapaEscolha j={j} />
               {r.cenas.map((c, i) => (
-                <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} />
+                <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} max={perfil.cena} />
               ))}
               <div className="flex flex-wrap items-center gap-2 border border-dashed border-line-soft p-2">
                 <span className="text-xs text-muted">A imagem não combina com o texto? Envie outra ({j.images.length} no vídeo):</span>
@@ -267,7 +271,7 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
                 </div>
               </div>
               <p className="text-xs text-muted">Fechamento fixo: “{VIDEO.fechamento}”</p>
-              <p className="font-mono text-xs text-body">≈ {Math.round(palavras / 2.5 + 3)} s · {chars} caracteres · ~US$ {custo.toFixed(2).replace(".", ",")}</p>
+              <p className="font-mono text-xs text-body">≈ {Math.round(palavras / 2.5 + 3)} s (alvo {perfil.rotulo}: {perfil.palavras[0]} a {perfil.palavras[1]} palavras; tem {palavras}) · {chars} caracteres · ~US$ {custo.toFixed(2).replace(".", ",")}</p>
               <div className="flex flex-wrap gap-2">
                 <Button tone="primary" name="intent" value="aprovar" disabled={busy}>Aprovar e gerar</Button>
                 <Button name="intent" value="salvar" disabled={busy}>Salvar roteiro</Button>
@@ -358,6 +362,47 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
           d.jobs.map((j) => <CartaoJob key={j.id} j={j} cfg={cfg} busy={busy} />)
         )}
       </div>
+
+      <details className="mt-6 border border-line p-3" open={d.busca !== ""}>
+        <summary className="cursor-pointer font-mono text-xs font-bold text-muted">JÁ PUBLICADOS ({d.publicados.total}) — para baixar ou postar em outro lugar</summary>
+        <Form method="get" className="mt-3 flex flex-wrap items-center gap-2">
+          <input name="q" defaultValue={d.busca} placeholder="Buscar pelo título da matéria" className={`${inputCls} max-w-[320px]`} />
+          <Button>Buscar</Button>
+          {d.busca && <a href="/admin/videos" className="font-mono text-xs text-muted underline">limpar</a>}
+        </Form>
+        <ul className="mt-3 flex flex-col gap-1">
+          {d.publicados.itens.length === 0 && <li className="text-xs text-muted">{d.busca ? "Nenhum vídeo publicado com esse título." : "Nenhum vídeo publicado ainda."}</li>}
+          {d.publicados.itens.map((j) => (
+            <li key={j.id}>
+              <details className="border border-line-soft">
+                <summary className="flex cursor-pointer flex-wrap items-center gap-2 px-2 py-1.5 text-xs text-muted">
+                  <span className="font-mono">{(j.section ?? "").toUpperCase()}</span>
+                  <span className="min-w-0 flex-1 truncate text-body">{j.title}</span>
+                  <span className="font-mono">{j.ig_published_at ? when(j.ig_published_at) : ""}</span>
+                </summary>
+                <div className="flex flex-col gap-3 border-t border-line-soft p-2">
+                  <div className="flex flex-wrap gap-2">
+                    {j.video && <a href={j.video} download className="inline-flex min-h-9 items-center bg-acc px-3 font-mono text-xs font-bold text-ink">Baixar MP4</a>}
+                    {j.cover && <a href={j.cover} download className="inline-flex min-h-9 items-center border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc">Baixar capa</a>}
+                    {j.ig_permalink && <a href={j.ig_permalink} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc">Ver no Instagram</a>}
+                    <Form method="post" onSubmit={(e) => { if (!confirm("Editar e refazer? O registro de publicação deste vídeo é limpo e ele volta para a lista principal.")) e.preventDefault(); }}>
+                      <input type="hidden" name="id" value={j.id} /><Button name="intent" value="reabrir" disabled={busy}>Editar e refazer</Button>
+                    </Form>
+                  </div>
+                  {j.captions && (
+                    <div className="flex flex-col gap-3">
+                      <Copiavel titulo="YouTube: título" texto={j.captions.youtube.title} />
+                      <Copiavel titulo="YouTube: descrição" texto={j.captions.youtube.description} />
+                      <Copiavel titulo="Legenda do TikTok" texto={j.captions.tiktok} />
+                    </div>
+                  )}
+                </div>
+              </details>
+            </li>
+          ))}
+        </ul>
+        {d.publicados.total > d.publicados.itens.length && <p className="mt-2 text-xs text-muted">Mostrando os {d.publicados.itens.length} mais recentes de {d.publicados.total}. Use a busca para achar os outros.</p>}
+      </details>
 
       <details className="mt-6 border border-line p-3" open={!cfg.enabled}>
         <summary className="cursor-pointer font-mono text-xs font-bold text-acc">CONFIGURAÇÃO</summary>

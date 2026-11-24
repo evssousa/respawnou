@@ -114,7 +114,8 @@ export async function salvarRoteiro(id: number, roteiro: unknown, focus: Record<
   if (!j) return "Job não encontrado.";
   const job = linha(j);
   if (job.status === "gerando" || job.status === "pronto") return "Este vídeo já foi gerado ou está sendo gerado.";
-  const v = validarRoteiro(roteiro, job.images.length);
+  const [pp] = await query<{ section: string }>("SELECT section FROM posts WHERE id = ?", [job.post_id]);
+  const v = validarRoteiro(roteiro, job.images.length, pp?.section ?? "");
   if (!v.ok) return `Roteiro inválido: ${v.erro}.`;
   await exec("UPDATE video_jobs SET script = ?, focus = ?, status = IF(status = 'falhou', 'aguardando', status), error = NULL WHERE id = ?", [JSON.stringify(v.roteiro), JSON.stringify(focus), id]);
   return "ok";
@@ -377,8 +378,8 @@ export const falhar = (id: number, msg: string) => exec("UPDATE video_jobs SET s
 
 /** `gerando` preso há mais de 20 min (o worker caiu): volta para `aprovado`; depois de 2 tentativas, `falhou`. */
 export async function recuperarPresos(): Promise<void> {
-  await exec("UPDATE video_jobs SET status = 'falhou', error = 'o gerador não respondeu (2 tentativas)', locked_at = NULL WHERE status = 'gerando' AND locked_at < UTC_TIMESTAMP() - INTERVAL 20 MINUTE AND attempts >= 2");
-  await exec("UPDATE video_jobs SET status = 'aprovado', locked_at = NULL WHERE status = 'gerando' AND locked_at < UTC_TIMESTAMP() - INTERVAL 20 MINUTE");
+  await exec("UPDATE video_jobs SET status = 'falhou', error = 'o gerador não respondeu (2 tentativas)', locked_at = NULL WHERE status = 'gerando' AND locked_at < UTC_TIMESTAMP() - INTERVAL 90 MINUTE AND attempts >= 2");
+  await exec("UPDATE video_jobs SET status = 'aprovado', locked_at = NULL WHERE status = 'gerando' AND locked_at < UTC_TIMESTAMP() - INTERVAL 90 MINUTE");
 }
 
 // ───────────── Escolha automática do dia ─────────────
@@ -426,12 +427,26 @@ export async function obterJob(id: number): Promise<(JobVideo & { titulo_post: s
   return r ? ({ ...linha(r), titulo_post: String(r.titulo_post ?? ""), secao_post: String(r.secao_post ?? "") }) : null;
 }
 
+/** Vídeos em andamento e prontos ainda não publicados (os já publicados vão para a lista recolhida). */
 export async function listarJobs(limite = 10): Promise<JobVideo[]> {
   const rows = await query<Record<string, unknown>>(
-    "SELECT j.*, p.title, p.section, p.image_url AS post_image FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.status <> 'descartado' ORDER BY j.created_at DESC, j.id DESC LIMIT ?",
+    "SELECT j.*, p.title, p.section, p.image_url AS post_image FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.status <> 'descartado' AND (j.ig_status IS NULL OR j.ig_status <> 'publicado') ORDER BY j.created_at DESC, j.id DESC LIMIT ?",
     [limite],
   );
   return rows.map(linha);
+}
+
+/** Vídeos já publicados no Instagram (mais recentes primeiro), com busca pelo título da matéria. Os arquivos continuam disponíveis para postar em outro lugar. */
+export async function listarPublicados(busca = "", limite = 40): Promise<{ itens: JobVideo[]; total: number }> {
+  const like = `%${busca.replace(/[%_\\]/g, "").trim()}%`;
+  const filtro = busca.trim() ? "AND p.title LIKE ?" : "";
+  const args = busca.trim() ? [like] : [];
+  const rows = await query<Record<string, unknown>>(
+    `SELECT j.*, p.title, p.section, p.image_url AS post_image FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.status = 'pronto' AND j.ig_status = 'publicado' ${filtro} ORDER BY j.ig_published_at DESC, j.id DESC LIMIT ?`,
+    [...args, limite],
+  );
+  const [t] = await query<{ n: number }>(`SELECT COUNT(*) AS n FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.status = 'pronto' AND j.ig_status = 'publicado' ${filtro}`, args);
+  return { itens: rows.map(linha), total: Number(t?.n ?? 0) };
 }
 
 export async function resumoMes(): Promise<{ prontos: number; creditos: number; aguardando: number }> {

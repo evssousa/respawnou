@@ -2,7 +2,7 @@
 import { generateJson } from "~/lib/robot/gemini.server";
 import { limparLinks } from "~/social/core/texto";
 import type { EntradaSocial, Overrides } from "~/social/tipos";
-import { VIDEO } from "./config";
+import { perfilDaSecao, VIDEO } from "./config";
 import { palavrasDoRoteiro, type Imagem, type Roteiro } from "./roteiro";
 
 export type { Imagem, Roteiro } from "./roteiro";
@@ -46,7 +46,9 @@ function fatos(e: EntradaSocial): string {
   return l.join("\n");
 }
 
-const SYSTEM = `Você escreve roteiros de vídeos curtos (Reels, Shorts, TikTok) do Respawnou, portal brasileiro de notícias de games. O texto será LIDO EM VOZ ALTA por uma narradora, então escreva para o ouvido, em português do Brasil.
+const systemDoPerfil = (secao: string) => {
+  const P = perfilDaSecao(secao);
+  return `Você escreve roteiros de vídeos curtos (Reels, Shorts, TikTok) do Respawnou, portal brasileiro de notícias de games. O texto será LIDO EM VOZ ALTA por uma narradora, então escreva para o ouvido, em português do Brasil.
 
 REGRAS
 - Use SOMENTE o que está no texto da matéria. Não invente nome, número, data, preço ou declaração.
@@ -54,10 +56,13 @@ REGRAS
 - Frases curtas, no máximo 18 palavras. Tom de quem joga para quem joga. Sem gíria forçada, sem "fala, galera", sem emoji, sem pergunta no meio do texto.
 - Escreva números de preço e data como se falam ("oitenta e nove e noventa", "vinte e oito de novembro"). Nomes de jogos como no texto.
 - gancho: a primeira frase, que prende (até 90 caracteres). Ela aparece no cartão de abertura.
-- cenas: de 3 a 5. Cada cena tem uma fala (até 170 caracteres) e o número da imagem (da lista) que melhor combina com o que está sendo dito. Varie as imagens quando houver mais de uma.
-- Soma de palavras do gancho + falas das cenas: entre 70 e 85.
+- cenas: de ${P.cenas[0]} a ${P.cenas[1]}. Cada cena tem uma fala (até ${P.cena} caracteres) e o número da imagem (da lista) que melhor combina com o que está sendo dito. Varie as imagens quando houver mais de uma.
+- Soma de palavras do gancho + falas das cenas: ${P.alvoPalavras} (vídeo de ${P.rotulo}).${P.id === "longo" ? `
+- Esta é uma matéria longa (artigo, review ou guia): percorra os pontos principais na ordem em que aparecem, uma ideia por cena, sem pressa e sem repetir.` : `
+- Esta é uma notícia: vá direto ao fato mais importante e aos detalhes que mudam algo para quem joga.`}
 - titulo_curto: até 60 caracteres, para o título do vídeo.
 - Não escreva despedida nem chamada para seguir: o fechamento é fixo e já existe.`;
+};
 
 const SCHEMA = {
   type: "OBJECT",
@@ -77,8 +82,8 @@ const SCHEMA = {
 };
 
 /** Confere o roteiro: tamanhos, 3 a 5 cenas, índices de imagem válidos e soma de palavras. Devolve a mensagem do problema ou null. */
-export function validarRoteiro(r: unknown, nImagens: number): { ok: true; roteiro: Roteiro } | { ok: false; erro: string } {
-  const L = VIDEO.limites;
+export function validarRoteiro(r: unknown, nImagens: number, secao = ""): { ok: true; roteiro: Roteiro } | { ok: false; erro: string } {
+  const L = { ...VIDEO.limites, ...perfilDaSecao(secao), cenas: perfilDaSecao(secao).cenas, palavras: perfilDaSecao(secao).palavras, cena: perfilDaSecao(secao).cena };
   if (!r || typeof r !== "object") return { ok: false, erro: "roteiro vazio" };
   const o = r as Record<string, unknown>;
   const gancho = typeof o.gancho === "string" ? o.gancho.trim() : "";
@@ -115,8 +120,8 @@ IMAGENS DISPONÍVEIS (use o número em "imagem")
 ${imagens.map((x, i) => `${i}: ${x.alt}`).join("\n")}`;
   // Modelos próprios do vídeo (o robô de matérias usa o gemini-3.5-flash e esgota a cota dele). GEMINI_MODEL_VIDEO sobrescreve o primeiro.
   const modelos = [process.env.GEMINI_MODEL_VIDEO, "gemini-3.5-flash-lite", "gemini-3.8-flash"].filter(Boolean) as string[];
-  const { data } = await generateJson<unknown>({ system: SYSTEM, prompt, schema: SCHEMA, temperature: 0.6, modelos });
-  const v = validarRoteiro(data, imagens.length);
+  const { data } = await generateJson<unknown>({ system: systemDoPerfil(e.section), prompt, schema: SCHEMA, temperature: 0.6, modelos });
+  const v = validarRoteiro(data, imagens.length, e.section);
   if (!v.ok) throw new Error(`roteiro inválido: ${v.erro}`);
   return v.roteiro;
 }

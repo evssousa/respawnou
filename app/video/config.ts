@@ -3,6 +3,14 @@
 export const VIDEO = {
   /** Gancho e fala de cada cena, em caracteres; 3 a 5 cenas; soma de palavras de gancho + cenas. */
   limites: { gancho: 90, cena: 170, cenas: [3, 5] as const, palavras: [60, 95] as const, tituloCurto: 60 },
+  /**
+   * Duração por tipo de matéria. Notícia e promoção: vídeo curto (30 a 60 s). Artigo, review e guia contam mais coisas e podem
+   * passar de 60 s (até ~2 min). Narração a ~2,5 palavras/s: segundos ≈ palavras / 2,5 + 3 (abertura e fechamento).
+   */
+  perfis: {
+    curto: { rotulo: "30 a 60 s", cenas: [3, 6] as const, palavras: [70, 140] as const, cena: 200, alvoPalavras: "entre 85 e 130" },
+    longo: { rotulo: "60 a 120 s", cenas: [6, 12] as const, palavras: [145, 290] as const, cena: 220, alvoPalavras: "entre 170 e 270" },
+  },
   /** Frase fixa do fechamento (falada) e texto do botão do cartão final. */
   fechamento: "Matéria completa no Respawnou. O link está no perfil.",
   ctaCartao: "MATÉRIA COMPLETA: LINK NO PERFIL",
@@ -32,6 +40,11 @@ export const VIDEO = {
 };
 
 export type VideoConfig = typeof VIDEO.padrao;
+
+export type PerfilVideo = keyof typeof VIDEO.perfis;
+/** Editorias com matéria longa ganham vídeo mais longo. */
+export const perfilDaSecao = (secao: string): (typeof VIDEO.perfis)[PerfilVideo] & { id: PerfilVideo } =>
+  ["artigos", "reviews", "guias"].includes(secao) ? { id: "longo", ...VIDEO.perfis.longo } : { id: "curto", ...VIDEO.perfis.curto };
 
 /** Seções (editorias) que podem ter voz própria. */
 export const SECOES_VOZ: { id: string; rotulo: string }[] = [
