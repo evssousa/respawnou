@@ -26,7 +26,7 @@ export interface FatosVideo {
   requisitos?: { rotulo: string; minimo: string }[];
   gratis?: { nome: string; loja: string; ate: string; precoNormal?: string | null; arte?: string | null }[];
   dias?: { rotulo: string; data: string; jogos: string[] }[];
-  ranking?: { titulo: string }[];
+  ranking?: { titulo: string; /** "#5" (contagem regressiva) ou "01" (ordem do texto) */ posicao?: string }[];
 }
 
 const LINHA_PC = /placa|processador|mem[óo]ria|gpu|cpu|ram/i;
@@ -42,7 +42,7 @@ export function cartoesDisponiveis(f: FatosVideo | null | undefined, serie = "")
   if ((f.gratis ?? []).length >= 1) out.push("gratis");
   if ((f.plataformas ?? []).length >= 1) out.push("plataformas");
   if (serie === "top5" && (f.ranking ?? []).length >= 1) out.push("ranking");
-  if (serie === "lancamentos" && (f.dias ?? []).length >= 1) out.push("dia");
+  if (serie === "lancamentos-semana" && (f.dias ?? []).length >= 1) out.push("dia");
   return out;
 }
 
@@ -79,6 +79,8 @@ export function termosDeDestaque(roteiro: { destaques?: string[] } | null | unde
 // ───────────── Tempo de tela de cada cartão ─────────────
 export interface CartaoPlanejado {
   tipo: TipoCartao;
+  /** Topo do PNG no vídeo (px): ranking fica em cima (290); os demais no meio (560). */
+  y: number;
   item: number | null;
   ini: number;
   fim: number;
@@ -115,7 +117,7 @@ export function planoCartoes(
     const semTeto = tipo === "ranking" || tipo === "dia";
     const fim = semTeto ? c.fim - 0.15 : Math.min(c.fim - 0.15, ini + 4.5);
     if (fim - ini < 1.6) return;
-    out.push({ tipo, item: rc?.item ?? null, ini: Number(ini.toFixed(2)), fim: Number(fim.toFixed(2)) });
+    out.push({ tipo, y: tipo === "ranking" ? 290 : 560, item: rc?.item ?? null, ini: Number(ini.toFixed(2)), fim: Number(fim.toFixed(2)) });
   });
   return out;
 }

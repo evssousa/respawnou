@@ -9,6 +9,7 @@ import { SOCIAL } from "~/social/config";
 import { foco as focoValido } from "~/social/core/overrides";
 import { VIDEO } from "~/video/config";
 import { obterJob } from "~/video/fila.server";
+import { rotuloDaSerie } from "~/video/series.server";
 import { enquadrarVertical } from "~/video/gerador.server";
 import { gerarQuadros } from "~/video/render/quadros.server";
 import { mediaDir } from "../../../server-paths.mjs";
@@ -35,7 +36,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const foco = pedido === "inteira" ? "inteira" : pedido ? focoValido(pedido) : String(job.focus[String(alvo)] ?? "auto");
   try {
     const { jpeg } = await enquadrarVertical(await lerImagem(item.src), 1080, 1920, foco, 82);
-    const quadros = await gerarQuadros({ titulo: job.titulo_post, secao: SOCIAL.rotuloSecao[job.secao_post] ?? job.secao_post.toUpperCase(), cta: VIDEO.ctaCartao });
+    const quadros = await gerarQuadros({ titulo: job.titulo_post, secao: rotuloDaSerie(job.serie ?? "") || (SOCIAL.rotuloSecao[job.secao_post] ?? job.secao_post.toUpperCase()), cta: VIDEO.ctaCartao });
     // Compõe em tamanho cheio e só depois reduz (o sharp redimensiona a base ANTES de sobrepor as camadas).
     const cheio = await sharp(jpeg).composite([{ input: quadros.moldura }, { input: quadros.abertura }]).jpeg({ quality: 88 }).toBuffer();
     const out = await sharp(cheio).resize(540, 960).jpeg({ quality: 82 }).toBuffer();

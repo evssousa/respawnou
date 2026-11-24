@@ -32,6 +32,8 @@ const casos: [string, TipoCartao, FatosVideo][] = [
   ["requisitos", "requisitos", base],
   ["gratis", "gratis", base],
   ["plataformas", "plataformas", base],
+  ["ranking", "ranking", { ranking: [{ titulo: "The Legend of Zelda: Ocarina of Time Remake Definitive Edition", posicao: "#5" }] }],
+  ["dia", "dia", { dias: [{ rotulo: "QUI", data: "03/12", jogos: ["Jogo Z", "Jogo W com nome bem longo aqui", "Jogo V", "Jogo U", "Jogo T"] }] }],
 ];
 const fundo = await sharp({ create: { width: 1080, height: 1920, channels: 3, background: "#2a6f97" } }).jpeg().toBuffer();
 const camadas: { input: Buffer; left: number; top: number }[] = [];

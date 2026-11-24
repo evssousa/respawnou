@@ -35,7 +35,7 @@ export interface PlanoMontagem {
   /** Servidor compartilhado: preset mais rápido e 2 threads. */
   leve?: boolean;
   /** Cartões de dados: PNG pequeno (932 px de largura) que sobe e some no intervalo dado (segundos do vídeo). */
-  cartoes?: { arquivo: string; ini: number; fim: number }[];
+  cartoes?: { arquivo: string; ini: number; fim: number; y?: number }[];
   /** Cor da barra de progresso, "#rrggbb" (cor de destaque da marca). */
   corBarra?: string;
   /** Trilha pronta (música + whooshes, ver musica.ts) e o andamento dela, para a imagem pulsar no ritmo. */
@@ -165,7 +165,7 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   (plano.cartoes ?? []).forEach((c, k) => {
     const q = Math.max(1, Math.round(c.fim * FPS));
     partes.push(`[${iCartoes[k]}:v]format=yuva420p,loop=loop=${q - 1}:size=1,setpts=N/${FPS}/TB,fade=t=in:st=${s3(c.ini)}:d=0.25:alpha=1,fade=t=out:st=${s3(Math.max(c.ini, c.fim - 0.2))}:d=0.2:alpha=1[ct${k}]`);
-    partes.push(`[${camada}][ct${k}]overlay=x=24:y='560+48*pow(1-min(max((t-${s3(c.ini)})/0.3,0),1),3)':eval=frame:enable='between(t,${s3(c.ini)},${s3(c.fim)})':eof_action=pass[vc${k}]`);
+    partes.push(`[${camada}][ct${k}]overlay=x=24:y='${c.y ?? 560}+48*pow(1-min(max((t-${s3(c.ini)})/0.3,0),1),3)':eval=frame:enable='between(t,${s3(c.ini)},${s3(c.fim)})':eof_action=pass[vc${k}]`);
     camada = `vc${k}`;
   });
   // Cartão de abertura: entra deslizando pela esquerda (desacelerando) e some com fade no fim do gancho.

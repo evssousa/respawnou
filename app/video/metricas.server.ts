@@ -2,6 +2,7 @@
 // nunca derruba nada. Os números alimentam o painel /admin/videos e, mais tarde, o peso na escolha do vídeo do dia.
 import { contagensMidia, insightsMidia, semPermissao } from "~/social/server/instagram.server";
 import { getConta, getToken } from "~/social/server/conta.server";
+import { MARCA } from "~/marca";
 import { exec, query } from "./db";
 import { type LinhaMetrica, type Marco, marcoDevido, MARCOS, retencao } from "./metricas";
 
@@ -84,7 +85,7 @@ export interface Desempenho {
 }
 
 const NOME_MODELO: Record<string, string> = { N: "Notícia", "C-review": "Review", "C-artigo": "Artigo", "C-guia": "Guia", P1: "Jogo grátis", P2: "Promoção", S: "Lançamentos" };
-const NOME_SERIE: Record<string, string> = { gratis: "Jogos grátis da semana", lancamentos: "Lançamentos da semana", review60: "Review em 60 s", top5: "Top 5" };
+const NOME_SERIE: Record<string, string> = Object.fromEntries(Object.entries(MARCA.video.series).map(([k, v]) => [k, v.nome]));
 
 /** Desempenho por formato (série, senão modelo da matéria), usando o marco de 72 h de cada vídeo dos últimos 60 dias. */
 export async function desempenho(): Promise<Desempenho> {

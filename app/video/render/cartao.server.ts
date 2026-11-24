@@ -2,7 +2,7 @@
 import { createElement } from "react";
 import { renderizarPng } from "~/social/render/render.server";
 import type { FatosVideo, TipoCartao } from "../cartoes";
-import { ALTURA_CARTAO, CartaoGratis, CartaoLancamento, CartaoNota, CartaoPlataformas, CartaoPreco, CartaoRequisitos, LARGURA_CARTAO } from "./cartoes";
+import { ALTURA_CARTAO, CartaoGratis, CartaoDia, CartaoLancamento, CartaoNota, CartaoPlataformas, CartaoPreco, CartaoRanking, CartaoRequisitos, LARGURA_CARTAO } from "./cartoes";
 
 const COMPONENTES: Partial<Record<TipoCartao, (p: { f: FatosVideo; item?: number }) => unknown>> = {
   preco: CartaoPreco,
@@ -11,6 +11,8 @@ const COMPONENTES: Partial<Record<TipoCartao, (p: { f: FatosVideo; item?: number
   requisitos: CartaoRequisitos,
   gratis: CartaoGratis,
   plataformas: CartaoPlataformas,
+  ranking: CartaoRanking,
+  dia: CartaoDia,
 };
 
 /** PNG do cartão, ou null se não há dado para ele (o cartão simplesmente não entra; o vídeo nunca falha por isso). */

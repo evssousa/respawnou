@@ -12,6 +12,11 @@ export const VIDEO = {
   perfis: {
     curto: { rotulo: "30 a 60 s", cenas: [3, 6] as const, palavras: [70, 140] as const, cena: 200, alvoPalavras: "entre 85 e 130" },
     longo: { rotulo: "60 a 120 s", cenas: [6, 12] as const, palavras: [145, 290] as const, cena: 220, alvoPalavras: "entre 170 e 270" },
+    /** Séries: estrutura fixa (cenas contadas pela série; o roteiro precisa bater com o número de itens). */
+    gratis: { rotulo: "30 a 60 s", cenas: [2, 5] as const, palavras: [70, 140] as const, cena: 200, alvoPalavras: "entre 85 e 130" },
+    semana: { rotulo: "35 a 60 s", cenas: [2, 6] as const, palavras: [80, 140] as const, cena: 200, alvoPalavras: "entre 90 e 130" },
+    review60: { rotulo: "50 a 60 s", cenas: [4, 4] as const, palavras: [125, 150] as const, cena: 220, alvoPalavras: "entre 130 e 145" },
+    top5: { rotulo: "50 a 75 s", cenas: [5, 5] as const, palavras: [120, 180] as const, cena: 220, alvoPalavras: "entre 130 e 170" },
   },
   /** Voz: pausa (s) antes de preço, nota e data para a pessoa acompanhar o número; 0 desliga. No máximo 4 por vídeo. */
   voz: { pausaAntesNumero: 0.25 },
@@ -43,6 +48,13 @@ export const VIDEO = {
     energia: "animada" as "calma" | "normal" | "animada",
     /** Efeitos sonoros nos cartões de dados (ding, impacto, pop). */
     efeitos: true,
+    /** Séries de calendário: o site cria o vídeo sozinho no dia (dia 0=dom … 6=sáb; hora de Brasília). */
+    series: {
+      "gratis-semana": { ligado: false, dia: 4, hora: 14 },
+      "lancamentos-semana": { ligado: false, dia: 1, hora: 10 },
+    } as Record<string, { ligado: boolean; dia: number; hora: number }>,
+    /** Formatos automáticos por tipo de matéria. */
+    formatos: { "review-60": true, top5: true } as Record<string, boolean>,
     creditsMonth: 30000,
     /** Uma voz por editoria (seção da matéria). Vazio = usa a voz padrão. */
     voiceDefault: "",
@@ -62,6 +74,14 @@ export const ENERGIA_VOZ: Record<Energia, { estabilidade: number; estilo: number
 
 export type PerfilVideo = keyof typeof VIDEO.perfis;
 /** Editorias com matéria longa ganham vídeo mais longo. */
+const PERFIL_DA_SERIE: Record<string, PerfilVideo> = { "gratis-semana": "gratis", "lancamentos-semana": "semana", "review-60": "review60", top5: "top5" };
+
+/** Perfil de duração de um job: o da série (se houver) ou o da editoria. */
+export const perfilDoJob = (secao: string, serie = ""): (typeof VIDEO.perfis)[PerfilVideo] & { id: PerfilVideo } => {
+  const id = PERFIL_DA_SERIE[serie];
+  return id ? { id, ...VIDEO.perfis[id] } : perfilDaSecao(secao);
+};
+
 export const perfilDaSecao = (secao: string): (typeof VIDEO.perfis)[PerfilVideo] & { id: PerfilVideo } => {
   const id: PerfilVideo = MARCA.secoes[secao]?.perfil ?? "curto";
   return { id, ...VIDEO.perfis[id] };

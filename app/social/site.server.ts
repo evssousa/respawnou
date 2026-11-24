@@ -49,7 +49,7 @@ interface LinhaPost {
 const brData = (d: Date) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" }).format(d);
 
 /** "qui, 27/11, às 13h" (Brasília). */
-function prazo(iso: string): string {
+export function prazo(iso: string): string {
   const d = new Date(`${iso.replace(" ", "T")}${/Z|[+-]\d\d:?\d\d$/.test(iso) ? "" : "Z"}`);
   const p = Object.fromEntries(new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(d).map((x) => [x.type, x.value]));
   return `${String(p.weekday).replace(".", "")}, ${p.day}/${p.month}, às ${Number(p.hour)}h`;

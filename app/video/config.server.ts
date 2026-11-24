@@ -20,6 +20,13 @@ export async function lerConfig(): Promise<VideoConfig> {
     model: v.model === "eleven_flash_v2_5" ? "eleven_flash_v2_5" : p.model,
     speed: num(v.speed, 0.85, 1.1, p.speed),
     efeitos: v.efeitos !== false,
+    series: Object.fromEntries(
+      Object.entries(p.series).map(([k, pad]) => {
+        const x = (v.series ?? {})[k] ?? pad;
+        return [k, { ligado: x.ligado === true, dia: Math.round(num(x.dia, 0, 6, pad.dia)), hora: Math.round(num(x.hora, 0, 23, pad.hora)) }];
+      }),
+    ),
+    formatos: Object.fromEntries(Object.entries(p.formatos).map(([k, pad]) => [k, (v.formatos ?? {})[k] ?? pad])),
     energia: v.energia === "calma" || v.energia === "normal" || v.energia === "animada" ? v.energia : p.energia,
     creditsMonth: Math.round(num(v.creditsMonth, 1000, 1_000_000, p.creditsMonth)),
     voiceDefault: typeof v.voiceDefault === "string" ? v.voiceDefault.trim().slice(0, 40) : "",

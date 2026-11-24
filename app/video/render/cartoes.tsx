@@ -10,7 +10,7 @@ import { dataCurta, type FatosVideo, type TipoCartao } from "../cartoes";
 
 export const LARGURA_CARTAO = 932; // 852 + 2 × 40 de folga
 /** Altura útil de cada tipo (o PNG tem esta altura + 80). */
-export const ALTURA_CARTAO: Record<TipoCartao, number> = { preco: 300, lancamento: 300, nota: 340, requisitos: 400, gratis: 400, plataformas: 220, ranking: 220, dia: 360 };
+export const ALTURA_CARTAO: Record<TipoCartao, number> = { preco: 300, lancamento: 300, nota: 340, requisitos: 400, gratis: 400, plataformas: 220, ranking: 220, dia: 380 };
 
 const INTER = FONTES.corpo;
 const TRACO = { fill: "none", stroke: COR.destaque, strokeWidth: 3, strokeLinecap: "square" as const };
@@ -171,6 +171,44 @@ export function CartaoPlataformas({ f }: { f: FatosVideo }) {
           <div key={p} style={{ display: "flex", alignItems: "center", height: 72, padding: "0 24px", marginRight: 14, border: `3px solid ${COR.destaque}`, fontFamily: ANTON, fontSize: 48, color: COR.texto }}>{caixa(p)}</div>
         ))}
       </div>
+    </Base>
+  );
+}
+
+/** Ranking (série Top 5): quadrado com a posição e o título do item, em cima da tela (PNG com topo em y 290). */
+export function CartaoRanking({ f, item = 0 }: { f: FatosVideo; item?: number }) {
+  const r = f.ranking?.[item];
+  if (!r?.titulo) return null;
+  const t = ajustarTitulo(cortar(r.titulo, 60), 560, 2, [64, 56, 48]);
+  return (
+    <div style={{ display: "flex", width: LARGURA_CARTAO, height: ALTURA_CARTAO.ranking + 80, padding: 40 }}>
+      <div style={{ display: "flex", width: 220, height: 220, alignItems: "center", justifyContent: "center", backgroundColor: COR.destaque, color: COR.sobreDestaque, fontFamily: ANTON, fontSize: 150 }}>{r.posicao ?? `#${item + 1}`}</div>
+      <div style={{ display: "flex", alignItems: "center", flex: 1, height: 220, padding: "0 32px", backgroundColor: "rgba(6,8,7,0.88)", borderTop: `2px solid ${COR.linhaSuave}`, borderRight: `2px solid ${COR.linhaSuave}`, borderBottom: `2px solid ${COR.linhaSuave}`, boxShadow: "0 20px 48px rgba(0,0,0,0.55)" }}>
+        <div style={{ display: "flex", width: 560, fontFamily: ANTON, fontSize: t.tam, lineHeight: 1.05, color: COR.texto }}>{caixa(t.texto)}</div>
+      </div>
+    </div>
+  );
+}
+
+/** Dia da série Lançamentos da semana: chip do dia, a data e até 3 jogos. */
+export function CartaoDia({ f, item = 0 }: { f: FatosVideo; item?: number }) {
+  const d = f.dias?.[item];
+  if (!d || !d.jogos.length) return null;
+  const mostrar = d.jogos.slice(0, 3);
+  const resto = d.jogos.length - mostrar.length;
+  return (
+    <Base altura={ALTURA_CARTAO.dia}>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", height: 48, padding: "0 16px", backgroundColor: COR.destaque, color: COR.sobreDestaque, fontFamily: MONO, fontWeight: 700, fontSize: 24 }}>{caixa(d.rotulo.slice(0, 3))}</div>
+        <div style={{ display: "flex", marginLeft: 20, fontFamily: ANTON, fontSize: 64, lineHeight: 1.05, color: COR.texto }}>{d.data}</div>
+      </div>
+      {mostrar.map((j) => (
+        <div key={j} style={{ display: "flex", alignItems: "center", marginTop: 12 }}>
+          <div style={{ display: "flex", width: 14, height: 14, backgroundColor: COR.destaque, marginRight: 18 }} />
+          <div style={{ display: "flex", fontFamily: ANTON, fontSize: 50, lineHeight: 1.05, color: COR.texto }}>{caixa(cortar(j, 28))}</div>
+        </div>
+      ))}
+      {resto > 0 && <div style={{ display: "flex", marginTop: 14, fontFamily: MONO, fontWeight: 700, fontSize: 24, color: COR.apagado }}>{`+${resto} ${resto === 1 ? "JOGO" : "JOGOS"}`}</div>}
     </Base>
   );
 }

@@ -18,7 +18,7 @@ export const ESTILOS: Estilo[] = [
 ];
 
 /** Estilo estável por vídeo (o mesmo vídeo sempre gera a mesma trilha). */
-export const estiloDoVideo = (id: number): Estilo => ESTILOS[Math.abs(id) % ESTILOS.length];
+export const estiloDoVideo = (id: number, nome?: string): Estilo => ESTILOS.find((e) => e.nome === nome) ?? ESTILOS[Math.abs(id) % ESTILOS.length];
 
 const f = (n: number) => n.toFixed(4);
 const escolha = (valores: number[], idx: string) => valores.reduceRight((resto, v, i) => (i === valores.length - 1 ? f(v) : `if(lt(${idx},${i + 1}),${f(v)},${resto})`), "0");

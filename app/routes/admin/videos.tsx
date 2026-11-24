@@ -74,6 +74,10 @@ export async function action({ request }: Route.ActionArgs) {
         model: f.get("model") === "eleven_flash_v2_5" ? "eleven_flash_v2_5" : "eleven_multilingual_v2",
         speed: num("speed", 0.85, 1.1, atual.speed),
         efeitos: f.get("efeitos") === "on",
+        series: Object.fromEntries(
+          Object.keys(atual.series).map((k) => [k, { ligado: f.get(`serie_${k}_on`) === "on", dia: Math.round(num(`serie_${k}_dia`, 0, 6, atual.series[k].dia)), hora: Math.round(num(`serie_${k}_hora`, 0, 23, atual.series[k].hora)) }]),
+        ),
+        formatos: Object.fromEntries(Object.keys(atual.formatos).map((k) => [k, f.get(`formato_${k}`) === "on"])),
         energia: f.get("energia") === "calma" || f.get("energia") === "normal" ? (String(f.get("energia")) as "calma" | "normal") : "animada",
         creditsMonth: Math.round(num("creditsMonth", 1000, 1_000_000, atual.creditsMonth)),
         voiceDefault: String(f.get("voiceDefault") ?? "").trim().slice(0, 40),
@@ -281,7 +285,7 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
   const editavel = (j.status === "aguardando" || j.status === "falhou") && !!r;
   const capa = j.post_image ?? undefined;
   return (
-    <Card title={`${(j.section ?? "").toUpperCase()} · ${j.title ?? ""}`}>
+    <Card title={`${j.serie ? `${MARCA.video.series[j.serie]?.rotulo ?? ""} · ` : ""}${(j.section ?? "").toUpperCase()} · ${j.title ?? ""}`}>
       <div className="grid gap-4 lg:grid-cols-[270px_1fr]">
         <div className="w-[270px] max-w-full">
           {j.status === "pronto" && j.video ? (
@@ -491,6 +495,24 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
           <input type="hidden" name="intent" value="salvar_config" />
           <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="enabled" defaultChecked={cfg.enabled} className="h-5 w-5 accent-[var(--color-acc)]" />Ligado (escolhe 1 matéria por dia e prepara o roteiro)</label>
           <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="efeitos" defaultChecked={cfg.efeitos} className="h-5 w-5 accent-[var(--color-acc)]" />Efeitos sonoros nos cartões (ding no preço, impacto na nota)</label>
+          <fieldset className="flex flex-col gap-2 border border-line p-3">
+            <legend className="px-1 font-mono text-xs text-muted">SÉRIES</legend>
+            {(["gratis-semana", "lancamentos-semana"] as const).map((k) => (
+              <div key={k} className="flex flex-wrap items-center gap-3">
+                <label className="flex min-w-[220px] items-center gap-3 text-paper">
+                  <input type="checkbox" name={`serie_${k}_on`} defaultChecked={cfg.series[k]?.ligado} className="h-5 w-5 accent-[var(--color-acc)]" />
+                  {MARCA.video.series[k].nome}
+                </label>
+                <select name={`serie_${k}_dia`} defaultValue={cfg.series[k]?.dia} aria-label="Dia da semana" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+                  {["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"].map((n, d) => <option key={d} value={d}>{n}</option>)}
+                </select>
+                <label className="flex items-center gap-2 text-xs text-muted">depois das <input name={`serie_${k}_hora`} type="number" min={0} max={23} defaultValue={cfg.series[k]?.hora} className={`${inputCls} w-16`} /> h</label>
+              </div>
+            ))}
+            <p className="text-[11px] text-muted">Lançamentos da semana nasce na segunda e nunca é aprovado sozinho: você aprova pelo painel (pode ser pelo celular).</p>
+            <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="formato_review-60" defaultChecked={cfg.formatos["review-60"]} className="h-5 w-5 accent-[var(--color-acc)]" />Reviews viram “Review em 60 s”</label>
+            <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="formato_top5" defaultChecked={cfg.formatos.top5} className="h-5 w-5 accent-[var(--color-acc)]" />Listas com 5 itens viram “Top 5”</label>
+          </fieldset>
           <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="autoApprove" defaultChecked={cfg.autoApprove} className="h-5 w-5 accent-[var(--color-acc)]" />Aprovar sozinho (sem você ler o roteiro — não recomendado)</label>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Field label="Vídeos por dia (0–3)"><input name="perDay" type="number" min={0} max={3} defaultValue={cfg.perDay} className={inputCls} /></Field>

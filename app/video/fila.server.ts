@@ -19,6 +19,7 @@ import { legendasDoVideo } from "./legendas";
 import { fechamentoFinal, perguntaDoFechamento, textoFalado, type Imagem, type Roteiro } from "./roteiro";
 import type { ItemPronuncia } from "./pronuncia";
 import { dicionarioCompleto } from "./pronuncia.server";
+import { dadosDaSerie, dicaDoPost, rotuloDaSerie, serieDeCalendario, serieDoFormato } from "./series.server";
 import { termosDeDestaque, type FatosVideo } from "./cartoes";
 import { fatosDe } from "./fatos.server";
 import { gerarRoteiro, imagensDisponiveis, validarRoteiro } from "./roteiro.server";
@@ -88,10 +89,12 @@ export async function criarJob(postId: number, origem: "auto" | "manual", serie 
   if (!hasDatabase()) return { erro: "sem banco" };
   const [ja] = await query<{ id: number; status: StatusVideo }>("SELECT id, status FROM video_jobs WHERE post_id = ? AND serie = ?", [postId, serie]);
   if (ja && ja.status !== "descartado") return { erro: "esta matéria já tem um vídeo (veja em /admin/videos)" };
-  const e = await lerEntrada(postId);
+  const e = await lerEntrada(postId, await dicaDoPost(postId));
   if (!e || !e.publicada) return { erro: "matéria não publicada" };
+  const dados = serie ? await dadosDaSerie(serie, e) : { fatos: {}, imagens: [] };
+  if (!dados) return { erro: `a série ${rotuloDaSerie(serie)} não tem dados suficientes para esta matéria` };
   const [fila] = await query<{ overrides: unknown }>("SELECT overrides FROM social_posts WHERE post_id = ? AND network = 'instagram' AND kind = 'feed'", [postId]);
-  const imagens = imagensDisponiveis(e, lerOverrides(fila?.overrides));
+  const imagens = imagensDisponiveis(e, lerOverrides(fila?.overrides), dados.imagens);
   if (imagens.length < (origem === "manual" ? 1 : VIDEO.minImagens)) return { erro: `poucas imagens utilizáveis (${imagens.length})` };
   const cfg = await lerConfig();
   if (ja) await exec("DELETE FROM video_jobs WHERE id = ?", [ja.id]); // descartado antes: recomeça
@@ -100,17 +103,33 @@ export async function criarJob(postId: number, origem: "auto" | "manual", serie 
   return { id: r.insertId };
 }
 
+/**
+ * Botão "Fazer vídeo desta matéria": `formato` "auto" (padrão: review vira Review em 60 s; artigo com 5 pontos vira Top 5; senão
+ * avulso), "avulso" ou o nome de uma série válida para a matéria. Série sem dados cai em vídeo avulso.
+ */
+export async function criarJobDoFormato(postId: number, formato: string): Promise<{ id: number } | { erro: string }> {
+  let serie = "";
+  if (formato === "auto") {
+    const [cfg, e] = await Promise.all([lerConfig(), lerEntrada(postId, await dicaDoPost(postId))]);
+    serie = e ? serieDoFormato(e, escolherModelo(e), cfg) : "";
+  } else if (formato !== "avulso") serie = formato;
+  const r = await criarJob(postId, "manual", serie);
+  if ("erro" in r && serie && formato === "auto") return criarJob(postId, "manual");
+  return r;
+}
+
 /** (Re)gera o roteiro de um job que ainda não foi aprovado/gerado. */
 export async function gerarRoteiroDoJob(id: number): Promise<string> {
   const [j] = await query<Record<string, unknown>>("SELECT * FROM video_jobs WHERE id = ?", [id]);
   if (!j) return "Job não encontrado.";
   const job = linha(j);
   if (job.status === "gerando" || job.status === "pronto") return "Este vídeo já foi gerado ou está sendo gerado.";
-  const e = await lerEntrada(job.post_id);
+  const e = await lerEntrada(job.post_id, await dicaDoPost(job.post_id));
   if (!e) return "Matéria não existe mais.";
   try {
     // Fatos da matéria congelados (cartões de dados): refeitos a cada roteiro novo, para pegar preço/nota atuais.
-    const fatosVideo = fatosDe(e);
+    const dadosSerie = job.serie ? await dadosDaSerie(job.serie, e) : null;
+    const fatosVideo: FatosVideo = { ...fatosDe(e), ...(dadosSerie?.fatos ?? {}) };
     const roteiro = await gerarRoteiro(e, job.images, fatosVideo, job.serie ?? "");
     await exec("UPDATE video_jobs SET script = ?, facts = ?, status = 'aguardando', error = NULL WHERE id = ?", [JSON.stringify(roteiro), JSON.stringify(fatosVideo), id]);
     return "ok";
@@ -317,6 +336,8 @@ export interface PacoteWorker {
   id: number;
   titulo: string;
   secao: string;
+  /** Estilo fixo da trilha da série (vazio = pelo id do vídeo). */
+  trilha?: string;
   roteiro: Roteiro;
   imagens: { src: string; url: string; foco: Foco }[];
   voz: string;
@@ -348,7 +369,7 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
   const r = await exec("UPDATE video_jobs SET status = 'gerando', locked_at = UTC_TIMESTAMP(), attempts = attempts + 1 WHERE id = ? AND status = 'aprovado'", [j.id]);
   if (!r.affected) return null;
   const job = linha(j);
-  const e = await lerEntrada(job.post_id);
+  const e = await lerEntrada(job.post_id, await dicaDoPost(job.post_id));
   if (!job.script || !e) {
     await exec("UPDATE video_jobs SET status = 'falhou', error = 'sem roteiro ou matéria' WHERE id = ?", [job.id]);
     return null;
@@ -363,7 +384,8 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
   return {
     id: job.id,
     titulo: e.titulo,
-    secao: SOCIAL.rotuloSecao[e.section] ?? e.section.toUpperCase(),
+    secao: rotuloDaSerie(job.serie ?? "") || (SOCIAL.rotuloSecao[e.section] ?? e.section.toUpperCase()),
+    trilha: MARCA.video.series[job.serie ?? ""]?.trilha,
     chaveSecao: e.section,
     roteiro: job.script,
     imagens: job.images.map((x, i) => ({ src: x.src, url: abs(x.src), foco: job.focus[String(i)] ?? "auto", alt: x.alt })),
@@ -391,7 +413,7 @@ export async function concluir(id: number, arq: { video: Buffer; capa: Buffer; c
   const [j] = await query<Record<string, unknown>>("SELECT * FROM video_jobs WHERE id = ?", [id]);
   if (!j) throw new Error("job não existe");
   const job = linha(j);
-  const e = await lerEntrada(job.post_id);
+  const e = await lerEntrada(job.post_id, await dicaDoPost(job.post_id));
   const d = new Date();
   const dir = `video/${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
   const hash = createHash("sha1").update(arq.video).digest("hex").slice(0, 8);
@@ -420,6 +442,17 @@ export async function escolherDoDia(): Promise<string> {
   if (!hasDatabase()) return "sem banco";
   const cfg = await lerConfig();
   if (!cfg.enabled || cfg.perDay < 1) return "desligado";
+  // Séries de calendário (grátis da semana: quinta; lançamentos da semana: segunda) vêm antes da escolha comum, com horário próprio.
+  const cal = await serieDeCalendario(cfg);
+  if (cal) {
+    const r = await criarJob(cal.postId, "auto", cal.serie);
+    if (!("erro" in r)) {
+      // Lançamentos da semana cai na segunda (fora de qui/sáb/dom): nunca aprova sozinho; o dono aprova pelo painel.
+      if (cfg.autoApprove && cal.serie !== "lancamentos-semana") await aprovar(r.id);
+      return `job ${r.id} criado (série ${cal.serie})`;
+    }
+    console.warn(`[video] série ${cal.serie} não criou: ${r.erro}`);
+  }
   const { hora, dia } = horaBR(new Date());
   if (hora < cfg.hour) return "ainda não é a hora";
   const inicio = new Date(`${dia}T03:00:00Z`).toISOString().slice(0, 19).replace("T", " ");
@@ -432,7 +465,7 @@ export async function escolherDoDia(): Promise<string> {
   ).catch(() => [] as { id: number; v: number | null }[]);
   let melhor: { id: number; rank: number; v: number; rumor: boolean } | null = null;
   for (const c of candidatos) {
-    const e = await lerEntrada(c.id);
+    const e = await lerEntrada(c.id, await dicaDoPost(c.id));
     if (!e) continue;
     const modelo = escolherModelo(e);
     const rank = VIDEO.ordemTipos.indexOf(modelo as (typeof VIDEO.ordemTipos)[number]);
@@ -444,7 +477,10 @@ export async function escolherDoDia(): Promise<string> {
     if (!melhor || (melhor.rumor && !cand.rumor) || (melhor.rumor === cand.rumor && (cand.rank < melhor.rank || (cand.rank === melhor.rank && cand.v > melhor.v)))) melhor = cand;
   }
   if (!melhor) return "nenhuma matéria boa para vídeo";
-  const r = await criarJob(melhor.id, "auto");
+  const eFormato = await lerEntrada(melhor.id, await dicaDoPost(melhor.id));
+  const formato = eFormato ? serieDoFormato(eFormato, escolherModelo(eFormato), cfg) : "";
+  let r = await criarJob(melhor.id, "auto", formato);
+  if ("erro" in r && formato) r = await criarJob(melhor.id, "auto"); // sem dados para a série: vídeo avulso
   if ("erro" in r) return `não criou: ${r.erro}`;
   if (cfg.autoApprove) await aprovar(r.id);
   return `job ${r.id} criado`;

@@ -134,6 +134,13 @@ export const MARCA = {
     hashtagTikTokExtra: "gamesbr",
     avisoVoz: "Narração gerada por voz sintética.",
     userAgent: "respawnou-video",
+    /** Séries de vídeo: rótulo na tela (chip da abertura e da moldura), estilo da trilha e pergunta padrão do fechamento. */
+    series: {
+      "gratis-semana": { rotulo: "GRÁTIS DA SEMANA", nome: "Jogos grátis da semana", trilha: "energia" },
+      "lancamentos-semana": { rotulo: "LANÇAMENTOS DA SEMANA", nome: "Lançamentos da semana", trilha: "aventura" },
+      "review-60": { rotulo: "REVIEW EM 60 S", nome: "Review em 60 s", trilha: "tensao" },
+      top5: { rotulo: "TOP 5", nome: "Top 5", trilha: "energia", perguntaPadrao: "Qual seria o seu número 1?" },
+    } as Record<string, { rotulo: string; nome: string; trilha: string; perguntaPadrao?: string }>,
     /** Como a voz deve falar siglas e nomes (vale para todo vídeo; o dono acrescenta/troca no painel). Não muda a legenda. */
     pronunciaBase: [
       { de: "PS5", para: "pê ésse cinco" },

@@ -3,19 +3,22 @@ import { generateJson } from "~/lib/robot/gemini.server";
 import { limparLinks } from "~/social/core/texto";
 import type { EntradaSocial, Overrides } from "~/social/tipos";
 import { MARCA } from "~/marca";
-import { type FatosVideo, cartoesDisponiveis, type TipoCartao } from "./cartoes";
-import { perfilDaSecao, VIDEO } from "./config";
+import { type FatosVideo, cartoesDisponiveis, dadosDoPrompt, type TipoCartao } from "./cartoes";
+import { perfilDaSecao, perfilDoJob, VIDEO } from "./config";
+import { normalizarSerie } from "./series.server";
 import { palavrasDoRoteiro, type Imagem, type Roteiro } from "./roteiro";
 
 export type { Imagem, Roteiro } from "./roteiro";
 
 /** Imagens que as cenas podem usar: capa, imagens da matéria, imagens do dono (upload) e, nos modelos de dados, a arte do post. */
-export function imagensDisponiveis(e: EntradaSocial, ov: Overrides = {}): Imagem[] {
+export function imagensDisponiveis(e: EntradaSocial, ov: Overrides = {}, extras: Imagem[] = []): Imagem[] {
   const out: Imagem[] = [];
   const add = (src: string | null | undefined, alt: string) => {
     if (!src || out.some((x) => x.src === src) || out.length >= 8) return;
     out.push({ src, alt: alt.slice(0, 120) });
   };
+  // Séries: primeiro as artes dos itens da lista (uma por item), depois as da matéria.
+  for (const x of extras) add(x.src, x.alt);
   add(ov.trocas?.["1"]?.src, "imagem escolhida pelo dono");
   add(e.capa?.src, "capa da matéria");
   for (const x of ov.extras ?? []) add(x.src, x.legenda ?? "imagem escolhida pelo dono");
@@ -48,8 +51,15 @@ function fatos(e: EntradaSocial): string {
   return l.join("\n");
 }
 
-export const systemDoPerfil = (secao: string) => {
-  const P = perfilDaSecao(secao);
+const BLOCO_SERIE: Record<string, string> = {
+  "gratis-semana": "- SÉRIE Grátis da semana: faça EXATAMENTE uma cena por jogo da lista DADOS (Grátis 0, Grátis 1...), na mesma ordem. Cada fala diz o nome do jogo, a loja e até quando está grátis; o preço normal se houver. O gancho resume quantos jogos estão grátis.",
+  "lancamentos-semana": "- SÉRIE Lançamentos da semana: faça EXATAMENTE uma cena por dia da lista DADOS (Dia 0, Dia 1...), na mesma ordem, dizendo o dia e os jogos que saem (até 3 nomes). O gancho diz quantos lançamentos tem e o destaque da semana.",
+  "review-60": "- SÉRIE Review em 60 s: faça EXATAMENTE 4 cenas: (1) o jogo e a nota média da crítica com o número de veículos; (2) o que a crítica mais elogia; (3) o que a crítica mais critica; (4) o veredito e onde jogar ou o preço.",
+  top5: "- SÉRIE Top 5: faça EXATAMENTE 5 cenas, uma por item da lista DADOS (Item 1 a 5), na ordem em que aparecem. Cada fala diz a posição do item (se vier #5, diga \"em quinto lugar\"; se vier 01, \"número um\") e por que ele está na lista, só com o que o texto diz. O gancho apresenta o tema da lista.",
+};
+
+export const systemDoPerfil = (secao: string, serie = "") => {
+  const P = perfilDoJob(secao, serie);
   return `Você escreve roteiros de vídeos curtos (Reels, Shorts, TikTok) do ${MARCA.site}, ${MARCA.descricao}. O texto será LIDO EM VOZ ALTA por uma narradora, então escreva para o ouvido, em português do Brasil.
 
 REGRAS
@@ -66,6 +76,7 @@ REGRAS
 - Esta é uma matéria longa (artigo, review ou guia): percorra os pontos principais na ordem em que aparecem, uma ideia por cena, sem pressa e sem repetir.` : `
 - Esta é uma notícia: vá direto ao fato mais importante e aos detalhes que mudam algo para quem joga.`}
 - Cartões de dados: em cada cena, "cartao" é OPCIONAL. Use só um dos tipos listados em CARTÕES DISPONÍVEIS, apenas se a fala daquela cena citar o dado; no máximo um por cena e cada tipo uma vez. Deixe vazio se não combinar.
+${BLOCO_SERIE[serie] ?? ""}
 - titulo_curto: até 60 caracteres, para o título do vídeo.
 - Não escreva despedida nem chamada para seguir: o fechamento é fixo e já existe.`;
 };
@@ -102,7 +113,10 @@ const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, 
  * (`ganchos`, pergunta, destaques, cartões). Pergunta, destaques e cartões inválidos viram vazio, sem falhar o roteiro.
  */
 export function validarRoteiro(r: unknown, nImagens: number, secao = "", fatos: FatosVideo | null = null, serie = ""): { ok: true; roteiro: Roteiro } | { ok: false; erro: string } {
-  const L = { ...VIDEO.limites, ...perfilDaSecao(secao), cenas: perfilDaSecao(secao).cenas, palavras: perfilDaSecao(secao).palavras, cena: perfilDaSecao(secao).cena };
+  const P = perfilDoJob(secao, serie);
+  const L = { ...VIDEO.limites, ...P, cenas: P.cenas, palavras: P.palavras, cena: P.cena };
+  // Séries de lista: uma cena por item (jogos grátis, dias, itens do ranking).
+  const itens = serie === "gratis-semana" ? fatos?.gratis?.length : serie === "lancamentos-semana" ? fatos?.dias?.length : serie === "top5" ? fatos?.ranking?.length : undefined;
   if (!r || typeof r !== "object") return { ok: false, erro: "roteiro vazio" };
   const o = r as Record<string, unknown>;
   const texto = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -117,6 +131,7 @@ export function validarRoteiro(r: unknown, nImagens: number, secao = "", fatos: 
   if (!gancho || gancho.length > L.gancho) return { ok: false, erro: `gancho vazio ou com mais de ${L.gancho} caracteres` };
   if (!titulo || titulo.length > L.tituloCurto) return { ok: false, erro: `título curto vazio ou com mais de ${L.tituloCurto} caracteres` };
   if (cenasBrutas.length < L.cenas[0] || cenasBrutas.length > L.cenas[1]) return { ok: false, erro: `precisa de ${L.cenas[0]} a ${L.cenas[1]} cenas (veio ${cenasBrutas.length})` };
+  if (itens && cenasBrutas.length !== itens) return { ok: false, erro: `a série precisa de exatamente ${itens} cenas (uma por item); veio ${cenasBrutas.length}` };
   const disponiveis = cartoesDisponiveis(fatos, serie);
   const usados = new Set<string>();
   const cenas: Roteiro["cenas"] = [];
@@ -176,11 +191,12 @@ export function reforcarCartoes(r: Roteiro, fatos: FatosVideo | null, serie = ""
 
 /** Pede o roteiro ao Gemini. 1 tentativa só (o dono pode pedir outro). Lança erro com a razão se não passar na validação. */
 export async function gerarRoteiro(e: EntradaSocial, imagens: Imagem[], fatosVideo: FatosVideo | null = null, serie = ""): Promise<Roteiro> {
+  const dados = serie ? dadosDoPrompt(fatosVideo) || fatos(e) : fatos(e);
   const cartoes = cartoesDisponiveis(fatosVideo, serie);
   const prompt = `MATÉRIA (${e.section})
 Título: ${e.titulo}
 Linha fina: ${e.excerpt}
-${fatos(e) ? `\nDADOS\n${fatos(e)}\n` : ""}
+${dados ? `\nDADOS\n${dados}\n` : ""}
 CARTÕES DISPONÍVEIS: ${cartoes.length ? cartoes.join(", ") : "nenhum"}
 
 TEXTO
@@ -190,8 +206,9 @@ IMAGENS DISPONÍVEIS (use o número em "imagem")
 ${imagens.map((x, i) => `${i}: ${x.alt}`).join("\n")}`;
   // Modelos próprios do vídeo (o robô de matérias usa o gemini-3.5-flash e esgota a cota dele). GEMINI_MODEL_VIDEO sobrescreve o primeiro.
   const modelos = [process.env.GEMINI_MODEL_VIDEO, "gemini-3.5-flash-lite", "gemini-3.8-flash"].filter(Boolean) as string[];
-  const { data } = await generateJson<unknown>({ system: systemDoPerfil(e.section), prompt, schema: schemaDoJob(cartoes), temperature: 0.6, modelos });
+  const { data } = await generateJson<unknown>({ system: systemDoPerfil(e.section, serie), prompt, schema: schemaDoJob(cartoes), temperature: 0.6, modelos });
   const v = validarRoteiro(data, imagens.length, e.section, fatosVideo, serie);
   if (!v.ok) throw new Error(`roteiro inválido: ${v.erro}`);
-  return reforcarCartoes(v.roteiro, fatosVideo, serie);
+  const r = reforcarCartoes(v.roteiro, fatosVideo, serie);
+  return serie && fatosVideo ? normalizarSerie(r, serie, fatosVideo, imagens) : r;
 }

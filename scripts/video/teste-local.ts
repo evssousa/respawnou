@@ -12,6 +12,7 @@ import { pathToFileURL } from "node:url";
 import sharp from "sharp";
 import { MARCA } from "~/marca";
 import { VIDEO } from "~/video/config";
+import type { CenaRoteiro } from "~/video/roteiro";
 import { caminhoFfmpeg, gerarVideo, type PacoteVideo } from "~/video/gerador.server";
 
 process.env.VIDEO_TESTE = "1";
@@ -49,8 +50,16 @@ function pacote(urls: string[]): PacoteVideo {
   const n = perfil === "longo" ? 10 : 4;
   // As primeiras cenas usam algarismos, sigla e data de propósito: o gerador converte para a fala e remapeia a legenda.
   const ESPECIAIS = ["GTA 6 chega em 28/11 no PS5 e no Xbox.", "Sai por R$ 249,90 e tem nota 8,7 da crítica.", "A RTX 4060 roda em 100% do tempo a 60 quadros?"];
+  // --serie top5|gratis|semana: cenas de lista com cartão de ranking, grátis ou dia (item por cena).
+  const serie = arg("serie");
   const CARTAO = ["lancamento", "preco", "plataformas", "gratis"] as const;
-  const cenas = Array.from({ length: n }, (_, i) => ({ fala: ESPECIAIS[i] ?? `${FALA} ${i + 1}`, imagem: i % urls.length, ...(CARTAO[i] ? { cartao: CARTAO[i] } : {}) }));
+  const tipoSerie = (serie === "top5" ? "ranking" : serie === "gratis" ? "gratis" : serie === "semana" ? "dia" : null) as "ranking" | "gratis" | "dia" | null;
+  const nSerie = serie === "top5" ? 5 : serie === "gratis" ? 3 : serie === "semana" ? 3 : n;
+  const cenas: CenaRoteiro[] = Array.from({ length: tipoSerie ? nSerie : n }, (_, i) => ({
+    fala: tipoSerie ? `${i + 1}. ${FALA} ${i + 1}` : (ESPECIAIS[i] ?? `${FALA} ${i + 1}`),
+    imagem: i % urls.length,
+    ...(tipoSerie ? { cartao: tipoSerie, item: i } : CARTAO[i] ? { cartao: CARTAO[i] } : {}),
+  }));
   const gancho = "Olha só esta novidade que muda tudo";
   // --pergunta: fechamento com pergunta (voz e cartão de fechamento novo).
   const pergunta = process.argv.includes("--pergunta") ? "Você pagaria R$ 349 nele?" : null;
@@ -59,7 +68,7 @@ function pacote(urls: string[]): PacoteVideo {
   return {
     id: 7,
     titulo: "Teste local do gerador de vídeo",
-    secao: "NOTÍCIAS",
+    secao: serie ? (MARCA.video.series[serie === "semana" ? "lancamentos-semana" : serie === "gratis" ? "gratis-semana" : serie]?.rotulo ?? "SÉRIE") : "NOTÍCIAS",
     roteiro: { gancho, cenas, titulo_curto: "TESTE" },
     imagens: urls.map((u, i) => ({ src: `/teste/${i}.jpg`, url: u, foco: "auto" })),
     voz: "x",
@@ -69,7 +78,14 @@ function pacote(urls: string[]): PacoteVideo {
     pronuncia: MARCA.video.pronunciaBase,
     pausa: VIDEO.voz.pausaAntesNumero,
     termos: ["GTA 6", "Xbox"],
+    trilha: serie ? MARCA.video.series[serie === "semana" ? "lancamentos-semana" : serie === "gratis" ? "gratis-semana" : serie]?.trilha : undefined,
     fatos: {
+      ranking: ["Elden Ring", "Hades II", "Balatro", "Hollow Knight: Silksong", "Astro Bot"].map((titulo, i) => ({ titulo, posicao: `#${5 - i}` })),
+      dias: [
+        { rotulo: "SEG", data: "30/11", jogos: ["Jogo X", "Jogo Y"] },
+        { rotulo: "QUI", data: "03/12", jogos: ["Jogo Z", "Jogo W", "Jogo V", "Jogo U", "Jogo T"] },
+        { rotulo: "SEX", data: "04/12", jogos: ["Jogo K"] },
+      ],
       jogo: "GTA 6",
       preco: "R$ 249,90",
       lancamento: { data: "28/11", diaSemana: "SEXTA", ano: 2026 },

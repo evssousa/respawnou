@@ -30,6 +30,8 @@ export interface PacoteVideo {
   modelo: string;
   velocidade: number;
   estabilidade?: number;
+  /** Estilo fixo da trilha (séries têm identidade sonora própria). */
+  trilha?: string;
   estilo?: number;
   /** Efeitos sonoros nos cartões (padrão ligado). */
   efeitos?: boolean;
@@ -285,11 +287,11 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   const fimAbertura = seg.segs.find((x) => x.tipo === "abertura")?.fim ?? 3;
   o.fase?.("trilha");
   // Trilha: música sintetizada (sem direitos autorais) + whoosh em cada transição.
-  const estilo = estiloDoVideo(p.id);
+  const estilo = estiloDoVideo(p.id, p.trilha);
   const fechIni = seg.inicioFechamento;
   await rodar(ff, comandoTrilha(estilo, seg.total, instantesTransicao(clips, fechIni), "trilha.wav", leve), dir);
   // Cartões de dados (só no caminho novo, em que as palavras da tela estão mapeadas): PNG por cartão e o plano de tempo.
-  const cartoes: { arquivo: string; ini: number; fim: number; tipo: string }[] = [];
+  const cartoes: { arquivo: string; ini: number; fim: number; tipo: string; y: number }[] = [];
   if (fala && volta && textos && p.fatos) {
     let pos = textos[0].length;
     const porCena = seg.segs
@@ -306,7 +308,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
       if (!r) continue;
       const arquivo = `cartao_${cartoes.length}.png`;
       await writeFile(join(dir, arquivo), r.png);
-      cartoes.push({ arquivo, ini: c.ini, fim: c.fim, tipo: c.tipo });
+      cartoes.push({ arquivo, ini: c.ini, fim: c.fim, tipo: c.tipo, y: c.y });
     }
   }
   // Efeitos sonoros: um por cartão, no instante em que ele entra (intervalo mínimo de 1,5 s).

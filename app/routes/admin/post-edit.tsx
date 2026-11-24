@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 import type { Route } from "./+types/post-edit";
-import { criarJob } from "~/video/fila.server";
+import { criarJobDoFormato } from "~/video/fila.server";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { blocksToText, textToBlocks } from "~/lib/admin/body-text";
@@ -56,7 +56,8 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
   if (intent === "video") {
     // Vídeo curto desta matéria: cria o job e o roteiro (Gemini); a revisão e a aprovação são em /admin/videos.
-    const r = await criarJob(id, "manual");
+    const formato = String(form.get("formato") ?? "auto");
+    const r = await criarJobDoFormato(id, ["auto", "avulso", "review-60", "top5"].includes(formato) ? formato : "auto");
     return redirect("erro" in r ? `/admin/videos?erro=${encodeURIComponent(r.erro)}` : "/admin/videos?ok=roteiro");
   }
   if (intent === "refazer") {
@@ -243,9 +244,17 @@ export default function AdminPostEdit({ loaderData, actionData }: Route.Componen
                 </Button>
               )}
               {post.status === "published" && (
-                <Button name="intent" value="video" disabled={busy}>
-                  Fazer vídeo desta matéria
-                </Button>
+                <>
+                  <select name="formato" defaultValue="auto" aria-label="Formato do vídeo" className="min-h-10 border border-line bg-ink px-2 text-xs text-paper">
+                    <option value="auto">Formato: automático</option>
+                    <option value="avulso">Formato: avulso</option>
+                    <option value="review-60">Formato: Review em 60 s</option>
+                    <option value="top5">Formato: Top 5</option>
+                  </select>
+                  <Button name="intent" value="video" disabled={busy}>
+                    Fazer vídeo desta matéria
+                  </Button>
+                </>
               )}
               <Button name="intent" value="destaque" disabled={busy}>
                 {post.featured ? "Tirar destaque da home" : "Destacar na home"}
