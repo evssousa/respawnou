@@ -73,6 +73,7 @@ export async function action({ request }: Route.ActionArgs) {
         autoApprove: f.get("autoApprove") === "on",
         model: f.get("model") === "eleven_flash_v2_5" ? "eleven_flash_v2_5" : "eleven_multilingual_v2",
         speed: num("speed", 0.85, 1.1, atual.speed),
+        efeitos: f.get("efeitos") === "on",
         energia: f.get("energia") === "calma" || f.get("energia") === "normal" ? (String(f.get("energia")) as "calma" | "normal") : "animada",
         creditsMonth: Math.round(num("creditsMonth", 1000, 1_000_000, atual.creditsMonth)),
         voiceDefault: String(f.get("voiceDefault") ?? "").trim().slice(0, 40),
@@ -489,6 +490,7 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
         <Form method="post" className="mt-3 flex flex-col gap-3">
           <input type="hidden" name="intent" value="salvar_config" />
           <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="enabled" defaultChecked={cfg.enabled} className="h-5 w-5 accent-[var(--color-acc)]" />Ligado (escolhe 1 matéria por dia e prepara o roteiro)</label>
+          <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="efeitos" defaultChecked={cfg.efeitos} className="h-5 w-5 accent-[var(--color-acc)]" />Efeitos sonoros nos cartões (ding no preço, impacto na nota)</label>
           <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="autoApprove" defaultChecked={cfg.autoApprove} className="h-5 w-5 accent-[var(--color-acc)]" />Aprovar sozinho (sem você ler o roteiro — não recomendado)</label>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Field label="Vídeos por dia (0–3)"><input name="perDay" type="number" min={0} max={3} defaultValue={cfg.perDay} className={inputCls} /></Field>

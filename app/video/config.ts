@@ -15,6 +15,8 @@ export const VIDEO = {
   },
   /** Voz: pausa (s) antes de preço, nota e data para a pessoa acompanhar o número; 0 desliga. No máximo 4 por vídeo. */
   voz: { pausaAntesNumero: 0.25 },
+  /** Efeitos sonoros dos cartões: volume (0 a 1) em relação à voz. */
+  efeitos: { volume: 0.45 },
   /** Frase fixa do fechamento (falada) e texto do botão do cartão final. */
   fechamento: MARCA.video.fechamento,
   fechamentoPergunta: MARCA.video.fechamentoPergunta,
@@ -39,6 +41,8 @@ export const VIDEO = {
     speed: 0.95,
     /** Energia da voz: calma, normal ou animada (estabilidade menor, mais estilo e um pouco mais rápida). */
     energia: "animada" as "calma" | "normal" | "animada",
+    /** Efeitos sonoros nos cartões de dados (ding, impacto, pop). */
+    efeitos: true,
     creditsMonth: 30000,
     /** Uma voz por editoria (seção da matéria). Vazio = usa a voz padrão. */
     voiceDefault: "",

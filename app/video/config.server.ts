@@ -19,6 +19,7 @@ export async function lerConfig(): Promise<VideoConfig> {
     autoApprove: v.autoApprove === true,
     model: v.model === "eleven_flash_v2_5" ? "eleven_flash_v2_5" : p.model,
     speed: num(v.speed, 0.85, 1.1, p.speed),
+    efeitos: v.efeitos !== false,
     energia: v.energia === "calma" || v.energia === "normal" || v.energia === "animada" ? v.energia : p.energia,
     creditsMonth: Math.round(num(v.creditsMonth, 1000, 1_000_000, p.creditsMonth)),
     voiceDefault: typeof v.voiceDefault === "string" ? v.voiceDefault.trim().slice(0, 40) : "",

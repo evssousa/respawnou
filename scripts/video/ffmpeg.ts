@@ -40,6 +40,8 @@ export interface PlanoMontagem {
   corBarra?: string;
   /** Trilha pronta (música + whooshes, ver musica.ts) e o andamento dela, para a imagem pulsar no ritmo. */
   trilha?: { arquivo: string; bpm: number };
+  /** Efeitos sonoros dos cartões (efeitos.wav): somam depois do abaixamento da música, com volume próprio. */
+  efeitos?: { arquivo: string; volume: number };
 }
 
 /** Instantes (s) em que cada transição está no meio: serve para posicionar os "whooshes" da trilha. */
@@ -143,6 +145,8 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   args.push(...t1, "-i", arq.audio);
   const iTrilha = plano.trilha ? idx++ : -1;
   if (plano.trilha) args.push(...t1, "-i", plano.trilha.arquivo);
+  const iEfeitos = plano.trilha && plano.efeitos ? idx++ : -1;
+  if (plano.trilha && plano.efeitos) args.push(...t1, "-i", plano.efeitos.arquivo);
 
   partes.push(`[${iTopo}:v]format=yuva420p[mtopo]`);
   partes.push(`[${iBase}:v]format=yuva420p[mbase]`);
@@ -174,7 +178,10 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
     partes.push(`[${iAudio}:a]loudnorm=I=-14:TP=-1.5:LRA=11,apad=pad_dur=2,asplit=2[vz1][vz2]`);
     partes.push(`[${iTrilha}:a]volume=0.30,apad=pad_dur=3[mus]`);
     partes.push(`[mus][vz2]sidechaincompress=threshold=0.02:ratio=9:attack=15:release=450[duck]`);
-    partes.push(`[vz1][duck]amix=inputs=2:duration=first:dropout_transition=0,volume=2,alimiter=limit=0.95[aout]`);
+    if (plano.efeitos) {
+      partes.push(`[${iEfeitos}:a]volume=${plano.efeitos.volume}[efx]`);
+      partes.push(`[vz1][duck][efx]amix=inputs=3:duration=first:dropout_transition=0,volume=3,alimiter=limit=0.95[aout]`);
+    } else partes.push(`[vz1][duck]amix=inputs=2:duration=first:dropout_transition=0,volume=2,alimiter=limit=0.95[aout]`);
   } else partes.push(`[${iAudio}:a]loudnorm=I=-14:TP=-1.5:LRA=11,apad=pad_dur=2[aout]`);
   const filtro = partes.join(";\n");
   args.push(

@@ -324,6 +324,7 @@ export interface PacoteWorker {
   velocidade: number;
   estabilidade: number;
   estilo: number;
+  efeitos: boolean;
   falado: string;
   pronuncia: ItemPronuncia[];
   termos: string[];
@@ -370,6 +371,7 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
     voz,
     modelo: job.voice_model || cfg.model,
     velocidade: Math.min(1.2, Math.max(0.7, cfg.speed * ENERGIA_VOZ[cfg.energia].velocidade)),
+    efeitos: cfg.efeitos,
     estabilidade: ENERGIA_VOZ[cfg.energia].estabilidade,
     estilo: ENERGIA_VOZ[cfg.energia].estilo,
     falado: textoFalado(job.script, dic, VIDEO.voz.pausaAntesNumero),

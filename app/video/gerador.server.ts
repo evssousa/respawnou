@@ -7,6 +7,7 @@ import { MARCA } from "~/marca";
 import sharp from "sharp";
 import { recortarComFoco } from "~/social/render/imagem.server";
 import { type FatosVideo, planoCartoes } from "./cartoes";
+import { VIDEO } from "./config";
 import type { Roteiro } from "./roteiro";
 import { gerarCartao } from "./render/cartao.server";
 import { gerarQuadros } from "./render/quadros.server";
@@ -14,6 +15,7 @@ import { gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/
 import { alinhamentoFalso, sintetizar } from "../../scripts/video/elevenlabs";
 import { type ItemPronuncia, montarFala, remapear, semTags } from "../../scripts/video/falar";
 import { type Clip, instantesTransicao, montar } from "../../scripts/video/ffmpeg";
+import { comandoEfeitos, filtrarEventos, somDoCartao } from "../../scripts/video/efeitos";
 import { comandoTrilha, estiloDoVideo } from "../../scripts/video/musica";
 import { comandoCortes, ehVideoSrc, escolherTrechos, FRACAO_MAX_VIDEO, lerCortes, lerDuracao, TRECHO_MAX_S } from "../../scripts/video/videoclip";
 
@@ -29,6 +31,8 @@ export interface PacoteVideo {
   velocidade: number;
   estabilidade?: number;
   estilo?: number;
+  /** Efeitos sonoros nos cartões (padrão ligado). */
+  efeitos?: boolean;
   falado: string;
   /** Dicionário de pronúncia (base + do dono). Presente = o gerador converte a tela em fala (números por extenso, pausas) e remapeia a legenda. */
   pronuncia?: ItemPronuncia[];
@@ -305,8 +309,20 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
       cartoes.push({ arquivo, ini: c.ini, fim: c.fim, tipo: c.tipo });
     }
   }
+  // Efeitos sonoros: um por cartão, no instante em que ele entra (intervalo mínimo de 1,5 s).
+  let efeitos: { arquivo: string; volume: number } | undefined;
+  const eventos = filtrarEventos(cartoes.map((c) => ({ t: c.ini, tipo: somDoCartao(c.tipo) })));
+  if (p.efeitos !== false && eventos.length) {
+    try {
+      await rodar(ff, comandoEfeitos(eventos, seg.total, "efeitos.wav", leve), dir);
+      efeitos = { arquivo: "efeitos.wav", volume: VIDEO.efeitos.volume };
+    } catch (err) {
+      console.warn("[video] efeitos sonoros não saíram (o vídeo segue sem eles):", String((err as Error)?.message ?? err).slice(0, 120));
+    }
+  }
   const { args, filtro } = montar({
     cartoes,
+    efeitos,
     corBarra: MARCA.cores.destaque,
     trilha: { arquivo: "trilha.wav", bpm: estilo.bpm },
     leve,
