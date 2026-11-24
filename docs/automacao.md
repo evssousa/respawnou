@@ -199,7 +199,9 @@ painel / `GET /api/cron/jogos`). O diagnóstico testa o acesso.
 - Descrição em português: 1 pedido ao Gemini por execução, até 12 jogos (os mais aguardados), só com o
   que o resumo em inglês diz. Até traduzir, a ficha mostra uma frase montada com os dados.
 - Matéria nova é ligada à ficha quando a palavra-chave é o nome do jogo (`posts.game_id`).
-- **Fichas sem matéria têm `noindex` e ficam fora do sitemap** (só dados não é conteúdo próprio).
+- **Fichas sem matéria têm `noindex` e ficam fora do sitemap** (só dados não é conteúdo próprio), a menos que passem no critério abaixo.
+- **Dados extras das fichas (migration 010):** além dos campos básicos, o IGDB traz nota agregada da crítica, modos de jogo, franquia, jogos parecidos, datas por plataforma e idiomas. Para jogos de PC, `enrichGamesFromSteam()` (`app/lib/robot/fichas.server.ts`, até 15 por execução do job `jogos`) busca na Steam o `steam_appid`, os requisitos mínimo e recomendado (`pc_min`/`pc_rec`), o preço em reais e os idiomas; ficha de console nunca recebe requisitos.
+- **Liberação para o Google (`index_from`):** `liberarFichas()` avalia as fichas sem matéria com a função pura `app/lib/game-index.ts` (descrição em português com 120+ caracteres, data ou rótulo, trailer ou 4+ capturas e pelo menos 3 de 5 blocos fortes: requisitos mínimo e recomendado, português nos idiomas, nota da crítica com 3+ análises, datas em 2+ plataformas, 3+ jogos parecidos no site). Quando passa, grava `index_from`, no máximo **5 por semana** (as de maior `hypes` primeiro) até o AdSense responder; depois 10 por semana. Ficha liberada nunca é apagada pelo sync e continua indexada mesmo se perder dados. O log do job mostra "fichas liberadas: N".
 - Crédito "Dados: IGDB.com" na ficha e no calendário. Termos: grátis também para uso comercial; com
   anúncios, pedir a parceria em partner@igdb.com (lembrete em adsense.md).
 

@@ -15,6 +15,7 @@ Datas em UTC.
 | `db/migrations/006_ofertas.sql` | `free_games` preenchida pelo robô: `source`, `external_id` (único por origem), `image_url`, `worth`, `description`, `extra`, `post_id`/`post_status`/`post_note` (matéria sobre a oferta) | automática no deploy de 2026-11-11 |
 | `db/migrations/007_consenso.sql` | Tabelas `critic_reviews` (nota de cada análise, lida do JSON-LD) e `critic_consensus` (um consenso por jogo, ligado ao post); feeds só de análises da IGN e da Game Informer | automática no deploy de 2026-11-11 |
 | `db/migrations/008_igdb.sql` | `games` preenchida pelo IGDB: `igdb_id` (único), `igdb_url`, `hypes`, `release_label` (data imprecisa), `cover_url`, `screenshots`, `trailer`, `summary_en`, `synced_at` | automática no deploy de 2026-11-12 |
+| `db/migrations/010_fichas.sql` | `games` ganha dados de ficha: `releases` (datas por plataforma), `critic_score`/`critic_count`, `modes`, `franchise`, `similar_igdb`, `steam_appid`, `pc_min`/`pc_rec` (requisitos da Steam), `price_brl`, `languages`, `steam_synced_at` e `index_from` (quando a ficha passou a ser indexável; nunca volta a NULL sozinho; índice `ix_games_index`) | automática no deploy |
 
 Como aplicar:
 
