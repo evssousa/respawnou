@@ -11,7 +11,7 @@ import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/c
 import type { Foco } from "~/social/tipos";
 import { SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
-import { aprovar, descartar, gerarRoteiroDoJob, listarJobs, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { aprovar, descartar, gerarRoteiroDoJob, listarJobs, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -64,7 +64,8 @@ export async function action({ request }: Route.ActionArgs) {
       const r = await gerarRoteiroDoJob(id);
       return back(r === "ok" ? "ok=roteiro" : `erro=${encodeURIComponent(r)}`);
     }
-    if (intent === "descartar") return (await descartar(id), back("ok=descartado"));
+    if (intent === "descartar") return (await descartar(id)) ? back("ok=descartado") : back(`erro=${encodeURIComponent("Não dá para excluir um vídeo que está sendo gerado agora.")}`);
+    if (intent === "reabrir") return (await reabrir(id)) ? back("ok=reaberto") : back(`erro=${encodeURIComponent("Este vídeo não pode ser reaberto agora.")}`);
     if (intent === "salvar" || intent === "aprovar" || intent === "refazer") {
       if (intent !== "refazer") {
         const cenas: { fala: string; imagem: number }[] = [];
@@ -96,7 +97,8 @@ const MSG: Record<string, string> = {
   config: "Configuração salva.",
   roteiro: "Roteiro novo gerado.",
   salvo: "Roteiro salvo.",
-  descartado: "Vídeo descartado.",
+  descartado: "Vídeo excluído (arquivos apagados).",
+  reaberto: "Vídeo reaberto: mexa no roteiro, nas imagens e no enquadramento e clique em Aprovar e gerar quando quiser.",
   aprovado: "Aprovado. O vídeo fica pronto em alguns minutos: recarregue a página.",
 };
 const ROTULO_STATUS: Record<string, string> = { aguardando: "aguardando você", aprovado: "aprovado, na fila do gerador", gerando: "gerando", pronto: "pronto", falhou: "falhou" };
@@ -219,7 +221,7 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
           {(j.status === "aguardando" || j.status === "falhou") && (
             <div className="flex flex-wrap gap-2">
               <Form method="post"><input type="hidden" name="id" value={j.id} /><Button name="intent" value="gerar_roteiro" disabled={busy}>Gerar outro roteiro (usa 1 pedido do Gemini)</Button></Form>
-              <Form method="post" onSubmit={(e) => { if (!confirm("Descartar este vídeo?")) e.preventDefault(); }}><input type="hidden" name="id" value={j.id} /><Button name="intent" value="descartar" disabled={busy}>Descartar</Button></Form>
+              <Form method="post" onSubmit={(e) => { if (!confirm("Excluir este vídeo?")) e.preventDefault(); }}><input type="hidden" name="id" value={j.id} /><Button name="intent" value="descartar" disabled={busy}>Excluir</Button></Form>
             </div>
           )}
 
@@ -228,8 +230,11 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
               <div className="flex flex-wrap gap-2">
                 {j.video && <a href={j.video} download className="inline-flex min-h-10 items-center bg-acc px-4 font-mono text-xs font-bold text-ink">Baixar MP4</a>}
                 {j.cover && <a href={j.cover} download className="inline-flex min-h-10 items-center border border-line-soft px-4 font-mono text-xs font-bold text-paper hover:border-acc">Baixar capa</a>}
-                <Form method="post" onSubmit={(e) => { if (!confirm(`Refazer o vídeo? Gasta ~${j.chars ?? 550} créditos da ElevenLabs de novo.`)) e.preventDefault(); }}>
-                  <input type="hidden" name="id" value={j.id} /><Button name="intent" value="refazer" disabled={busy}>Refazer vídeo (gasta ~{j.chars ?? 550} créditos)</Button>
+                <Form method="post">
+                  <input type="hidden" name="id" value={j.id} /><Button name="intent" value="reabrir" disabled={busy}>Editar e refazer (não gera ainda)</Button>
+                </Form>
+                <Form method="post" onSubmit={(e) => { if (!confirm("Excluir este vídeo? O MP4 e a capa são apagados e não dá para desfazer.")) e.preventDefault(); }}>
+                  <input type="hidden" name="id" value={j.id} /><Button name="intent" value="descartar" disabled={busy}>Excluir vídeo</Button>
                 </Form>
               </div>
               {j.captions && (

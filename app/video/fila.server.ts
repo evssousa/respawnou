@@ -151,7 +151,29 @@ export async function processarFilaNoServidor(): Promise<void> {
   }
 }
 
-export const descartar = (id: number) => exec("UPDATE video_jobs SET status = 'descartado' WHERE id = ? AND status NOT IN ('gerando')", [id]);
+/** Apaga do disco o MP4 e a capa de um job (só caminhos de /media/video). */
+async function apagarArquivosDoJob(id: number): Promise<void> {
+  const [v] = await query<{ video: string | null; cover: string | null }>("SELECT video, cover FROM video_jobs WHERE id = ?", [id]);
+  for (const f of [v?.video, v?.cover]) {
+    if (!f || !/^\/media\/video\/\d{4}\/\d{2}\/[\w.-]+$/.test(f)) continue;
+    await rm(join(mediaDir(), f.slice("/media/".length)), { force: true }).catch(() => undefined);
+  }
+  await exec("UPDATE video_jobs SET video = NULL, cover = NULL WHERE id = ?", [id]);
+}
+
+/** Exclui o vídeo (pronto, com falha ou rascunho): some da lista e os arquivos são apagados na hora. Não mexe em vídeo sendo gerado. */
+export async function descartar(id: number): Promise<boolean> {
+  const r = await exec("UPDATE video_jobs SET status = 'descartado' WHERE id = ? AND status NOT IN ('gerando')", [id]);
+  if (!r.affected) return false;
+  await apagarArquivosDoJob(id);
+  return true;
+}
+
+/** "Editar e refazer": volta um vídeo pronto para o rascunho (roteiro, imagens e enquadramentos editáveis); só gera de novo ao aprovar. O MP4 antigo continua até o novo ficar pronto. */
+export async function reabrir(id: number): Promise<boolean> {
+  const r = await exec("UPDATE video_jobs SET status = 'aguardando', error = NULL WHERE id = ? AND status = 'pronto' AND script IS NOT NULL", [id]);
+  return r.affected > 0;
+}
 
 // ───────────── Geração no servidor ─────────────
 
