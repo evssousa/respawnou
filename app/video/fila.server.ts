@@ -19,6 +19,8 @@ import { legendasDoVideo } from "./legendas";
 import { textoFalado, type Imagem, type Roteiro } from "./roteiro";
 import type { ItemPronuncia } from "./pronuncia";
 import { dicionarioCompleto } from "./pronuncia.server";
+import type { FatosVideo } from "./cartoes";
+import { fatosDe } from "./fatos.server";
 import { gerarRoteiro, imagensDisponiveis, validarRoteiro } from "./roteiro.server";
 
 export type StatusVideo = "aguardando" | "aprovado" | "gerando" | "pronto" | "falhou" | "descartado";
@@ -76,6 +78,7 @@ function linha(r: Record<string, unknown>): JobVideo {
     images: json<Imagem[]>(r.images, []),
     focus: json<Record<string, Foco>>(r.focus, {}),
     captions: json(r.captions, null),
+    facts: json(r.facts, null),
     duration_s: r.duration_s == null ? null : Number(r.duration_s),
   };
 }
@@ -106,8 +109,10 @@ export async function gerarRoteiroDoJob(id: number): Promise<string> {
   const e = await lerEntrada(job.post_id);
   if (!e) return "Matéria não existe mais.";
   try {
-    const roteiro = await gerarRoteiro(e, job.images);
-    await exec("UPDATE video_jobs SET script = ?, status = 'aguardando', error = NULL WHERE id = ?", [JSON.stringify(roteiro), id]);
+    // Fatos da matéria congelados (cartões de dados): refeitos a cada roteiro novo, para pegar preço/nota atuais.
+    const fatosVideo = fatosDe(e);
+    const roteiro = await gerarRoteiro(e, job.images, fatosVideo, job.serie ?? "");
+    await exec("UPDATE video_jobs SET script = ?, facts = ?, status = 'aguardando', error = NULL WHERE id = ?", [JSON.stringify(roteiro), JSON.stringify(fatosVideo), id]);
     return "ok";
   } catch (err) {
     const msg = String((err as Error)?.message ?? err).slice(0, 400);
@@ -123,7 +128,7 @@ export async function salvarRoteiro(id: number, roteiro: unknown, focus: Record<
   const job = linha(j);
   if (job.status === "gerando" || job.status === "pronto") return "Este vídeo já foi gerado ou está sendo gerado.";
   const [pp] = await query<{ section: string }>("SELECT section FROM posts WHERE id = ?", [job.post_id]);
-  const v = validarRoteiro(roteiro, job.images.length, pp?.section ?? "");
+  const v = validarRoteiro(roteiro, job.images.length, pp?.section ?? "", (job.facts as FatosVideo | null) ?? null, job.serie ?? "");
   if (!v.ok) return `Roteiro inválido: ${v.erro}.`;
   await exec("UPDATE video_jobs SET script = ?, focus = ?, status = IF(status = 'falhou', 'aguardando', status), error = NULL WHERE id = ?", [JSON.stringify(v.roteiro), JSON.stringify(focus), id]);
   return "ok";

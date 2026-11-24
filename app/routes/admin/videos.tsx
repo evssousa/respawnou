@@ -96,18 +96,38 @@ export async function action({ request }: Route.ActionArgs) {
     if (intent === "reabrir") return (await reabrir(id)) ? back("ok=reaberto") : back(`erro=${encodeURIComponent("Este vídeo não pode ser reaberto agora.")}`);
     if (intent === "salvar" || intent === "aprovar" || intent === "refazer" || intent === "img_add" || intent === "vid_add") {
       if (intent !== "refazer") {
-        const cenas: { fala: string; imagem: number }[] = [];
+        const cenas: { fala: string; imagem: number; cartao?: string; item?: number | null }[] = [];
+        const json = <T,>(v: FormDataEntryValue | null, fb: T): T => {
+          try {
+            return v ? (JSON.parse(String(v)) as T) : fb;
+          } catch {
+            return fb;
+          }
+        };
         const focus: Record<string, Foco> = {};
         for (let i = 0; f.has(`fala_${i}`); i++) {
           const imagem = Number(f.get(`img_${i}`));
-          cenas.push({ fala: String(f.get(`fala_${i}`) ?? "").trim(), imagem });
+          const cartao = String(f.get(`cartao_${i}`) ?? "");
+          const itemTxt = String(f.get(`item_${i}`) ?? "");
+          cenas.push({ fala: String(f.get(`fala_${i}`) ?? "").trim(), imagem, ...(cartao ? { cartao } : {}), ...(itemTxt !== "" ? { item: Number(itemTxt) } : {}) });
           const fo = String(f.get(`foco_${i}`) ?? "auto");
           if (fo === "inteira") focus[String(imagem)] = "inteira" as Foco;
           else focus[String(imagem)] = focoValido(fo);
         }
         const capa = Number(f.get("capa"));
         if (f.get("capa") !== "" && Number.isInteger(capa) && capa >= 0) focus["_capa"] = String(capa) as Foco;
-        const erro = await salvarRoteiro(id, { gancho: String(f.get("gancho") ?? ""), titulo_curto: String(f.get("titulo_curto") ?? ""), cenas }, focus);
+        // Roteiro novo (v2): ganchos, pergunta, destaques e cartões precisam voltar do formulário, senão somem ao salvar.
+        const v2 = f.has("ganchos_json");
+        const erro = await salvarRoteiro(
+          id,
+          {
+            gancho: String(f.get("gancho") ?? ""),
+            titulo_curto: String(f.get("titulo_curto") ?? ""),
+            cenas,
+            ...(v2 ? { ganchos: json<string[]>(f.get("ganchos_json"), []), pergunta: String(f.get("pergunta") ?? ""), usarPergunta: f.get("usar_pergunta") === "on", destaques: json<string[]>(f.get("destaques_json"), []) } : {}),
+          },
+          focus,
+        );
         if (erro !== "ok") return back(`erro=${encodeURIComponent(erro)}`);
       }
       if (intent === "img_add") {
@@ -191,7 +211,7 @@ function CapaEscolha({ j }: { j: Job }) {
 }
 
 /** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
-function CenaLinha({ i, c, images, focus, max }: { max: number; i: number; c: { fala: string; imagem: number }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
+function CenaLinha({ i, c, images, focus, max }: { max: number; i: number; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
   const [img, setImg] = useState(c.imagem);
   const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
@@ -213,6 +233,8 @@ function CenaLinha({ i, c, images, focus, max }: { max: number; i: number; c: { 
         <textarea name={`fala_${i}`} defaultValue={c.fala} rows={2} maxLength={max} aria-label={`Fala da cena ${i + 1}`} className={inputCls} />
         <input type="hidden" name={`img_${i}`} value={img} />
         <input type="hidden" name={`foco_${i}`} value={foco} />
+        <input type="hidden" name={`cartao_${i}`} value={c.cartao ?? ""} />
+        <input type="hidden" name={`item_${i}`} value={c.item ?? ""} />
         <div className="flex flex-wrap gap-2">
           <EscolherImagem opcoes={images} valor={String(img)} onChange={(v) => { const n = Number(v); setImg(n); setFoco(focus[String(n)] ?? "auto"); }} rotulo={`Imagem da cena ${i + 1}`} />
           <select value={foco} onChange={(e) => setFoco(e.target.value)} aria-label="Enquadramento" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
@@ -270,6 +292,14 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
               <input type="hidden" name="id" value={j.id} />
               <Field label={`Gancho (${r.gancho.length}/${VIDEO.limites.gancho})`}>
                 <input name="gancho" defaultValue={r.gancho} maxLength={VIDEO.limites.gancho} className={inputCls} />
+                {r.v === 2 && (
+                  <>
+                    <input type="hidden" name="ganchos_json" value={JSON.stringify(r.ganchos ?? [])} />
+                    <input type="hidden" name="pergunta" value={r.pergunta ?? ""} />
+                    {r.usarPergunta && <input type="hidden" name="usar_pergunta" value="on" />}
+                    <input type="hidden" name="destaques_json" value={JSON.stringify(r.destaques ?? [])} />
+                  </>
+                )}
               </Field>
               <Field label={`Título do vídeo (até ${VIDEO.limites.tituloCurto})`}>
                 <input name="titulo_curto" defaultValue={r.titulo_curto} maxLength={VIDEO.limites.tituloCurto} className={inputCls} />
