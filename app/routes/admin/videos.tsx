@@ -136,6 +136,33 @@ function Copiavel({ titulo, texto }: { titulo: string; texto: string }) {
 
 type Job = Extract<Route.ComponentProps["loaderData"], { semBanco: false }>["jobs"][number];
 
+/** Escolha da imagem da capa/abertura com a prévia da 1ª tela (imagem enquadrada + moldura + cartão de título), montada pelo servidor. */
+function CapaEscolha({ j }: { j: Job }) {
+  const [sel, setSel] = useState<string>(j.focus["_capa"] ?? "");
+  const [v, setV] = useState(0);
+  const [falhou, setFalhou] = useState(false);
+  const indice = sel !== "" ? sel : String(j.script?.cenas[0]?.imagem ?? 0);
+  return (
+    <Field label="Imagem da capa e da abertura (a 1ª imagem do vídeo)">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="flex min-w-[220px] flex-1 flex-col gap-2">
+          <select name="capa" value={sel} onChange={(e) => { setSel(e.target.value); setFalhou(false); }} className={inputCls}>
+            <option value="">Automática (a da 1ª cena)</option>
+            {j.images.map((x, k) => (x.src.startsWith("arte:") || x.src.startsWith("yt:") || /\.(mp4|webm)$/i.test(x.src) ? null : <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>))}
+          </select>
+          <button type="button" className="min-h-9 self-start border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => { setV(v + 1); setFalhou(false); }}>Atualizar prévia</button>
+          <p className="text-[11px] text-muted">A prévia usa o enquadramento já salvo da imagem. Mexeu no alinhamento? Clique em Salvar roteiro e depois em Atualizar prévia.</p>
+        </div>
+        {falhou ? (
+          <div className="flex aspect-[9/16] w-[180px] items-center justify-center border border-line p-2 text-center text-xs text-muted">Sem prévia para esta opção</div>
+        ) : (
+          <img key={`${indice}-${v}`} src={`/admin/videos/capa/${j.id}?img=${indice}&v=${v}`} alt="Prévia da primeira tela do vídeo" width={180} height={320} className="aspect-[9/16] w-[180px] border border-line bg-ink object-cover" onError={() => setFalhou(true)} />
+        )}
+      </div>
+    </Field>
+  );
+}
+
 /** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
 function CenaLinha({ i, c, images, focus }: { i: number; c: { fala: string; imagem: number }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
   const [img, setImg] = useState(c.imagem);
@@ -220,12 +247,7 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
               <Field label={`Título do vídeo (até ${VIDEO.limites.tituloCurto})`}>
                 <input name="titulo_curto" defaultValue={r.titulo_curto} maxLength={VIDEO.limites.tituloCurto} className={inputCls} />
               </Field>
-              <Field label="Imagem da capa e da abertura (a 1ª imagem do vídeo)">
-                <select name="capa" defaultValue={j.focus["_capa"] ?? ""} className={inputCls}>
-                  <option value="">Automática (a da 1ª cena)</option>
-                  {j.images.map((x, k) => (x.src.startsWith("arte:") || /\.(mp4|webm)$/i.test(x.src) ? null : <option key={k} value={k}>{`Imagem ${k + 1}: ${x.alt.slice(0, 40)}`}</option>))}
-                </select>
-              </Field>
+              <CapaEscolha j={j} />
               {r.cenas.map((c, i) => (
                 <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} />
               ))}

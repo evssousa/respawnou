@@ -177,6 +177,7 @@ export async function adicionarImagem(id: number, file: File): Promise<string> {
 
 /** Aprova e começa a gerar o vídeo aqui no servidor (em segundo plano). */
 export async function aprovar(id: number): Promise<{ ok: boolean; aviso?: string }> {
+  await sincronizarVideoDaMateria(id);
   const r = await exec("UPDATE video_jobs SET status = 'aprovado', approved_at = UTC_TIMESTAMP(), error = NULL, attempts = 0, locked_at = NULL WHERE id = ? AND status IN ('aguardando','falhou','pronto') AND script IS NOT NULL", [id]);
   if (!r.affected) return { ok: false, aviso: "Este vídeo não pode ser aprovado agora (sem roteiro ou já em geração)." };
   void processarFilaNoServidor();
@@ -233,8 +234,20 @@ export async function descartar(id: number): Promise<boolean> {
   return true;
 }
 
+/** Jobs criados antes do suporte a vídeo não têm o vídeo da matéria na lista: acrescenta (no fim, sem mudar os números das imagens). */
+async function sincronizarVideoDaMateria(id: number): Promise<void> {
+  const [j] = await query<Record<string, unknown>>("SELECT j.images, p.body FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.id = ?", [id]);
+  if (!j) return;
+  const imagens = json<Imagem[]>(j.images, []);
+  if (imagens.some((x) => x.src.startsWith("yt:"))) return;
+  const yt = json<{ type: string; youtubeId?: string }[]>(j.body, []).find((b) => b.type === "video" && b.youtubeId);
+  if (!yt?.youtubeId) return;
+  await exec("UPDATE video_jobs SET images = ? WHERE id = ?", [JSON.stringify([...imagens, { src: `yt:${yt.youtubeId}`, alt: "Vídeo: trailer/vídeo da própria matéria (YouTube)" }]), id]);
+}
+
 /** "Editar e refazer": volta um vídeo pronto para o rascunho (roteiro, imagens e enquadramentos editáveis); só gera de novo ao aprovar. O MP4 antigo continua até o novo ficar pronto. */
 export async function reabrir(id: number): Promise<boolean> {
+  await sincronizarVideoDaMateria(id);
   const r = await exec("UPDATE video_jobs SET status = 'aguardando', error = NULL WHERE id = ? AND status = 'pronto' AND script IS NOT NULL", [id]);
   return r.affected > 0;
 }
@@ -361,6 +374,12 @@ export async function escolherDoDia(): Promise<string> {
 }
 
 // ───────────── Painel e limpeza ─────────────
+
+/** Um job com o título e a seção da matéria (para a prévia da capa). */
+export async function obterJob(id: number): Promise<(JobVideo & { titulo_post: string; secao_post: string }) | null> {
+  const [r] = await query<Record<string, unknown>>("SELECT j.*, p.title AS titulo_post, p.section AS secao_post FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.id = ?", [id]);
+  return r ? ({ ...linha(r), titulo_post: String(r.titulo_post ?? ""), secao_post: String(r.secao_post ?? "") }) : null;
+}
 
 export async function listarJobs(limite = 10): Promise<JobVideo[]> {
   const rows = await query<Record<string, unknown>>(

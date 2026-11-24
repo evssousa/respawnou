@@ -65,6 +65,23 @@ async function baixar(url: string): Promise<Buffer> {
   return Buffer.from(await r.arrayBuffer());
 }
 
+/**
+ * Enquadra uma imagem em 9:16. Imagem larga (16:9): inteira no centro sobre ela mesma desfocada (não corta personagem nas
+ * bordas); vertical/quadrada: recorte pelo foco (ou pela parte mais chamativa). Foco "inteira" força o primeiro modo.
+ * É a mesma regra do vídeo e da prévia da capa.
+ */
+export async function enquadrarVertical(buf: Buffer, w: number, h: number, foco: string, qualidade = 90): Promise<{ jpeg: Buffer; inteira: boolean }> {
+  const meta = await sharp(buf).metadata();
+  const larga = (meta.width ?? 1) / (meta.height ?? 1) >= 1.25;
+  const inteira = foco === "inteira" || (foco === "auto" && larga);
+  if (inteira) {
+    const fundo = await sharp(buf).rotate().resize(w, h, { fit: "cover", position: sharp.strategy.attention }).blur(40).modulate({ brightness: 0.5 }).jpeg({ quality: 85 }).toBuffer();
+    const frente = await sharp(buf).rotate().resize(w, h, { fit: "inside" }).toBuffer();
+    return { jpeg: await sharp(fundo).composite([{ input: frente, gravity: "centre" }]).jpeg({ quality: qualidade }).toBuffer(), inteira };
+  }
+  return { jpeg: await sharp(await recortarComFoco(buf, w, h, foco)).jpeg({ quality: qualidade }).toBuffer(), inteira };
+}
+
 export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador = {}): Promise<{ mp4: string; capa: Buffer; chars: number; duracao: number }> {
   const ff = o.ffmpeg ?? (await caminhoFfmpeg());
   const leve = o.qualidade === "leve";
@@ -174,18 +191,10 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     if (feito) return feito;
     const img = p.imagens[indice];
     const buf = await baixar(img.url);
-    const meta = await sharp(buf).metadata();
     const foco = img.foco || "auto";
-    const larga = (meta.width ?? 1) / (meta.height ?? 1) >= 1.25;
-    const inteira = foco === "inteira" || (foco === "auto" && larga);
     const nome = `cena${indice}.jpg`;
-    if (inteira) {
-      const fundo = await sharp(buf).rotate().resize(LARG, ALT, { fit: "cover", position: sharp.strategy.attention }).blur(40).modulate({ brightness: 0.5 }).jpeg({ quality: 85 }).toBuffer();
-      const frente = await sharp(buf).rotate().resize(LARG, ALT, { fit: "inside" }).toBuffer();
-      await sharp(fundo).composite([{ input: frente, gravity: "centre" }]).jpeg({ quality: 90 }).toFile(join(dir, nome));
-    } else {
-      await sharp(await recortarComFoco(buf, LARG, ALT, foco)).jpeg({ quality: 90 }).toFile(join(dir, nome));
-    }
+    const { jpeg, inteira } = await enquadrarVertical(buf, LARG, ALT, foco);
+    await writeFile(join(dir, nome), jpeg);
     // Alinhamento manual ou recorte escolhido pelo dono: a câmera só respira no centro, para o enquadramento dele aparecer como ele deixou.
     const r = { nome, suave: inteira, fixo: !inteira && foco !== "auto" };
     prep.set(indice, r);

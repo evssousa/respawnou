@@ -3,12 +3,11 @@
 // O YouTube costuma bloquear downloads vindos de servidores: quando isso acontece, a mensagem pede o envio manual do arquivo.
 import { spawn } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { caminhoFfmpeg } from "./gerador.server";
 
 const WIN = process.platform === "win32";
-const BIN = join(tmpdir(), "respawnou-bin", WIN ? "yt-dlp.exe" : "yt-dlp");
 const URL_BIN = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${WIN ? "yt-dlp.exe" : "yt-dlp_linux"}`;
 const MAX_DURACAO_S = 25 * 60;
 export const MAX_BYTES_LINK = 80 * 1024 * 1024;
@@ -31,33 +30,74 @@ export function linkPermitido(entrada: string, liberarQualquer = false): URL {
   throw new ErroLink("Só aceito links do YouTube ou de um arquivo MP4/WebM direto.");
 }
 
-async function garantirBinario(): Promise<string> {
-  let velho = true;
-  let existe = false;
-  try {
-    const s = await stat(BIN);
-    existe = s.size > 1_000_000;
-    velho = Date.now() - s.mtimeMs > 7 * 86400_000;
-  } catch {
-    /* ainda não existe */
-  }
-  if (existe && !velho) return BIN;
-  try {
-    const r = await fetch(URL_BIN, { redirect: "follow", signal: AbortSignal.timeout(120_000) });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const buf = Buffer.from(await r.arrayBuffer());
-    await mkdir(join(tmpdir(), "respawnou-bin"), { recursive: true });
-    await writeFile(BIN, buf);
-    if (!WIN) await chmod(BIN, 0o755);
-  } catch (e) {
-    if (!existe) throw new ErroLink(`Não consegui baixar o programa de download (${String((e as Error).message)}). Envie o arquivo do vídeo manualmente.`);
-  }
-  return BIN;
+interface Comando {
+  cmd: string;
+  pre: string[];
+}
+let escolhido: Comando | null = null;
+
+/** Pastas candidatas para guardar o programa: /tmp costuma ser "noexec" na hospedagem (EACCES), então a de casa vem primeiro. */
+const PASTAS = () => [join(homedir(), "respawnou-bin"), join(process.cwd(), ".bin"), join(tmpdir(), "respawnou-bin")];
+
+async function baixarArquivo(url: string, destino: string): Promise<void> {
+  const r = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(120_000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  await mkdir(dirname(destino), { recursive: true });
+  await writeFile(destino, Buffer.from(await r.arrayBuffer()));
 }
 
-function rodar(bin: string, args: string[], timeoutMs: number): Promise<{ out: string; err: string }> {
+const executa = (cmd: string, args: string[]) =>
+  new Promise<boolean>((ok) => {
+    const p = spawn(cmd, args, { stdio: "ignore" });
+    const t = setTimeout(() => p.kill("SIGKILL"), 20_000);
+    p.on("error", () => (clearTimeout(t), ok(false)));
+    p.on("close", (c) => (clearTimeout(t), ok(c === 0)));
+  });
+
+async function arquivoValido(caminho: string): Promise<boolean> {
+  try {
+    const s = await stat(caminho);
+    return s.size > 500_000 && Date.now() - s.mtimeMs < 14 * 86400_000;
+  } catch {
+    return false;
+  }
+}
+
+/** Acha um jeito de executar o yt-dlp: binário único numa pasta que permita execução; se nenhuma permitir, o .pyz com python3. */
+async function garantirBinario(): Promise<Comando> {
+  if (escolhido) return escolhido;
+  const falhas: string[] = [];
+  for (const dir of PASTAS()) {
+    const bin = join(dir, WIN ? "yt-dlp.exe" : "yt-dlp");
+    try {
+      if (!(await arquivoValido(bin))) {
+        await baixarArquivo(URL_BIN, bin);
+        if (!WIN) await chmod(bin, 0o755);
+      }
+      if (await executa(bin, ["--version"])) return (escolhido = { cmd: bin, pre: [] });
+      falhas.push(`${dir}: não executa`);
+    } catch (e) {
+      falhas.push(`${dir}: ${String((e as Error).message)}`);
+    }
+  }
+  if (!WIN) {
+    for (const dir of PASTAS()) {
+      const pyz = join(dir, "yt-dlp.pyz");
+      try {
+        if (!(await arquivoValido(pyz))) await baixarArquivo("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp", pyz);
+        for (const py of ["python3", "python"]) if (await executa(py, [pyz, "--version"])) return (escolhido = { cmd: py, pre: [pyz] });
+      } catch (e) {
+        falhas.push(`${dir} (pyz): ${String((e as Error).message)}`);
+      }
+    }
+  }
+  console.warn("[video] yt-dlp indisponível:", falhas.join(" | "));
+  throw new ErroLink("Não consegui preparar o programa de download no servidor (a hospedagem bloqueia a execução). Use o envio manual do arquivo.");
+}
+
+function rodar(bin: Comando, args: string[], timeoutMs: number): Promise<{ out: string; err: string }> {
   return new Promise((ok, erro) => {
-    const p = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(bin.cmd, [...bin.pre, ...args], { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
     const t = setTimeout(() => p.kill("SIGKILL"), timeoutMs);
