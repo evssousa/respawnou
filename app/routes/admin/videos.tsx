@@ -152,6 +152,10 @@ export async function action({ request }: Route.ActionArgs) {
         }
         const capa = Number(f.get("capa"));
         if (f.get("capa") !== "" && Number.isInteger(capa) && capa >= 0) focus["_capa"] = String(capa) as Foco;
+        // Enquadramento da imagem da capa (feito na própria caixa da capa); vale para essa imagem em todo o vídeo.
+        const capaFoco = String(f.get("capa_foco") ?? "");
+        const idxCapa = f.get("capa") !== "" && Number.isInteger(capa) && capa >= 0 ? capa : cenas[0]?.imagem;
+        if (capaFoco && Number.isInteger(idxCapa)) focus[String(idxCapa)] = capaFoco === "inteira" ? ("inteira" as Foco) : focoValido(capaFoco);
         // Roteiro novo (v2): ganchos, pergunta, destaques e cartões precisam voltar do formulário, senão somem ao salvar.
         const v2 = f.has("ganchos_json");
         const erro = await salvarRoteiro(
@@ -227,12 +231,16 @@ function CapaEscolha({ j }: { j: Job }) {
   const [v, setV] = useState(0);
   const [prev, setPrev] = useState<{ url: string | null; erro: string | null; carregando: boolean; indice: string }>({ url: null, erro: null, carregando: true, indice: "" });
   const indice = sel !== "" ? sel : String(j.script?.cenas[0]?.imagem ?? 0);
+  const [foco, setFoco] = useState<string>(j.focus[indice] ?? "auto");
+  const [alinhando, setAlinhando] = useState(false);
+  const real = j.images[Number(indice)]?.src;
+  const imagemReal = !!real && !real.startsWith("arte:") && !real.startsWith("yt:") && !/\.(mp4|webm)$/i.test(real);
   // Busca a prévia por fetch (sem cache) e mostra o resultado: assim a imagem sempre acompanha a escolha e qualquer erro aparece escrito.
   useEffect(() => {
     let vivo = true;
     let objeto: string | null = null;
     setPrev((p) => ({ ...p, carregando: true, erro: null }));
-    fetch(`/admin/videos/capa/${j.id}/${indice}/${Date.now()}-${v}`, { cache: "no-store", credentials: "same-origin" })
+    fetch(`/admin/videos/capa/${j.id}/${indice}/${Date.now()}-${v}?foco=${encodeURIComponent(foco)}`, { cache: "no-store", credentials: "same-origin" })
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.text()).slice(0, 160) || `HTTP ${r.status}`);
         const b = await r.blob();
@@ -245,15 +253,26 @@ function CapaEscolha({ j }: { j: Job }) {
       vivo = false;
       if (objeto) setTimeout(() => URL.revokeObjectURL(objeto!), 5000);
     };
-  }, [indice, v, j.id]);
+  }, [indice, v, j.id, foco]);
   return (
+    <>
     <Field label="Imagem da capa e da abertura (a 1ª imagem do vídeo)">
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex min-w-[220px] flex-1 flex-col gap-2">
           <input type="hidden" name="capa" value={sel} />
-          <EscolherImagem opcoes={j.images} valor={sel} onChange={(x) => setSel(x)} rotulo="Escolha a imagem da capa e da abertura" permitirAutomatica="a imagem da 1ª cena" semVideo />
-          <button type="button" className="min-h-9 self-start border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setV(v + 1)}>Atualizar prévia</button>
-          <p className="text-[11px] text-muted">A prévia usa o enquadramento já salvo da imagem. Mexeu no alinhamento? Clique em Salvar roteiro e depois em Atualizar prévia.</p>
+          <EscolherImagem opcoes={j.images} valor={sel} onChange={(x) => { setSel(x); const n = x !== "" ? x : String(j.script?.cenas[0]?.imagem ?? 0); setFoco(j.focus[n] ?? "auto"); }} rotulo="Escolha a imagem da capa e da abertura" permitirAutomatica="a imagem da 1ª cena" semVideo />
+          <input type="hidden" name="capa_foco" value={foco} />
+          <div className="flex flex-wrap gap-2">
+            <select value={foco} onChange={(e) => setFoco(e.target.value)} aria-label="Enquadramento da capa" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+              {ehFocoManual(foco) && <option value={foco}>{`Manual (${foco.replace(",", "% / ")}%)`}</option>}
+              <option value="inteira">Imagem inteira (fundo desfocado)</option>
+              <option value="auto">Automático</option>
+              {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
+            </select>
+            {imagemReal && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando(true)}>Mover e alinhar</button>}
+            <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setV(v + 1)}>Atualizar prévia</button>
+          </div>
+          <p className="text-[11px] text-muted">Use "Mover e alinhar" para arrastar a imagem até o encaixe certo; a prévia já usa o que você escolheu. Clique em Salvar roteiro para guardar. O enquadramento vale para essa imagem em todo o vídeo.</p>
         </div>
         <div className="flex flex-col gap-1">
           {prev.url && !prev.erro ? (
@@ -265,6 +284,8 @@ function CapaEscolha({ j }: { j: Job }) {
         </div>
       </div>
     </Field>
+    {alinhando && imagemReal && <AlinharImagem src={real!} aspecto={9 / 16} inicial={foco} titulo="CAPA E ABERTURA · enquadramento (9:16)" onSalvar={(f) => { setFoco(f); setAlinhando(false); }} onFechar={() => setAlinhando(false)} />}
+    </>
   );
 }
 
