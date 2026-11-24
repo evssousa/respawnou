@@ -36,9 +36,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   try {
     const { jpeg } = await enquadrarVertical(await lerImagem(item.src), 1080, 1920, foco, 82);
     const quadros = await gerarQuadros({ titulo: job.titulo_post, secao: SOCIAL.rotuloSecao[job.secao_post] ?? job.secao_post.toUpperCase(), cta: VIDEO.ctaCartao });
-    const out = await sharp(jpeg).composite([{ input: quadros.moldura }, { input: quadros.abertura }]).resize(540, 960).jpeg({ quality: 82 }).toBuffer();
+    // Compõe em tamanho cheio e só depois reduz (o sharp redimensiona a base ANTES de sobrepor as camadas).
+    const cheio = await sharp(jpeg).composite([{ input: quadros.moldura }, { input: quadros.abertura }]).jpeg({ quality: 88 }).toBuffer();
+    const out = await sharp(cheio).resize(540, 960).jpeg({ quality: 82 }).toBuffer();
     return new Response(new Uint8Array(out), { headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, no-store" } });
   } catch (err) {
+    console.warn("[video] prévia da capa falhou:", String((err as Error)?.message ?? err));
     return new Response(`Não gerou: ${String((err as Error)?.message ?? err)}`, { status: 422 });
   }
 }

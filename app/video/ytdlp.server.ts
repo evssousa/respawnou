@@ -46,13 +46,31 @@ async function baixarArquivo(url: string, destino: string): Promise<void> {
   await writeFile(destino, Buffer.from(await r.arrayBuffer()));
 }
 
-const executa = (cmd: string, args: string[]) =>
-  new Promise<boolean>((ok) => {
-    const p = spawn(cmd, args, { stdio: "ignore" });
-    const t = setTimeout(() => p.kill("SIGKILL"), 20_000);
-    p.on("error", () => (clearTimeout(t), ok(false)));
-    p.on("close", (c) => (clearTimeout(t), ok(c === 0)));
+/**
+ * O binário único do yt-dlp (PyInstaller) se descompacta numa pasta temporária ao iniciar. Em /tmp a hospedagem bloqueia
+ * execução, então ele recebe uma pasta temporária própria, ao lado dele.
+ */
+async function ambiente(cmd: string): Promise<NodeJS.ProcessEnv> {
+  const tmp = join(dirname(cmd), "tmp");
+  await mkdir(tmp, { recursive: true }).catch(() => undefined);
+  return { ...process.env, TMPDIR: tmp, TEMP: tmp, TMP: tmp };
+}
+
+const executa = async (cmd: string, args: string[], falhas?: string[]) => {
+  const env = await ambiente(cmd.includes("/") || cmd.includes("\\") ? cmd : args[0] ?? cmd);
+  return new Promise<boolean>((ok) => {
+    const p = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"], env });
+    let err = "";
+    p.stderr.on("data", (d) => (err += String(d)));
+    const t = setTimeout(() => p.kill("SIGKILL"), 40_000);
+    p.on("error", (e) => (clearTimeout(t), falhas?.push(`${cmd}: ${e.message}`), ok(false)));
+    p.on("close", (c) => {
+      clearTimeout(t);
+      if (c !== 0) falhas?.push(`${cmd} saiu com ${c}: ${err.replace(/\s+/g, " ").slice(-200)}`);
+      ok(c === 0);
+    });
   });
+};
 
 async function arquivoValido(caminho: string): Promise<boolean> {
   try {
@@ -74,8 +92,7 @@ async function garantirBinario(): Promise<Comando> {
         await baixarArquivo(URL_BIN, bin);
         if (!WIN) await chmod(bin, 0o755);
       }
-      if (await executa(bin, ["--version"])) return (escolhido = { cmd: bin, pre: [] });
-      falhas.push(`${dir}: não executa`);
+      if (await executa(bin, ["--version"], falhas)) return (escolhido = { cmd: bin, pre: [] });
     } catch (e) {
       falhas.push(`${dir}: ${String((e as Error).message)}`);
     }
@@ -85,7 +102,7 @@ async function garantirBinario(): Promise<Comando> {
       const pyz = join(dir, "yt-dlp.pyz");
       try {
         if (!(await arquivoValido(pyz))) await baixarArquivo("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp", pyz);
-        for (const py of ["python3", "python"]) if (await executa(py, [pyz, "--version"])) return (escolhido = { cmd: py, pre: [pyz] });
+        for (const py of ["python3", "python"]) if (await executa(py, [pyz, "--version"], falhas)) return (escolhido = { cmd: py, pre: [pyz] });
       } catch (e) {
         falhas.push(`${dir} (pyz): ${String((e as Error).message)}`);
       }
@@ -95,9 +112,10 @@ async function garantirBinario(): Promise<Comando> {
   throw new ErroLink("Não consegui preparar o programa de download no servidor (a hospedagem bloqueia a execução). Use o envio manual do arquivo.");
 }
 
-function rodar(bin: Comando, args: string[], timeoutMs: number): Promise<{ out: string; err: string }> {
+async function rodar(bin: Comando, args: string[], timeoutMs: number): Promise<{ out: string; err: string }> {
+  const envs = await ambiente(bin.pre[0] ?? bin.cmd);
   return new Promise((ok, erro) => {
-    const p = spawn(bin.cmd, [...bin.pre, ...args], { stdio: ["ignore", "pipe", "pipe"] });
+    const p = spawn(bin.cmd, [...bin.pre, ...args], { stdio: ["ignore", "pipe", "pipe"], env: envs });
     let out = "";
     let err = "";
     const t = setTimeout(() => p.kill("SIGKILL"), timeoutMs);
