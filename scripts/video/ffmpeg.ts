@@ -81,7 +81,7 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   // usam 1 thread só (o padrão do ffmpeg é 1 por núcleo, por entrada).
   const etapa = plano.etapa ?? 0;
   const t1 = plano.leve ? ["-threads", "1"] : [];
-  const args: string[] = ["-y", "-hide_banner", "-loglevel", "warning", ...(plano.leve ? ["-filter_threads", "1", "-filter_complex_threads", "1"] : [])];
+  const args: string[] = ["-y", "-hide_banner", "-loglevel", "error", ...(plano.leve ? ["-filter_threads", "1", "-filter_complex_threads", "1"] : [])];
   const partes: string[] = [];
   const rotulos: string[] = [];
   let idx = 0;

@@ -94,7 +94,12 @@ function rodarUma(cmd: string, args: string[], cwd: string): Promise<string> {
     let err = "";
     p.stderr.on("data", (d) => (err += String(d)));
     p.on("error", erro);
-    p.on("close", (c) => (c === 0 ? ok(err) : erro(new Error(`${cmd} saiu com ${c}: ${err.slice(-800)}`))));
+    p.on("close", (c) => {
+      if (c === 0) return ok(err);
+      // O ffmpeg enche o log de avisos inofensivos ("deprecated pixel format"): tira esses para o erro de verdade aparecer.
+      const util = err.split(String.fromCharCode(10)).filter((l) => l.trim() && !/deprecated pixel format|Guessed Channel Layout/.test(l)).join(" | ");
+      erro(new Error(`${cmd} saiu com ${c}: ${util.slice(-900)}`));
+    });
   });
 }
 
