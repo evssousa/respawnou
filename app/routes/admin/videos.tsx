@@ -239,15 +239,31 @@ function CapaEscolha({ j }: { j: Job }) {
         {falhou ? (
           <div className="flex aspect-[9/16] w-[180px] items-center justify-center border border-line p-2 text-center text-xs text-muted">Sem prévia para esta opção</div>
         ) : (
-          <img key={`${indice}-${v}`} src={`/admin/videos/capa/${j.id}?img=${indice}&v=${v}`} alt="Prévia da primeira tela do vídeo" width={180} height={320} className="aspect-[9/16] w-[180px] border border-line bg-ink object-cover" onError={() => setFalhou(true)} />
+          <img key={`${indice}-${v}`} src={`/admin/videos/capa/${j.id}/${indice}/${v}`} alt="Prévia da primeira tela do vídeo" width={180} height={320} className="aspect-[9/16] w-[180px] border border-line bg-ink object-cover" onError={() => setFalhou(true)} />
         )}
       </div>
     </Field>
   );
 }
 
+/** Lista de cenas. Guarda aqui o cartão escolhido em cada uma, para o "já na cena N" das outras valer na hora (e não só depois de salvar). */
+function CenasEditor({ j, r, max }: { j: Job; r: NonNullable<Job["script"]>; max: number }) {
+  const [cart, setCart] = useState<string[]>(() => r.cenas.map((c) => c.cartao ?? ""));
+  const usados: Record<string, number> = {};
+  cart.forEach((t, k) => {
+    if (t) usados[t] = k;
+  });
+  return (
+    <>
+      {r.cenas.map((c, i) => (
+        <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} max={max} jobId={j.id} fatos={(j.facts as unknown as FatosVideo | null) ?? null} usados={usados} onCartao={(v) => setCart((a) => a.map((x, k) => (k === i ? v : x)))} />
+      ))}
+    </>
+  );
+}
+
 /** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
-function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados }: { max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
+function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao }: { onCartao: (v: string) => void; max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
   const [img, setImg] = useState(c.imagem);
   const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
@@ -284,7 +300,7 @@ function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados }: { max: nu
           {real && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando(true)}>Ver maior e alinhar</button>}
           {fatos && (
             <span className="flex items-center gap-2">
-              <select value={cartao} onChange={(e) => { setCartao(e.target.value); setSemPrevia(false); }} aria-label="Cartão de dados desta cena" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+              <select value={cartao} onChange={(e) => { setCartao(e.target.value); onCartao(e.target.value); setSemPrevia(false); }} aria-label="Cartão de dados desta cena" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
                 <option value="">Cartão: nenhum</option>
                 {disponiveis.map((t) => {
                   const outra = usados[t] != null && usados[t] !== i;
@@ -350,9 +366,7 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
                 <input name="titulo_curto" defaultValue={r.titulo_curto} maxLength={VIDEO.limites.tituloCurto} className={inputCls} />
               </Field>
               <CapaEscolha j={j} />
-              {r.cenas.map((c, i) => (
-                <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} max={perfil.cena} jobId={j.id} fatos={(j.facts as unknown as FatosVideo | null) ?? null} usados={Object.fromEntries(r.cenas.flatMap((x, k) => (x.cartao ? [[x.cartao, k]] : [])))} />
-              ))}
+              <CenasEditor j={j} r={r} max={perfil.cena} />
               <div className="flex flex-wrap items-center gap-2 border border-dashed border-line-soft p-2">
                 <span className="text-xs text-muted">A imagem não combina com o texto? Envie outra ({j.images.length} no vídeo):</span>
                 <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/avif" className="max-w-full text-xs text-body" />

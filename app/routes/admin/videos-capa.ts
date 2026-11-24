@@ -29,7 +29,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const job = await obterJob(id);
   if (!job) return new Response("Vídeo não encontrado", { status: 404 });
   const q = new URL(request.url).searchParams;
-  const indice = Number(q.get("img"));
+  // O índice vai no caminho (e não só na query): a CDN da hospedagem pode ignorar a query e devolver sempre a primeira prévia.
+  const indice = Number(params.img ?? q.get("img"));
   const alvo = Number.isInteger(indice) && indice >= 0 ? indice : Number(job.focus["_capa"] ?? job.script?.cenas[0]?.imagem ?? 0);
   const item = job.images[alvo];
   if (!item || item.src.startsWith("arte:") || item.src.startsWith("yt:") || /\.(mp4|webm)$/i.test(item.src)) return new Response("Essa opção não é uma imagem.", { status: 422 });
@@ -41,7 +42,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     // Compõe em tamanho cheio e só depois reduz (o sharp redimensiona a base ANTES de sobrepor as camadas).
     const cheio = await sharp(jpeg).composite([{ input: quadros.moldura }, { input: quadros.abertura }]).jpeg({ quality: 88 }).toBuffer();
     const out = await sharp(cheio).resize(540, 960).jpeg({ quality: 82 }).toBuffer();
-    return new Response(new Uint8Array(out), { headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, no-store" } });
+    return new Response(new Uint8Array(out), { headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, no-store, max-age=0", "CDN-Cache-Control": "no-store", Vary: "Cookie" } });
   } catch (err) {
     console.warn("[video] prévia da capa falhou:", String((err as Error)?.message ?? err));
     return new Response(`Não gerou: ${String((err as Error)?.message ?? err)}`, { status: 422 });

@@ -58,7 +58,7 @@ export default [
     route("instagram", "routes/admin/instagram.tsx"),
     route("instagram/previa/:id", "routes/admin/instagram-previa.ts"),
     route("videos", "routes/admin/videos.tsx"),
-    route("videos/capa/:id", "routes/admin/videos-capa.ts"),
+    route("videos/capa/:id/:img?/:v?", "routes/admin/videos-capa.ts"),
     route("videos/cartao/:id", "routes/admin/videos-cartao.ts"),
     route("config", "routes/admin/settings.tsx"),
   ]),
