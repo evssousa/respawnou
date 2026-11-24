@@ -2,6 +2,7 @@
 import { generateJson } from "~/lib/robot/gemini.server";
 import { limparLinks } from "~/social/core/texto";
 import type { EntradaSocial, Overrides } from "~/social/tipos";
+import { MARCA } from "~/marca";
 import { perfilDaSecao, VIDEO } from "./config";
 import { palavrasDoRoteiro, type Imagem, type Roteiro } from "./roteiro";
 
@@ -48,12 +49,12 @@ function fatos(e: EntradaSocial): string {
 
 const systemDoPerfil = (secao: string) => {
   const P = perfilDaSecao(secao);
-  return `Você escreve roteiros de vídeos curtos (Reels, Shorts, TikTok) do Respawnou, portal brasileiro de notícias de games. O texto será LIDO EM VOZ ALTA por uma narradora, então escreva para o ouvido, em português do Brasil.
+  return `Você escreve roteiros de vídeos curtos (Reels, Shorts, TikTok) do ${MARCA.site}, ${MARCA.descricao}. O texto será LIDO EM VOZ ALTA por uma narradora, então escreva para o ouvido, em português do Brasil.
 
 REGRAS
 - Use SOMENTE o que está no texto da matéria. Não invente nome, número, data, preço ou declaração.
 - Rumor é dito como rumor ("segundo rumores", "ainda não foi confirmado").
-- Frases curtas, no máximo 18 palavras. Tom de quem joga para quem joga. Sem gíria forçada, sem "fala, galera", sem emoji, sem pergunta no meio do texto.
+- Frases curtas, no máximo 18 palavras. ${MARCA.tom} Sem gíria forçada, sem "fala, galera", sem emoji, sem pergunta no meio do texto.
 - Escreva números de preço e data como se falam ("oitenta e nove e noventa", "vinte e oito de novembro"). Nomes de jogos como no texto.
 - gancho: a primeira frase, que prende (até 90 caracteres). Ela aparece no cartão de abertura.
 - cenas: de ${P.cenas[0]} a ${P.cenas[1]}. Cada cena tem uma fala (até ${P.cena} caracteres) e o número da imagem (da lista) que melhor combina com o que está sendo dito. Varie as imagens quando houver mais de uma.

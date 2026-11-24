@@ -2,7 +2,8 @@
 import { spawn } from "node:child_process";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { basename, join } from "node:path";
+import { MARCA } from "~/marca";
 import sharp from "sharp";
 import { recortarComFoco } from "~/social/render/imagem.server";
 import { gerarQuadros } from "./render/quadros.server";
@@ -65,7 +66,7 @@ const POSICAO: Record<string, string | number> = { auto: sharp.strategy.attentio
 async function baixar(url: string): Promise<Buffer> {
   // Só no teste local (scripts/video/teste-local.ts): imagem do disco. Fora dele, file:// continua proibido (as URLs vêm do banco).
   if (process.env.VIDEO_TESTE === "1" && url.startsWith("file://")) return readFile(fileURLToPath(url));
-  const r = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "respawnou-video" } });
+  const r = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { "User-Agent": MARCA.video.userAgent } });
   if (!r.ok) throw new Error(`imagem ${url} → HTTP ${r.status}`);
   return Buffer.from(await r.arrayBuffer());
 }
@@ -117,7 +118,8 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   const nG = p.roteiro.gancho.replace(/[.!?…]+$/, "").trim().split(/\s+/).length;
   const nCenas = falas.reduce((a, f) => a + f.trim().split(/\s+/).length, 0);
   await mkdir(join(dir, "fonts"), { recursive: true });
-  await copyFile(join(process.cwd(), "app/video/fonts/Anton-Regular.ttf"), join(dir, "fonts/Anton-Regular.ttf"));
+  const ttf = MARCA.fontes.legenda.ttf;
+  await copyFile(join(process.cwd(), ttf), join(dir, "fonts", basename(ttf)));
 
   o.fase?.("imagens");
   // 3) Plano de clipes. Abertura + cena 1 viram um clipe só (o cartão de título fica por cima do gancho). Cada cena mostra SEMPRE a
@@ -235,7 +237,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     if (clips.length === 1) capaDoPrimeiro = x.capaArq ?? x.nome;
   }
 
-  await writeFile(join(dir, "legenda.ass"), gerarAss(palavras.slice(nG, nG + nCenas), { creditos }));
+  await writeFile(join(dir, "legenda.ass"), gerarAss(palavras.slice(nG, nG + nCenas), { creditos, cores: { texto: MARCA.cores.texto, destaque: MARCA.cores.destaque, contorno: MARCA.cores.fundo }, fonte: MARCA.fontes.legenda.familia }));
 
   o.fase?.("quadros");
   // 5) Quadros (marca, abertura, fechamento) e montagem
@@ -250,6 +252,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   const fechIni = seg.inicioFechamento;
   await rodar(ff, comandoTrilha(estilo, seg.total, instantesTransicao(clips, fechIni), "trilha.wav", leve), dir);
   const { args, filtro } = montar({
+    corBarra: MARCA.cores.destaque,
     trilha: { arquivo: "trilha.wav", bpm: estilo.bpm },
     leve,
     clips,

@@ -92,18 +92,28 @@ const hms = (s: number) => {
   return `${h}:${String(m).padStart(2, "0")}:${String(seg).padStart(2, "0")}.${String(cs % 100).padStart(2, "0")}`;
 };
 
+/** Cor "#rrggbb" → formato do ASS "&HAABBGGRR&" (alfa 0 = opaco). */
+export function corAss(hex: string, alfa = 0): string {
+  const h = hex.replace("#", "");
+  const [r, g, b] = [h.slice(0, 2), h.slice(2, 4), h.slice(4, 6)].map((x) => x.toUpperCase());
+  return `&H${alfa.toString(16).toUpperCase().padStart(2, "0")}${b}${g}${r}&`;
+}
+
 const limpa = (t: string) => t.replace(/[{}\\]/g, "").toLocaleUpperCase("pt-BR");
 
 /**
  * Arquivo ASS (1080×1920, Anton 84, contorno 6 px, palavra atual em verde-limão). Um evento por palavra mostrando a página
  * inteira; só as palavras das cenas (sem gancho e sem fechamento). Sem sobreposição de tempo entre eventos.
  */
-export function gerarAss(palavrasCenas: Palavra[], opts: { margemV?: number; creditos?: { ini: number; fim: number; texto: string }[] } = {}): string {
+export function gerarAss(palavrasCenas: Palavra[], opts: { margemV?: number; creditos?: { ini: number; fim: number; texto: string }[]; cores?: { texto: string; destaque: string; contorno: string }; fonte?: string } = {}): string {
+  const cor = opts.cores ?? { texto: "#eef3ea", destaque: "#c8ff2e", contorno: "#060807" };
+  const fonte = opts.fonte ?? "Anton";
+  const est = (hex: string) => corAss(hex).slice(0, -1); // nas linhas Style a cor não leva o "&" final
   const pags = paginas(palavrasCenas);
   const eventos: string[] = [];
   // A palavra da vez acende em verde-limão e "pula" (cresce e volta ao normal em 0,12 s).
-  const verde = "{\\c&H2EFFC8&\\fscx122\\fscy122\\t(0,120,\\fscx100\\fscy100)}";
-  const base = "{\\c&H00EAF3EE&\\fscx100\\fscy100}";
+  const verde = `{\\c${corAss(cor.destaque)}\\fscx122\\fscy122\\t(0,120,\\fscx100\\fscy100)}`;
+  const base = `{\\c${corAss(cor.texto)}\\fscx100\\fscy100}`;
   for (let pi = 0; pi < pags.length; pi++) {
     const pag = pags[pi];
     const proxima = pags[pi + 1]?.[0];
@@ -126,8 +136,8 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cred,Anton,38,&H00EAF3EE,&H00EAF3EE,&H00070806,&H00000000,0,0,0,0,100,100,2,0,1,3,0,1,48,48,330,1
-Style: Pal,Anton,92,&H00EAF3EE,&H00EAF3EE,&H00070806,&H00000000,0,0,0,0,100,100,0,0,1,6,0,2,64,164,${opts.margemV ?? 480},1
+Style: Cred,${fonte},38,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,2,0,1,3,0,1,48,48,330,1
+Style: Pal,${fonte},92,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,0,0,1,6,0,2,64,164,${opts.margemV ?? 480},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

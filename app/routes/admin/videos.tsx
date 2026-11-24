@@ -6,6 +6,7 @@ import type { Route } from "./+types/videos";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
 import { hasDatabase } from "~/lib/db.server";
+import { MARCA } from "~/marca";
 import { AlinharImagem } from "~/components/AlinharImagem";
 import { EscolherImagem } from "~/components/EscolherImagem";
 import { ChipsMetricas, TabelaDesempenho } from "~/components/video/Desempenho";
@@ -303,7 +304,7 @@ function CartaoJob({ j, cfg, busy }: { j: Job; cfg: VideoConfig; busy: boolean }
                 ) : j.ig_status === "enviando" ? (
                   <span className="inline-flex min-h-10 animate-pulse items-center border border-line-soft px-4 font-mono text-xs font-bold text-paper">Enviando ao Instagram… (até 6 min)</span>
                 ) : (
-                  <Form method="post" onSubmit={(e) => { if (!confirm("Publicar este vídeo AGORA como Reels no Instagram do Respawnou (valendo, fora do modo de teste)?")) e.preventDefault(); }}>
+                  <Form method="post" onSubmit={(e) => { if (!confirm(`Publicar este vídeo AGORA como Reels no Instagram do ${MARCA.site} (valendo, fora do modo de teste)?`)) e.preventDefault(); }}>
                     <input type="hidden" name="id" value={j.id} /><Button tone="primary" name="intent" value="publicar_reel" disabled={busy}>Publicar no Instagram (Reels)</Button>
                   </Form>
                 )}

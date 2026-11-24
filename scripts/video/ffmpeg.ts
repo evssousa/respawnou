@@ -34,6 +34,8 @@ export interface PlanoMontagem {
   arq: { moldura: string; abertura: string; fechamento: string; audio: string; legenda: string; saida: string };
   /** Servidor compartilhado: preset mais rápido e 2 threads. */
   leve?: boolean;
+  /** Cor da barra de progresso, "#rrggbb" (cor de destaque da marca). */
+  corBarra?: string;
   /** Trilha pronta (música + whooshes, ver musica.ts) e o andamento dela, para a imagem pulsar no ritmo. */
   trilha?: { arquivo: string; bpm: number };
 }
@@ -122,7 +124,7 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   const iAbert = idx++;
   args.push(...t1, "-loop", "1", "-framerate", String(FPS), "-t", s3(total), "-i", arq.abertura);
   const iBarra = idx++;
-  args.push(...t1, "-f", "lavfi", "-t", s3(total), "-i", `color=c=0xc8ff2e:s=1080x8:r=${FPS}`);
+  args.push(...t1, "-f", "lavfi", "-t", s3(total), "-i", `color=c=0x${(plano.corBarra ?? "#c8ff2e").replace("#", "")}:s=1080x8:r=${FPS}`);
   const iAudio = idx++;
   args.push(...t1, "-i", arq.audio);
   const iTrilha = plano.trilha ? idx++ : -1;

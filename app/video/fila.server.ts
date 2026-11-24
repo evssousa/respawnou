@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { mediaDir } from "../../server-paths.mjs";
 import { horaBR } from "~/social/core/agenda";
 import { lerOverrides } from "~/social/core/overrides";
+import { MARCA } from "~/marca";
 import { SOCIAL } from "~/social/config";
 import { escolherModelo, lerEntrada, urlDaMateria } from "~/social/site.server";
 import type { Foco } from "~/social/tipos";
@@ -216,7 +217,7 @@ export async function publicarReel(id: number): Promise<string> {
     [id],
   );
   if (!r.affected) return "Este vídeo já está sendo enviado ao Instagram.";
-  const legenda = (job.captions?.instagram ?? "").trim() || `${job.title ?? "Respawnou"}`;
+  const legenda = (job.captions?.instagram ?? "").trim() || `${job.title ?? MARCA.site}`;
   void (async () => {
     try {
       const { cota } = await import("~/social/server/instagram.server");
