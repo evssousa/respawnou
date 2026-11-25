@@ -260,7 +260,10 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
   // A matéria tem vídeo (trailer) e nenhuma cena o escolheu: a cena do meio passa a usá-lo.
   const iVideo = p.imagens.findIndex((x) => ehVideoSrc(x.src));
   const escolhaDaCena = p.roteiro.cenas.map((c) => c.imagem);
-  if (iVideo >= 0 && !escolhaDaCena.some(ehVideo) && escolhaDaCena.length >= 2) escolhaDaCena[Math.floor(escolhaDaCena.length / 2)] = iVideo;
+  // `videoAutomatico`: o servidor pôs o vídeo numa cena por conta própria (então vale o teto de participação); se o dono escolheu
+  // vídeo nas cenas, o que ele escolheu vale inteiro.
+  const videoAutomatico = iVideo >= 0 && !escolhaDaCena.some(ehVideo) && escolhaDaCena.length >= 2;
+  if (videoAutomatico) escolhaDaCena[Math.floor(escolhaDaCena.length / 2)] = iVideo;
   const usaveis = p.imagens.map((x, i) => (x.url && !x.url.startsWith("arte:") && !x.url.startsWith("yt:") && !ehVideoSrc(x.src) ? i : -1)).filter((i) => i >= 0);
   if (!usaveis.length) throw new Error("nenhuma imagem utilizável");
   const cenasSeg = seg.segs.filter((x) => x.tipo === "cena").map((x) => ({ ...x }));
@@ -274,7 +277,7 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
     if (plano.length === 0 && p.capa != null && !ehVideo(p.capa)) img = p.capa;
     const video = ehVideo(img) && !!p.imagens[img]?.url;
     if (!video && !usaveis.includes(img)) img = usaveis.find((i) => i !== anterior) ?? usaveis[0];
-    const partes = video ? Math.max(1, Math.min(4, Math.ceil(dur / TRECHO_MAX_S))) : Math.max(1, Math.min(3, Math.round(dur / 4.2)));
+    const partes = video ? Math.max(1, Math.ceil(dur / TRECHO_MAX_S)) : Math.max(1, Math.min(3, Math.round(dur / 4.2)));
     for (let k = 0; k < partes; k++) plano.push({ img, ini: c.ini + (dur / partes) * k, dur: dur / partes, punch: !video && (k % 2 === 1 || (k === 0 && img === anterior)), video, ss: 0, ssManual: video && typeof p.roteiro.cenas[c.cena]?.ss === "number" ? p.roteiro.cenas[c.cena].ss! + (dur / partes) * k : undefined });
     anterior = img;
   }
@@ -290,7 +293,7 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
   let segundosVideo = 0;
   for (const it of plano) {
     if (!it.video) continue;
-    if (segundosVideo + it.dur > seg.total * FRACAO_MAX_VIDEO) fundirEmImagem(it);
+    if (videoAutomatico && segundosVideo + it.dur > seg.total * FRACAO_MAX_VIDEO) fundirEmImagem(it);
     else segundosVideo += it.dur;
   }
   const arquivosVideo = new Map<number, string>();
@@ -319,7 +322,10 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
         return;
       }
       const t = trechos[k];
-      if (!t || t.dur < it.dur * 0.6) return fundirEmImagem(it);
+      if (!t || t.dur < Math.min(1.2, it.dur)) {
+        console.warn(`[video] trecho de vídeo da cena sem ponto de corte utilizável (vídeo de ${duracaoVideo.toFixed(0)} s): usando imagem`);
+        return fundirEmImagem(it);
+      }
       it.ss = t.ss;
     });
     arquivosVideo.set(origem, nome);

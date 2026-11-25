@@ -68,7 +68,7 @@ function pacote(urls: string[], iVideo = -1): PacoteVideo {
   const nSerie = serie === "top5" ? 5 : serie === "gratis" ? 3 : serie === "semana" ? 3 : n;
   const cenas: CenaRoteiro[] = Array.from({ length: tipoSerie ? nSerie : n }, (_, i) => ({
     fala: tipoSerie ? `${i + 1}. ${FALA} ${i + 1}` : (ESPECIAIS[i] ?? `${FALA} ${i + 1}`),
-    imagem: iVideo >= 0 && (i === 1 || i === 2) ? iVideo : i % urls.length,
+    imagem: iVideo >= 0 && (i >= 1 || false) && (process.argv.includes("--video-todas") || i <= 2) ? iVideo : i % urls.length,
     ...(iVideo >= 0 && (i === 1 || i === 2) && arg("ss") ? { ss: Number(arg("ss")) } : {}),
     ...(tipoSerie ? { cartao: tipoSerie, item: i } : CARTAO[i] ? { cartao: CARTAO[i] } : {}),
   }));
