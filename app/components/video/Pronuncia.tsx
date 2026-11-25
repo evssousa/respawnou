@@ -5,7 +5,7 @@ import { Form } from "react-router";
 import { Button, inputCls } from "~/components/admin-ui";
 import type { ItemPronuncia } from "~/video/pronuncia";
 
-export function CartaoPronuncia({ dono, base, nova, busy }: { dono: ItemPronuncia[]; base: ItemPronuncia[]; nova?: string; busy: boolean }) {
+export function CartaoPronuncia({ dono, base, nova, busy, aberto }: { dono: ItemPronuncia[]; base: ItemPronuncia[]; nova?: string; busy: boolean; aberto?: boolean }) {
   const [linhas, setLinhas] = useState<ItemPronuncia[]>(() => {
     const l = [...dono];
     if (nova && !l.some((x) => x.de.toLowerCase() === nova.toLowerCase())) l.push({ de: nova, para: "" });
@@ -13,7 +13,7 @@ export function CartaoPronuncia({ dono, base, nova, busy }: { dono: ItemPronunci
   });
   const mudar = (i: number, campo: "de" | "para", v: string) => setLinhas((l) => l.map((x, k) => (k === i ? { ...x, [campo]: v } : x)));
   return (
-    <details id="pronuncia" className="mt-6 border border-line p-3" open={Boolean(nova)}>
+    <details id="pronuncia" className="mt-2 border border-line p-3" open={aberto || Boolean(nova)}>
       <summary className="cursor-pointer font-mono text-xs font-bold text-muted">PRONÚNCIA DA VOZ ({dono.length} sua{dono.length === 1 ? "" : "s"} · {base.length} da base)</summary>
       <p className="mt-3 text-xs text-muted">Como a voz deve falar nomes e siglas. Vale para os próximos vídeos e não muda a legenda. Sua linha vence a da base quando o texto é igual.</p>
       <Form method="post" className="mt-3 flex flex-col gap-2">

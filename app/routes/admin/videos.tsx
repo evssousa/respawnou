@@ -1,8 +1,8 @@
 // NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Painel de vídeos (/admin/videos): roteiro para aprovar, vídeo pronto para baixar e legendas por rede, configuração e uso da voz.
 // Módulo: app/video (docs/instagram-stories-videos.md, frente B).
-import { useEffect, useState } from "react";
-import { Form, isRouteErrorResponse, redirect, useNavigation, useRevalidator } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { Form, isRouteErrorResponse, Link, redirect, useNavigation, useRevalidator } from "react-router";
 import type { Route } from "./+types/videos";
 import { adminMeta, Button, Card, Field, inputCls, Notice, PageTitle, Pill, Stat, when } from "~/components/admin-ui";
 import { requireAdmin } from "~/lib/admin/auth.server";
@@ -17,10 +17,11 @@ import { juntarDicionario, suspeitas, type ItemPronuncia } from "~/video/pronunc
 import { lerPronuncia, salvarPronuncia } from "~/video/pronuncia.server";
 import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
 import type { Foco } from "~/social/tipos";
+import type { PreviaVoz } from "~/video/fila.server";
 import { ENERGIA_VOZ, perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
 import { ErroUpload } from "~/social/server/uploads.server";
-import { adicionarImagem, adicionarVideo, analisarVideoEnviado, aprovar, cancelarGeracao, descartar, obterJob, listarJobs, listarPublicados, pedirRoteiro, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { adicionarImagem, adicionarVideo, analisarVideoEnviado, aprovar, cancelarGeracao, descartar, lerPrevia, obterJob, listarJobs, listarPublicados, pedirPreviaVoz, pedirRoteiro, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro, textoFalado } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -57,10 +58,15 @@ async function carregar(request: Request) {
   if (!hasDatabase()) return { semBanco: true as const };
   const url = new URL(request.url);
   const busca = (url.searchParams.get("q") ?? "").slice(0, 80);
+  const aba = abaDe(url.searchParams.get("aba") ?? (url.searchParams.get("nova") ? "pronuncia" : busca ? "publicados" : null));
   const [jobs, resumo, cfg, publicados] = await Promise.all([listarJobs(10), resumoMes(), lerConfig(), listarPublicados(busca)]);
   const pronunciaDono = await lerPronuncia();
+  const previas: Record<number, PreviaVoz | null> = {};
+  for (const j of jobs) if ((j.status === "aguardando" || j.status === "falhou") && j.script) previas[j.id] = await lerPrevia(j);
   return {
     semBanco: false as const,
+    aba,
+    previas,
     jobs,
     publicados,
     pronunciaDono,
@@ -75,12 +81,24 @@ async function carregar(request: Request) {
   };
 }
 
+/** Menus internos de Vídeos: cada um é uma aba (?aba=). */
+const ABAS = [
+  { id: "fila", rotulo: "Vídeos" },
+  { id: "publicados", rotulo: "Já publicados" },
+  { id: "pronuncia", rotulo: "Pronúncia de voz" },
+  { id: "config", rotulo: "Configuração" },
+] as const;
+type Aba = (typeof ABAS)[number]["id"];
+const abaDe = (v: string | null): Aba => ABAS.find((a) => a.id === v)?.id ?? "fila";
+
 export async function action({ request }: Route.ActionArgs) {
   await requireAdmin(request);
   const f = await request.formData();
   const intent = String(f.get("intent"));
   const id = Number(f.get("id"));
-  const back = (q: string) => redirect(`/admin/videos?${q}`);
+  // Volta para a aba de onde veio (salvar configuração e pronúncia voltam para a própria aba).
+  const abaAtual: Aba = intent === "salvar_config" ? "config" : intent === "salvar_pronuncia" ? "pronuncia" : intent === "reabrir" ? "fila" : abaDe(new URL(request.url).searchParams.get("aba"));
+  const back = (q: string) => redirect(`/admin/videos?${q}${abaAtual !== "fila" ? `&aba=${abaAtual}` : ""}`);
   try {
     if (intent === "salvar_config") {
       const num = (n: string, min: number, max: number, pad: number) => {
@@ -96,6 +114,7 @@ export async function action({ request }: Route.ActionArgs) {
         model: f.get("model") === "eleven_flash_v2_5" ? "eleven_flash_v2_5" : "eleven_multilingual_v2",
         speed: num("speed", 0.85, 1.1, atual.speed),
         efeitos: f.get("efeitos") === "on",
+        musica: f.get("musica") === "baixa" || f.get("musica") === "alta" ? (String(f.get("musica")) as "baixa" | "alta") : "media",
         series: Object.fromEntries(
           Object.keys(atual.series).map((k) => [k, { ligado: f.get(`serie_${k}_on`) === "on", dia: Math.round(num(`serie_${k}_dia`, 0, 6, atual.series[k].dia)), hora: Math.round(num(`serie_${k}_hora`, 0, 23, atual.series[k].hora)) }]),
         ),
@@ -133,7 +152,7 @@ export async function action({ request }: Route.ActionArgs) {
       return r === "ok" ? back("ok=reel") : back(`erro=${encodeURIComponent(r)}`);
     }
     if (intent === "reabrir") return (await reabrir(id)) ? back("ok=reaberto") : back(`erro=${encodeURIComponent("Este vídeo não pode ser reaberto agora.")}`);
-    if (intent === "salvar" || intent === "aprovar" || intent === "refazer" || intent === "img_add" || intent === "vid_add") {
+    if (intent === "salvar" || intent === "ouvir" || intent === "aprovar" || intent === "refazer" || intent === "img_add" || intent === "vid_add") {
       if (intent !== "refazer") {
         const cenas: { fala: string; imagem: number; cartao?: string; item?: number | null; ss?: number }[] = [];
         const json = <T,>(v: FormDataEntryValue | null, fb: T): T => {
@@ -186,6 +205,11 @@ export async function action({ request }: Route.ActionArgs) {
         return r === "ok" ? back("ok=video") : back(`erro=${encodeURIComponent(r)}`);
       }
       if (intent === "salvar") return back("ok=salvo");
+      if (intent === "ouvir") {
+        // Salva o texto da tela (com as suas edições) e gera a voz em segundo plano: o áudio fica guardado e a geração do vídeo o reaproveita.
+        const r = await pedirPreviaVoz(id);
+        return r === "ok" ? back("ok=ouvindo") : back(`erro=${encodeURIComponent(r)}`);
+      }
       const r = await aprovar(id);
       if (!r.ok) return back(`erro=${encodeURIComponent(r.aviso ?? "não aprovou")}`);
       return back(`ok=aprovado${r.aviso ? `&aviso=${encodeURIComponent(r.aviso)}` : ""}`);
@@ -202,6 +226,7 @@ const MSG: Record<string, string> = {
   roteiro: "Pedi o roteiro ao Gemini. Ele aparece aqui sozinho em até 2 minutos (a tela atualiza sozinha).",
   salvo: "Roteiro salvo.",
   descartado: "Vídeo excluído (arquivos apagados).",
+  ouvindo: "Gerando a voz da narração… em alguns segundos o player aparece aqui (a tela atualiza sozinha).",
   cancelado: "Geração cancelada. O vídeo voltou para rascunho, com o roteiro e as escolhas salvos.",
   analisando: "Analisando o vídeo: os quadros dos trechos aparecem em instantes (a tela atualiza sozinha).",
   imagem: "Imagem acrescentada (e o roteiro salvo). Escolha-a numa cena, ou como capa.",
@@ -313,23 +338,61 @@ function ProgressoGeracao({ progress }: { progress?: string | null }) {
 }
 
 /** Lista de cenas. Guarda aqui o cartão escolhido em cada uma, para o "já na cena N" das outras valer na hora (e não só depois de salvar). */
-function CenasEditor({ j, r, max }: { j: Job; r: NonNullable<Job["script"]>; max: number }) {
+function CenasEditor({ j, r, max, previa, busy }: { j: Job; r: NonNullable<Job["script"]>; max: number; previa: PreviaVoz | null; busy: boolean }) {
   const [cart, setCart] = useState<string[]>(() => r.cenas.map((c) => c.cartao ?? ""));
   const usados: Record<string, number> = {};
   cart.forEach((t, k) => {
     if (t) usados[t] = k;
   });
+  // Player único: o da narração inteira; os botões "Ouvir esta cena" posicionam o mesmo áudio no começo da cena e param no fim dela.
+  const audio = useRef<HTMLAudioElement>(null);
+  const parar = useRef<(() => void) | null>(null);
+  const [tocando, setTocando] = useState<number | null>(null);
+  const tocar = (k: number, ini: number, fim: number) => {
+    const a = audio.current;
+    if (!a) return;
+    if (parar.current) a.removeEventListener("timeupdate", parar.current);
+    const fn = () => {
+      if (a.currentTime >= fim) {
+        a.pause();
+        a.removeEventListener("timeupdate", fn);
+        setTocando(null);
+      }
+    };
+    parar.current = fn;
+    a.addEventListener("timeupdate", fn);
+    a.currentTime = ini;
+    setTocando(k);
+    void a.play();
+  };
+  const caracteres = r.gancho.length + r.cenas.reduce((n, c) => n + c.fala.length, 0) + 110;
+  const gerandoVoz = j.progress === "voz";
   return (
     <>
+      <div className="flex flex-col gap-2 border border-line p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button name="intent" value="ouvir" disabled={busy || gerandoVoz}>{previa ? "Ouvir de novo com o texto atual" : "Ouvir a narração"}</Button>
+          <span className="text-[11px] text-muted">{`Salva o roteiro e gera a voz (cerca de ${caracteres.toLocaleString("pt-BR")} créditos da ElevenLabs). Ao gerar o vídeo, esta mesma voz é reaproveitada, sem gastar de novo.`}</span>
+        </div>
+        {gerandoVoz && <p className="animate-pulse font-mono text-xs font-bold text-acc">GERANDO A VOZ… ALGUNS SEGUNDOS</p>}
+        {previa ? (
+          <>
+            <audio ref={audio} controls preload="auto" src={previa.url} className="w-full" onPause={() => setTocando(null)} />
+            <p className="text-[11px] text-muted">{`Narração de ${previa.total.toFixed(0)} s. Use "Ouvir esta cena" em cada cena. Mudou alguma fala? Clique em "Ouvir de novo" (ouvir não gasta nada; gerar a voz de novo, sim).`}</p>
+          </>
+        ) : (
+          !gerandoVoz && <p className="text-[11px] text-muted">Ouça antes de gerar o vídeo para conferir pronúncia, ritmo e se alguma fala precisa mudar.</p>
+        )}
+      </div>
       {r.cenas.map((c, i) => (
-        <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} max={max} jobId={j.id} fatos={(j.facts as unknown as FatosVideo | null) ?? null} usados={usados} onCartao={(v) => setCart((a) => a.map((x, k) => (k === i ? v : x)))} />
+        <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} max={max} jobId={j.id} fatos={(j.facts as unknown as FatosVideo | null) ?? null} usados={usados} onCartao={(v) => setCart((a) => a.map((x, k) => (k === i ? v : x)))} onOuvir={previa && previa.cenas[i] && previa.cenas[i].fim > 0 ? () => tocar(i, previa.cenas[i].ini, previa.cenas[i].fim) : undefined} tocando={tocando === i} />
       ))}
     </>
   );
 }
 
 /** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
-function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao }: { onCartao: (v: string) => void; max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null; ss?: number | null }; images: { src: string; alt: string; trechos?: { ss: number; thumb: string }[]; duracao?: number }[]; focus: Record<string, string> }) {
+function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao, onOuvir, tocando }: { onOuvir?: () => void; tocando?: boolean; onCartao: (v: string) => void; max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null; ss?: number | null }; images: { src: string; alt: string; trechos?: { ss: number; thumb: string }[]; duracao?: number }[]; focus: Record<string, string> }) {
   const [img, setImg] = useState(c.imagem);
   const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
@@ -356,6 +419,7 @@ function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao }:
       )}
       <div className="flex flex-col gap-2">
         <textarea name={`fala_${i}`} defaultValue={c.fala} rows={2} maxLength={max} aria-label={`Fala da cena ${i + 1}`} className={inputCls} />
+        {onOuvir && <button type="button" onClick={onOuvir} className={`min-h-9 self-start border px-3 font-mono text-xs font-bold ${tocando ? "border-acc text-acc" : "border-line-soft text-paper hover:border-acc"}`}>{tocando ? "▶ Tocando…" : "▶ Ouvir esta cena"}</button>}
         <input type="hidden" name={`img_${i}`} value={img} />
         <input type="hidden" name={`foco_${i}`} value={foco} />
         <input type="hidden" name={`cartao_${i}`} value={cartao} />
@@ -410,7 +474,7 @@ function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao }:
   );
 }
 
-function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; busy: boolean; dicionario: ItemPronuncia[] }) {
+function CartaoJob({ j, cfg, busy, dicionario, previa }: { j: Job; cfg: VideoConfig; busy: boolean; dicionario: ItemPronuncia[]; previa: PreviaVoz | null }) {
   const perfil = perfilDaSecao(j.section ?? "");
   const r = j.script;
   const palavras = r ? palavrasDoRoteiro(r) : 0;
@@ -458,7 +522,7 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
                 <input name="titulo_curto" defaultValue={r.titulo_curto} maxLength={VIDEO.limites.tituloCurto} className={inputCls} />
               </Field>
               <CapaEscolha j={j} />
-              <CenasEditor j={j} r={r} max={perfil.cena} />
+              <CenasEditor j={j} r={r} max={perfil.cena} previa={previa} busy={busy} />
               <div className="flex flex-wrap items-center gap-2 border border-dashed border-line-soft p-2">
                 <span className="text-xs text-muted">A imagem não combina com o texto? Envie outra ({j.images.length} no vídeo):</span>
                 <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/avif" className="max-w-full text-xs text-body" />
@@ -476,7 +540,7 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
                 <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
                   Confira a pronúncia:
                   {duvidas.map((w) => (
-                    <a key={w} href={`/admin/videos?nova=${encodeURIComponent(w)}#pronuncia`} className="inline-flex min-h-8 items-center border border-line-soft px-2 font-mono text-[11px] text-paper hover:border-acc">{w}</a>
+                    <a key={w} href={`/admin/videos?aba=pronuncia&nova=${encodeURIComponent(w)}`} className="inline-flex min-h-8 items-center border border-line-soft px-2 font-mono text-[11px] text-paper hover:border-acc">{w}</a>
                   ))}
                 </p>
               )}
@@ -543,7 +607,7 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
   const busy = useNavigation().state !== "idle";
   // Enquanto algo está sendo gerado ou enviado ao Instagram, a tela se atualiza sozinha a cada 8 s.
   const revalidador = useRevalidator();
-  const ativo = !d.semBanco && d.jobs.some((j) => j.ig_status === "enviando" || j.status === "gerando" || j.status === "aprovado" || (j.status === "falhou" && /tentando de novo/.test(j.error ?? "")) || j.progress === "roteiro" || j.images.some((x) => /\.(mp4|webm)$/i.test(x.src) && x.duracao != null && !x.trechos));
+  const ativo = !d.semBanco && d.jobs.some((j) => j.ig_status === "enviando" || j.status === "gerando" || j.status === "aprovado" || (j.status === "falhou" && /tentando de novo/.test(j.error ?? "")) || j.progress === "roteiro" || j.progress === "voz" || j.images.some((x) => /\.(mp4|webm)$/i.test(x.src) && x.duracao != null && !x.trechos));
   useEffect(() => {
     if (!ativo) return;
     const t = setInterval(() => revalidador.revalidate(), 4000);
@@ -562,6 +626,17 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
       {d.erro && <Notice tone="warn">{decodeURIComponent(d.erro)}</Notice>}
       {!d.chaveVoz && <Notice tone="warn">Falta cadastrar ELEVENLABS_API_KEY nas variáveis de ambiente do hPanel: sem ela o servidor não consegue gerar a voz.</Notice>}
 
+      <nav aria-label="Menus de Vídeos" className="mb-4 flex flex-wrap gap-x-5 gap-y-1 border-b border-line font-mono text-xs font-bold">
+        {ABAS.map((a) => (
+          <Link key={a.id} to={a.id === "fila" ? "/admin/videos" : `/admin/videos?aba=${a.id}`} aria-current={d.aba === a.id ? "page" : undefined} className={`-mb-px border-b-2 px-1 py-2 ${d.aba === a.id ? "border-acc text-paper" : "border-transparent text-muted hover:text-paper"}`}>
+            {a.rotulo}
+            {a.id === "publicados" ? ` (${d.publicados.total})` : ""}
+          </Link>
+        ))}
+      </nav>
+
+      {d.aba === "fila" && (
+        <>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Stat label="Prontos este mês" value={d.resumo.prontos} />
         <Stat label="Créditos usados" value={`${d.resumo.creditos.toLocaleString("pt-BR")}/${cfg.creditsMonth.toLocaleString("pt-BR")}`} tone={pct >= 80 ? "warn" : undefined} />
@@ -572,16 +647,21 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
         {d.jobs.length === 0 ? (
           <Card title="Vídeos"><p className="text-sm text-muted">Nenhum vídeo ainda. O próximo é escolhido sozinho depois das {cfg.hour}h (se estiver ligado), ou abra uma matéria e clique em “Fazer vídeo desta matéria”.</p></Card>
         ) : (
-          d.jobs.map((j) => <CartaoJob key={j.id} j={j} cfg={cfg} busy={busy} dicionario={juntarDicionario(d.pronunciaDono)} />)
+          d.jobs.map((j) => <CartaoJob key={j.id} j={j} cfg={cfg} busy={busy} dicionario={juntarDicionario(d.pronunciaDono)} previa={d.previas[j.id] ?? null} />)
         )}
       </div>
 
-      <details className="mt-6 border border-line p-3" open={d.busca !== ""}>
+        </>
+      )}
+
+      {d.aba === "publicados" && (
+      <details className="mt-2 border border-line p-3" open>
         <summary className="cursor-pointer font-mono text-xs font-bold text-muted">JÁ PUBLICADOS ({d.publicados.total}) — para baixar ou postar em outro lugar</summary>
         <Form method="get" className="mt-3 flex flex-wrap items-center gap-2">
+          <input type="hidden" name="aba" value="publicados" />
           <input name="q" defaultValue={d.busca} placeholder="Buscar pelo título da matéria" className={`${inputCls} max-w-[320px]`} />
           <Button>Buscar</Button>
-          {d.busca && <a href="/admin/videos" className="font-mono text-xs text-muted underline">limpar</a>}
+          {d.busca && <a href="/admin/videos?aba=publicados" className="font-mono text-xs text-muted underline">limpar</a>}
         </Form>
         <ul className="mt-3 flex flex-col gap-1">
           {d.publicados.itens.length === 0 && <li className="text-xs text-muted">{d.busca ? "Nenhum vídeo publicado com esse título." : "Nenhum vídeo publicado ainda."}</li>}
@@ -616,15 +696,23 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
         </ul>
         {d.publicados.total > d.publicados.itens.length && <p className="mt-2 text-xs text-muted">Mostrando os {d.publicados.itens.length} mais recentes de {d.publicados.total}. Use a busca para achar os outros.</p>}
       </details>
+      )}
 
-      <CartaoPronuncia dono={d.pronunciaDono} base={MARCA.video.pronunciaBase} nova={d.nova} busy={busy} />
+      {d.aba === "pronuncia" && <CartaoPronuncia dono={d.pronunciaDono} base={MARCA.video.pronunciaBase} nova={d.nova} busy={busy} aberto />}
 
-      <details className="mt-6 border border-line p-3" open={!cfg.enabled}>
+      {d.aba === "config" && (
+      <details className="mt-2 border border-line p-3" open>
         <summary className="cursor-pointer font-mono text-xs font-bold text-acc">CONFIGURAÇÃO</summary>
         <Form method="post" className="mt-3 flex flex-col gap-3">
           <input type="hidden" name="intent" value="salvar_config" />
           <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="enabled" defaultChecked={cfg.enabled} className="h-5 w-5 accent-[var(--color-acc)]" />Ligado (escolhe 1 matéria por dia e prepara o roteiro)</label>
           <label className="flex items-center gap-3 text-paper"><input type="checkbox" name="efeitos" defaultChecked={cfg.efeitos} className="h-5 w-5 accent-[var(--color-acc)]" />Efeitos sonoros nos cartões (ding no preço, impacto na nota)</label>
+          <label className="flex flex-wrap items-center gap-3 text-paper">Volume da música de fundo
+            <select name="musica" defaultValue={cfg.musica} className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+              {(Object.entries(VIDEO.musica) as [string, { rotulo: string }][]).map(([k, m]) => <option key={k} value={k}>{m.rotulo}</option>)}
+            </select>
+            <span className="text-xs text-muted">vale para os próximos vídeos; a música abaixa sozinha quando a voz fala</span>
+          </label>
           <fieldset className="flex flex-col gap-2 border border-line p-3">
             <legend className="px-1 font-mono text-xs text-muted">SÉRIES</legend>
             {(["gratis-semana", "lancamentos-semana"] as const).map((k) => (
@@ -672,6 +760,7 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
           <p className="text-xs text-muted">O vídeo é montado aqui no próprio servidor (leva alguns minutos; a chave da ElevenLabs fica em ELEVENLABS_API_KEY no hPanel).</p>
         </Form>
       </details>
+      )}
     </>
   );
 }

@@ -21,6 +21,12 @@ export const VIDEO = {
   },
   /** Voz: pausa (s) antes de preço, nota e data para a pessoa acompanhar o número; 0 desliga. No máximo 4 por vídeo. */
   voz: { pausaAntesNumero: 0.25 },
+  /** Música de fundo: volume da trilha e quanto ela abaixa quando alguém fala (razão do sidechain; maior = abaixa mais). */
+  musica: {
+    baixa: { rotulo: "Baixa", volume: 0.3, razao: 9 },
+    media: { rotulo: "Média (recomendada)", volume: 0.6, razao: 5 },
+    alta: { rotulo: "Alta", volume: 0.9, razao: 4 },
+  },
   /** Efeitos sonoros dos cartões: volume (0 a 1) em relação à voz. */
   efeitos: { volume: 0.45 },
   /** Frase fixa do fechamento (falada) e texto do botão do cartão final. */
@@ -49,6 +55,8 @@ export const VIDEO = {
     energia: "animada" as "calma" | "normal" | "animada",
     /** Efeitos sonoros nos cartões de dados (ding, impacto, pop). */
     efeitos: true,
+    /** Volume da música de fundo: baixa, media ou alta (ver `VIDEO.musica`). */
+    musica: "media" as "baixa" | "media" | "alta",
     /** Séries de calendário: o site cria o vídeo sozinho no dia (dia 0=dom … 6=sáb; hora de Brasília). */
     series: {
       "gratis-semana": { ligado: false, dia: 4, hora: 14 },

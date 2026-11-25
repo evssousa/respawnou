@@ -1,7 +1,7 @@
 // NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Fila dos vídeos (tabela video_jobs): escolha do dia, roteiro, aprovação, entrega ao worker, resultado e limpeza.
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -16,7 +16,7 @@ import { candidatos, comandoCortes, lerCortes, lerDuracao } from "../../scripts/
 import { VIDEO, vozDaSecao, ENERGIA_VOZ } from "./config";
 import { lerConfig } from "./config.server";
 import { exec, hasDatabase, query } from "./db";
-import { gerarVideo } from "./gerador.server";
+import { analisarVoz, gerarVideo, obterVoz, textoDaFala } from "./gerador.server";
 import { legendasDoVideo } from "./legendas";
 import { fechamentoFinal, perguntaDoFechamento, textoFalado, type Imagem, type Roteiro } from "./roteiro";
 import type { ItemPronuncia } from "./pronuncia";
@@ -401,7 +401,7 @@ export async function processarFilaNoServidor(): Promise<void> {
           void exec("UPDATE video_jobs SET progress = ?, locked_at = UTC_TIMESTAMP() WHERE id = ? AND status = 'gerando'", [`g:${p}:${rotulo}`.slice(0, 60), pacote.id]).catch(() => undefined);
         };
         progresso(1, "Começando");
-        const out = await gerarVideo(pacote, dir, { qualidade: "leve", progresso, cancelado: () => cancelados.has(pacote.id) });
+        const out = await gerarVideo(pacote, dir, { qualidade: "leve", progresso, cacheVoz: dirPrevia(), cancelado: () => cancelados.has(pacote.id) });
         if (cancelados.has(pacote.id)) throw new Error("geração cancelada");
         await concluir(pacote.id, { video: await readFile(join(dir, "saida.mp4")), capa: out.capa, chars: out.chars, duracao: out.duracao });
         esperasDeProcesso.delete(pacote.id);
@@ -495,6 +495,7 @@ export interface PacoteWorker {
   estabilidade: number;
   estilo: number;
   efeitos: boolean;
+  musica?: "baixa" | "media" | "alta";
   falado: string;
   pronuncia: ItemPronuncia[];
   termos: string[];
@@ -518,11 +519,18 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
   const r = await exec("UPDATE video_jobs SET status = 'gerando', locked_at = UTC_TIMESTAMP(), attempts = attempts + 1 WHERE id = ? AND status = 'aprovado'", [j.id]);
   if (!r.affected) return null;
   const job = linha(j);
-  const e = await lerEntrada(job.post_id, await dicaDoPost(job.post_id));
-  if (!job.script || !e) {
+  const pacote = await pacoteDoJob(job);
+  if (!pacote) {
     await exec("UPDATE video_jobs SET status = 'falhou', error = 'sem roteiro ou matéria' WHERE id = ?", [job.id]);
     return null;
   }
+  return pacote;
+}
+
+/** Tudo que o gerador precisa de um job (voz, imagens, fatos, texto falado). `null` se faltar roteiro ou matéria. */
+async function pacoteDoJob(job: JobVideo): Promise<PacoteWorker | null> {
+  const e = await lerEntrada(job.post_id, await dicaDoPost(job.post_id));
+  if (!job.script || !e) return null;
   const cfg = await lerConfig();
   const voz = job.voice_id || vozDaSecao(cfg, e.section);
   // "arte:1" = o slide 1 do post do feed (já gerado, se existir); sem ele, o worker usa a primeira imagem comum.
@@ -543,6 +551,7 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
     modelo: job.voice_model || cfg.model,
     velocidade: Math.min(1.2, Math.max(0.7, cfg.speed * ENERGIA_VOZ[cfg.energia].velocidade)),
     efeitos: cfg.efeitos,
+    musica: cfg.musica,
     estabilidade: ENERGIA_VOZ[cfg.energia].estabilidade,
     estilo: ENERGIA_VOZ[cfg.energia].estilo,
     falado: textoFalado(job.script, dic, VIDEO.voz.pausaAntesNumero),
@@ -555,6 +564,83 @@ export async function proximo(idPedido?: number): Promise<PacoteWorker | null> {
     cta: VIDEO.ctaCartao,
     baseUrl: SOCIAL.baseUrl,
   };
+}
+
+// ───────────── Prévia da voz ("Ouvir a narração") ─────────────
+
+const dirPrevia = () => join(mediaDir(), "video", "previa");
+const hashRoteiro = (script: unknown) => createHash("sha1").update(JSON.stringify(script ?? null)).digest("hex").slice(0, 16);
+
+export interface PreviaVoz {
+  /** Endereço do áudio (mp3) da narração inteira. */
+  url: string;
+  /** Início e fim (s) da narração de cada cena (a 1ª cena começa em 0, junto com o gancho) e do fechamento. */
+  cenas: { ini: number; fim: number }[];
+  fechamento: { ini: number; fim: number } | null;
+  total: number;
+  /** Caracteres enviados à voz (créditos da ElevenLabs). */
+  chars: number;
+  /** Hash do roteiro salvo no momento: a prévia só vale enquanto o roteiro não mudar. */
+  roteiro: string;
+}
+
+/** Prévia da voz do roteiro salvo, se existir e ainda valer (o texto não mudou desde que foi gerada). */
+export async function lerPrevia(job: Pick<JobVideo, "id" | "script">): Promise<PreviaVoz | null> {
+  try {
+    const p = JSON.parse(await readFile(join(dirPrevia(), `j${job.id}.json`), "utf8")) as PreviaVoz;
+    return p.roteiro === hashRoteiro(job.script) ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pede a prévia da voz SEM esperar (a ElevenLabs leva alguns segundos): gera a narração inteira, guarda áudio e tempos de cada cena
+ * e a geração do vídeo reaproveita esse mesmo áudio (nenhum crédito é gasto duas vezes). O dono ouve a narração toda ou cena por cena.
+ */
+export async function pedirPreviaVoz(id: number): Promise<string> {
+  const [j] = await query<{ status: string; progress: string | null; recente: number; script: unknown }>(
+    "SELECT status, progress, script, (locked_at IS NOT NULL AND locked_at > UTC_TIMESTAMP() - INTERVAL 5 MINUTE) AS recente FROM video_jobs WHERE id = ?",
+    [id],
+  );
+  if (!j) return "Job não encontrado.";
+  if (j.status !== "aguardando" && j.status !== "falhou") return "A prévia da voz só vale para vídeo em rascunho.";
+  if (!j.script) return "Este vídeo ainda não tem roteiro.";
+  if (j.progress === "voz" && Number(j.recente)) return "Já estou gerando a voz deste vídeo; aguarde um instante.";
+  await exec("UPDATE video_jobs SET progress = 'voz', locked_at = UTC_TIMESTAMP(), error = NULL WHERE id = ?", [id]);
+  void gerarPreviaVoz(id).catch((e) => console.error("[video] prévia da voz:", String((e as Error)?.message ?? e).slice(0, 200)));
+  return "ok";
+}
+
+async function gerarPreviaVoz(id: number): Promise<void> {
+  try {
+    const [j] = await query<Record<string, unknown>>("SELECT * FROM video_jobs WHERE id = ?", [id]);
+    if (!j) return;
+    const job = linha(j);
+    const pacote = await pacoteDoJob(job);
+    if (!pacote) throw new Error("sem roteiro ou matéria");
+    const { fala, falado } = textoDaFala(pacote);
+    const v = await obterVoz(pacote, falado, { cacheDir: dirPrevia() });
+    const { seg } = analisarVoz(pacote, fala, v.alinhamento);
+    const cenas: { ini: number; fim: number }[] = [];
+    for (const x of seg.segs) if (x.tipo === "cena") cenas[x.cena] = { ini: x.ini, fim: x.fim };
+    if (cenas[0]) cenas[0] = { ini: 0, fim: cenas[0].fim };
+    const fech = seg.segs.find((x) => x.tipo === "fechamento");
+    const previa: PreviaVoz = {
+      url: `/media/video/previa/${v.chave}.mp3`,
+      cenas: Array.from({ length: job.script!.cenas.length }, (_, i) => cenas[i] ?? { ini: 0, fim: 0 }),
+      fechamento: fech ? { ini: fech.ini, fim: fech.fim } : null,
+      total: seg.total,
+      chars: falado.length,
+      roteiro: hashRoteiro(job.script),
+    };
+    await mkdir(dirPrevia(), { recursive: true });
+    await writeFile(join(dirPrevia(), `j${id}.json`), JSON.stringify(previa));
+    await exec("UPDATE video_jobs SET progress = NULL, error = NULL WHERE id = ?", [id]);
+  } catch (err) {
+    const msg = String((err as Error)?.message ?? err).slice(0, 400);
+    await exec("UPDATE video_jobs SET progress = NULL, status = 'falhou', error = ? WHERE id = ? AND status IN ('aguardando','falhou')", [`Não gerou a prévia da voz: ${msg}`, id]);
+  }
 }
 
 /** Grava o vídeo e a capa enviados pelo worker e marca `pronto` (com as legendas por rede). */
@@ -645,7 +731,7 @@ export async function obterJob(id: number): Promise<(JobVideo & { titulo_post: s
 
 /** Vídeos em andamento e prontos ainda não publicados (os já publicados vão para a lista recolhida). */
 export async function listarJobs(limite = 10): Promise<JobVideo[]> {
-  await exec("UPDATE video_jobs SET progress = NULL WHERE (progress = 'roteiro' AND (locked_at IS NULL OR locked_at < UTC_TIMESTAMP() - INTERVAL 10 MINUTE)) OR (progress LIKE 'g:%' AND status <> 'gerando')").catch(() => undefined);
+  await exec("UPDATE video_jobs SET progress = NULL WHERE (progress IN ('roteiro','voz') AND (locked_at IS NULL OR locked_at < UTC_TIMESTAMP() - INTERVAL 10 MINUTE)) OR (progress LIKE 'g:%' AND status <> 'gerando')").catch(() => undefined);
   const rows = await query<Record<string, unknown>>(
     "SELECT j.*, p.title, p.section, p.image_url AS post_image FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.status <> 'descartado' AND (j.ig_status IS NULL OR j.ig_status <> 'publicado') ORDER BY j.created_at DESC, j.id DESC LIMIT ?",
     [limite],
@@ -680,6 +766,15 @@ export async function limparArquivos(): Promise<number> {
     `SELECT id, video, cover, status, rendered_at, created_at FROM video_jobs WHERE video IS NOT NULL AND (
        (status = 'descartado' AND created_at < UTC_TIMESTAMP() - INTERVAL 7 DAY) OR (status = 'pronto' AND rendered_at < UTC_TIMESTAMP() - INTERVAL 45 DAY))`,
   );
+  // Vozes de prévia (mp3 e tempos) com mais de 3 dias.
+  try {
+    for (const f of await readdir(dirPrevia())) {
+      const caminho = join(dirPrevia(), f);
+      if (Date.now() - (await stat(caminho)).mtimeMs > 3 * 86400_000) await rm(caminho, { force: true });
+    }
+  } catch {
+    /* sem pasta de prévias */
+  }
   let n = 0;
   for (const v of velhos) {
     for (const f of [v.video, v.cover]) {

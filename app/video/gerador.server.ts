@@ -1,6 +1,7 @@
 // NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Gerador do vídeo (voz + imagens + ffmpeg): usado pelo worker do GitHub Actions e, no modo "servidor", pelo próprio site.
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { basename, join } from "node:path";
@@ -13,7 +14,7 @@ import { VIDEO } from "./config";
 import type { Roteiro } from "./roteiro";
 import { gerarCartao } from "./render/cartao.server";
 import { gerarQuadros } from "./render/quadros.server";
-import { gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/ass";
+import { type Alinhamento, gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/ass";
 import { alinhamentoFalso, sintetizar } from "../../scripts/video/elevenlabs";
 import { type ItemPronuncia, montarFala, remapear, semTags } from "../../scripts/video/falar";
 import { type Clip, comandoClipeVideo, instantesTransicao, montar } from "../../scripts/video/ffmpeg";
@@ -37,6 +38,8 @@ export interface PacoteVideo {
   estilo?: number;
   /** Efeitos sonoros nos cartões (padrão ligado). */
   efeitos?: boolean;
+  /** Volume da música de fundo (ver VIDEO.musica); padrão média. */
+  musica?: "baixa" | "media" | "alta";
   falado: string;
   /** Dicionário de pronúncia (base + do dono). Presente = o gerador converte a tela em fala (números por extenso, pausas) e remapeia a legenda. */
   pronuncia?: ItemPronuncia[];
@@ -62,6 +65,8 @@ export interface OpcoesGerador {
   fase?: (nome: string) => void;
   /** Andamento de 0 a 100 com o nome da etapa (o painel mostra a barra). */
   progresso?: (pct: number, rotulo: string) => void;
+  /** Pasta onde a voz já gerada fica guardada (a prévia "Ouvir a narração" e a geração do vídeo usam a mesma, sem gastar créditos de novo). */
+  cacheVoz?: string;
   /** Devolve true quando o dono cancelou: o ffmpeg em andamento é encerrado e a geração para. */
   cancelado?: () => boolean;
 }
@@ -192,40 +197,41 @@ export async function enquadrarVertical(buf: Buffer, w: number, h: number, foco:
   return { jpeg: await cor(await recortarComFoco(buf, w, h, foco)), inteira };
 }
 
-export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador = {}): Promise<{ mp4: string; capa: Buffer; chars: number; duracao: number }> {
-  cancelamentoAtual = o.cancelado ?? null;
-  try {
-    return await gerarVideoInterno(p, dir, o);
-  } finally {
-    cancelamentoAtual = null;
-  }
+/** Texto que vai para a voz e o mapa de volta para o texto da tela (pronúncia, números por extenso, pausas). */
+export function textoDaFala(p: PacoteVideo) {
+  const fala = p.pronuncia ? montarFala([p.roteiro.gancho, ...p.roteiro.cenas.map((c) => c.fala), p.fechamento], p.pronuncia, p.pausa ?? 0) : null;
+  return { fala, falado: fala ? fala.falado : p.falado };
 }
 
-async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador): Promise<{ mp4: string; capa: Buffer; chars: number; duracao: number }> {
-  const ff = o.ffmpeg ?? (await caminhoFfmpeg());
-  const leve = o.qualidade === "leve";
-  // libvips (sharp) cria uma thread por núcleo: no servidor compartilhado limita a 1 para sobrar espaço no limite da conta.
-  if (leve) sharp.concurrency(1);
-  // 0) Texto falado: o roteiro vem escrito para a tela (algarismos); a conversão para a fala e o mapa de volta ficam aqui.
-  const fala = p.pronuncia ? montarFala([p.roteiro.gancho, ...p.roteiro.cenas.map((c) => c.fala), p.fechamento], p.pronuncia, p.pausa ?? 0) : null;
-  const falado = fala ? fala.falado : p.falado;
-  // 1) Voz (ou voz falsa de teste)
-  o.fase?.("voz");
-  o.progresso?.(2, "Voz");
-  let alin;
-  let audio = "voz.mp3";
-  if (o.vozFalsa) {
-    alin = alinhamentoFalso(falado);
-    const dur = alin.character_end_times_seconds[alin.character_end_times_seconds.length - 1];
-    await rodar(ff, ["-y", "-hide_banner", "-loglevel", "warning", "-f", "lavfi", "-i", `sine=frequency=220:duration=${dur.toFixed(2)}`, "-c:a", "libmp3lame", audio], dir);
-  } else {
-    const chave = o.chaveElevenLabs ?? process.env.ELEVENLABS_API_KEY;
-    if (!chave) throw new Error("ELEVENLABS_API_KEY ausente");
-    if (!p.voz) throw new Error("nenhuma voz configurada para esta editoria (painel /admin/videos)");
-    const s = await sintetizar({ chave, voz: p.voz, modelo: p.modelo, velocidade: p.velocidade, estabilidade: p.estabilidade, estilo: p.estilo, texto: falado });
-    alin = s.alinhamento;
-    await writeFile(join(dir, audio), s.mp3);
+/** Identifica uma voz: mesmo texto, mesma voz e mesmos ajustes = mesmo áudio. */
+export const chaveDaVoz = (p: PacoteVideo, falado: string) =>
+  createHash("sha1").update(JSON.stringify([falado, p.voz, p.modelo, p.velocidade, p.estabilidade ?? null, p.estilo ?? null])).digest("hex").slice(0, 20);
+
+/** Voz da ElevenLabs com cache em disco (`<chave>.mp3` + `<chave>.json` com o alinhamento). */
+export async function obterVoz(p: PacoteVideo, falado: string, o: { chave?: string; cacheDir?: string }): Promise<{ mp3: Buffer; alinhamento: Alinhamento; chave: string; deCache: boolean }> {
+  const chaveCache = chaveDaVoz(p, falado);
+  if (o.cacheDir) {
+    try {
+      const [mp3, json] = await Promise.all([readFile(join(o.cacheDir, `${chaveCache}.mp3`)), readFile(join(o.cacheDir, `${chaveCache}.json`), "utf8")]);
+      return { mp3, alinhamento: JSON.parse(json) as Alinhamento, chave: chaveCache, deCache: true };
+    } catch {
+      /* não está no cache: gera */
+    }
   }
+  const chave = o.chave ?? process.env.ELEVENLABS_API_KEY;
+  if (!chave) throw new Error("ELEVENLABS_API_KEY ausente");
+  if (!p.voz) throw new Error("nenhuma voz configurada para esta editoria (painel /admin/videos)");
+  const s = await sintetizar({ chave, voz: p.voz, modelo: p.modelo, velocidade: p.velocidade, estabilidade: p.estabilidade, estilo: p.estilo, texto: falado });
+  if (o.cacheDir) {
+    await mkdir(o.cacheDir, { recursive: true });
+    await writeFile(join(o.cacheDir, `${chaveCache}.mp3`), s.mp3);
+    await writeFile(join(o.cacheDir, `${chaveCache}.json`), JSON.stringify(s.alinhamento));
+  }
+  return { mp3: s.mp3, alinhamento: s.alinhamento, chave: chaveCache, deCache: false };
+}
+
+/** Palavras com tempo e segmentos (abertura, cenas, fechamento) a partir do alinhamento da voz. */
+export function analisarVoz(p: PacoteVideo, fala: ReturnType<typeof textoDaFala>["fala"], alin: Alinhamento) {
   let palavras = palavrasDoAlinhamento(alin);
   const textos = fala ? fala.partes.map((x) => x.tela) : null;
   const volta = fala && textos ? remapear(semTags(palavras), fala.mapa, textos.flat()) : null;
@@ -247,6 +253,40 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
     nG = p.roteiro.gancho.replace(/[.!?…]+$/, "").trim().split(/\s+/).length;
     nCenas = falas.reduce((a, f) => a + f.trim().split(/\s+/).length, 0);
   }
+  return { palavras, seg, nG, nCenas, textos, volta };
+}
+
+export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador = {}): Promise<{ mp4: string; capa: Buffer; chars: number; duracao: number }> {
+  cancelamentoAtual = o.cancelado ?? null;
+  try {
+    return await gerarVideoInterno(p, dir, o);
+  } finally {
+    cancelamentoAtual = null;
+  }
+}
+
+async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador): Promise<{ mp4: string; capa: Buffer; chars: number; duracao: number }> {
+  const ff = o.ffmpeg ?? (await caminhoFfmpeg());
+  const leve = o.qualidade === "leve";
+  // libvips (sharp) cria uma thread por núcleo: no servidor compartilhado limita a 1 para sobrar espaço no limite da conta.
+  if (leve) sharp.concurrency(1);
+  // 0) Texto falado: o roteiro vem escrito para a tela (algarismos); a conversão para a fala e o mapa de volta ficam aqui.
+  const { fala, falado } = textoDaFala(p);
+  // 1) Voz (ou voz falsa de teste). Voz igual à de uma prévia já ouvida vem do cache (sem gastar créditos).
+  o.fase?.("voz");
+  o.progresso?.(2, "Voz");
+  let alin: Alinhamento;
+  const audio = "voz.mp3";
+  if (o.vozFalsa) {
+    alin = alinhamentoFalso(falado);
+    const dur = alin.character_end_times_seconds[alin.character_end_times_seconds.length - 1];
+    await rodar(ff, ["-y", "-hide_banner", "-loglevel", "warning", "-f", "lavfi", "-i", `sine=frequency=220:duration=${dur.toFixed(2)}`, "-c:a", "libmp3lame", audio], dir);
+  } else {
+    const v = await obterVoz(p, falado, { chave: o.chaveElevenLabs, cacheDir: o.cacheVoz });
+    alin = v.alinhamento;
+    await writeFile(join(dir, audio), v.mp3);
+  }
+  const { palavras, seg, nG, nCenas, textos, volta } = analisarVoz(p, fala, alin);
   await mkdir(join(dir, "fonts"), { recursive: true });
   const ttf = MARCA.fontes.legenda.ttf;
   await copyFile(join(process.cwd(), ttf), join(dir, "fonts", basename(ttf)));
@@ -445,7 +485,7 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
     cartoes,
     efeitos,
     corBarra: MARCA.cores.destaque,
-    trilha: { arquivo: "trilha.wav", bpm: estilo.bpm },
+    trilha: { arquivo: "trilha.wav", bpm: estilo.bpm, volume: VIDEO.musica[p.musica ?? "media"].volume, razao: VIDEO.musica[p.musica ?? "media"].razao },
     leve,
     clips,
     fechamento: { ini: seg.inicioFechamento, dur: Math.max(0.5, seg.total - seg.inicioFechamento) },

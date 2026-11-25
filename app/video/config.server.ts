@@ -21,6 +21,7 @@ export async function lerConfig(): Promise<VideoConfig> {
     model: v.model === "eleven_flash_v2_5" ? "eleven_flash_v2_5" : p.model,
     speed: num(v.speed, 0.85, 1.1, p.speed),
     efeitos: v.efeitos !== false,
+    musica: v.musica === "baixa" || v.musica === "alta" ? v.musica : p.musica,
     series: Object.fromEntries(
       Object.entries(p.series).map(([k, pad]) => {
         const x = (v.series ?? {})[k] ?? pad;

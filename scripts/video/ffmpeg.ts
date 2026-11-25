@@ -42,7 +42,7 @@ export interface PlanoMontagem {
   /** Cor da barra de progresso, "#rrggbb" (cor de destaque da marca). */
   corBarra?: string;
   /** Trilha pronta (música + whooshes, ver musica.ts) e o andamento dela, para a imagem pulsar no ritmo. */
-  trilha?: { arquivo: string; bpm: number };
+  trilha?: { arquivo: string; bpm: number; /** volume da música (0 a 1; padrão 0,3) */ volume?: number; /** razão do sidechain: quanto a música abaixa na fala (padrão 9) */ razao?: number };
   /** Efeitos sonoros dos cartões (efeitos.wav): somam depois do abaixamento da música, com volume próprio. */
   efeitos?: { arquivo: string; volume: number };
 }
@@ -199,8 +199,8 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   if (plano.trilha) {
     // Voz normalizada; a música fica baixa e abaixa mais ainda quando alguém fala (sidechain), depois soma e limita.
     partes.push(`[${iAudio}:a]loudnorm=I=-14:TP=-1.5:LRA=11,apad=pad_dur=2,asplit=2[vz1][vz2]`);
-    partes.push(`[${iTrilha}:a]volume=0.30,apad=pad_dur=3[mus]`);
-    partes.push(`[mus][vz2]sidechaincompress=threshold=0.02:ratio=9:attack=15:release=450[duck]`);
+    partes.push(`[${iTrilha}:a]volume=${(plano.trilha!.volume ?? 0.3).toFixed(2)},apad=pad_dur=3[mus]`);
+    partes.push(`[mus][vz2]sidechaincompress=threshold=0.02:ratio=${plano.trilha!.razao ?? 9}:attack=15:release=450[duck]`);
     if (plano.efeitos) {
       partes.push(`[${iEfeitos}:a]volume=${plano.efeitos.volume}[efx]`);
       partes.push(`[vz1][duck][efx]amix=inputs=3:duration=first:dropout_transition=0,volume=3,alimiter=limit=0.95[aout]`);
