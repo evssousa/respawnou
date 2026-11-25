@@ -181,6 +181,8 @@ export interface FalaMontada {
   falado: string;
   /** Quantas pausas foram inseridas. */
   pausas: number;
+  /** Texto falado de cada parte (gancho, cenas, fechamento), com a mesma pontuação do `falado` inteiro. */
+  falados: string[];
 }
 
 /**
@@ -215,7 +217,7 @@ export function montarFala(partesTela: string[], dic: ItemPronuncia[] = [], paus
     const fala = saida.join(" ");
     falados.push(/[?!]$/.test(fala) ? fala : `${fala}.`);
   }
-  return { partes, mapa, falado: falados.join(" "), pausas };
+  return { partes, mapa, falado: falados.join(" "), pausas, falados };
 }
 
 // ───────────── Caminho de volta: palavras faladas com tempo → palavras da tela ─────────────

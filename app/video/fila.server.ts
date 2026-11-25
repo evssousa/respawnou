@@ -16,9 +16,9 @@ import { candidatos, comandoCortes, lerCortes, lerDuracao } from "../../scripts/
 import { VIDEO, vozDaSecao, ENERGIA_VOZ } from "./config";
 import { lerConfig } from "./config.server";
 import { exec, hasDatabase, query } from "./db";
-import { analisarVoz, gerarVideo, obterVoz, textoDaFala } from "./gerador.server";
+import { gerarVideo, textoDaFala, vozPorPartes } from "./gerador.server";
 import { legendasDoVideo } from "./legendas";
-import { fechamentoFinal, perguntaDoFechamento, textoFalado, type Imagem, type Roteiro } from "./roteiro";
+import { fechamentoFinal, partesDoRoteiro, perguntaDoFechamento, textoFalado, type Imagem, type Roteiro } from "./roteiro";
 import type { ItemPronuncia } from "./pronuncia";
 import { dicionarioCompleto } from "./pronuncia.server";
 import { dadosDaSerie, dicaDoPost, rotuloDaSerie, serieDeCalendario, serieDoFormato } from "./series.server";
@@ -569,34 +569,34 @@ async function pacoteDoJob(job: JobVideo): Promise<PacoteWorker | null> {
 // ───────────── Prévia da voz ("Ouvir a narração") ─────────────
 
 const dirPrevia = () => join(mediaDir(), "video", "previa");
-const hashRoteiro = (script: unknown) => createHash("sha1").update(JSON.stringify(script ?? null)).digest("hex").slice(0, 16);
 
 export interface PreviaVoz {
-  /** Endereço do áudio (mp3) da narração inteira. */
-  url: string;
-  /** Início e fim (s) da narração de cada cena (a 1ª cena começa em 0, junto com o gancho) e do fechamento. */
-  cenas: { ini: number; fim: number }[];
-  fechamento: { ini: number; fim: number } | null;
-  total: number;
-  /** Caracteres enviados à voz (créditos da ElevenLabs). */
+  /** Uma entrada por parte: 0 = gancho, 1..n = cenas, última = fechamento. Cada parte tem o próprio áudio. */
+  partes: { texto: string; url: string; dur: number; chars: number }[];
+  /** Para cada parte: o texto do roteiro SALVO ainda é o mesmo de quando a voz foi gerada? */
+  validas: boolean[];
+  /** Caracteres de todas as partes (créditos da ElevenLabs, se tudo fosse gerado do zero). */
   chars: number;
-  /** Hash do roteiro salvo no momento: a prévia só vale enquanto o roteiro não mudar. */
-  roteiro: string;
 }
 
-/** Prévia da voz do roteiro salvo, se existir e ainda valer (o texto não mudou desde que foi gerada). */
+/**
+ * Prévia da voz do roteiro salvo: o áudio de cada parte (gancho, cenas, fechamento) e se ele ainda vale (o texto daquela parte não mudou
+ * desde que a voz foi gerada). `null` se nunca foi gerada.
+ */
 export async function lerPrevia(job: Pick<JobVideo, "id" | "script">): Promise<PreviaVoz | null> {
   try {
-    const p = JSON.parse(await readFile(join(dirPrevia(), `j${job.id}.json`), "utf8")) as PreviaVoz;
-    return p.roteiro === hashRoteiro(job.script) ? p : null;
+    const meta = JSON.parse(await readFile(join(dirPrevia(), `j${job.id}.json`), "utf8")) as Omit<PreviaVoz, "validas">;
+    if (!job.script || !Array.isArray(meta.partes)) return null;
+    const atuais = partesDoRoteiro(job.script);
+    return { ...meta, validas: meta.partes.map((x, i) => x.texto === atuais[i]) };
   } catch {
     return null;
   }
 }
 
 /**
- * Pede a prévia da voz SEM esperar (a ElevenLabs leva alguns segundos): gera a narração inteira, guarda áudio e tempos de cada cena
- * e a geração do vídeo reaproveita esse mesmo áudio (nenhum crédito é gasto duas vezes). O dono ouve a narração toda ou cena por cena.
+ * Pede a voz das partes do roteiro SEM esperar (a ElevenLabs leva alguns segundos). Só as partes cujo texto mudou são geradas (as outras
+ * vêm do cache e não gastam nada); a geração do vídeo reaproveita estes mesmos áudios. O dono ouve tudo ou cena por cena.
  */
 export async function pedirPreviaVoz(id: number): Promise<string> {
   const [j] = await query<{ status: string; progress: string | null; recente: number; script: unknown }>(
@@ -619,20 +619,12 @@ async function gerarPreviaVoz(id: number): Promise<void> {
     const job = linha(j);
     const pacote = await pacoteDoJob(job);
     if (!pacote) throw new Error("sem roteiro ou matéria");
-    const { fala, falado } = textoDaFala(pacote);
-    const v = await obterVoz(pacote, falado, { cacheDir: dirPrevia() });
-    const { seg } = analisarVoz(pacote, fala, v.alinhamento);
-    const cenas: { ini: number; fim: number }[] = [];
-    for (const x of seg.segs) if (x.tipo === "cena") cenas[x.cena] = { ini: x.ini, fim: x.fim };
-    if (cenas[0]) cenas[0] = { ini: 0, fim: cenas[0].fim };
-    const fech = seg.segs.find((x) => x.tipo === "fechamento");
-    const previa: PreviaVoz = {
-      url: `/media/video/previa/${v.chave}.mp3`,
-      cenas: Array.from({ length: job.script!.cenas.length }, (_, i) => cenas[i] ?? { ini: 0, fim: 0 }),
-      fechamento: fech ? { ini: fech.ini, fim: fech.fim } : null,
-      total: seg.total,
-      chars: falado.length,
-      roteiro: hashRoteiro(job.script),
+    const { fala } = textoDaFala(pacote);
+    const partes = await vozPorPartes(pacote, fala, { cacheDir: dirPrevia() });
+    const textos = partesDoRoteiro(job.script!);
+    const previa: Omit<PreviaVoz, "validas"> = {
+      partes: partes.map((x, i) => ({ texto: textos[i] ?? "", url: `/media/video/previa/${x.chave}.mp3`, dur: Number(x.dur.toFixed(2)), chars: x.falado.length })),
+      chars: partes.reduce((n, x) => n + x.falado.length, 0),
     };
     await mkdir(dirPrevia(), { recursive: true });
     await writeFile(join(dirPrevia(), `j${id}.json`), JSON.stringify(previa));

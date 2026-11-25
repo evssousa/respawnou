@@ -7,12 +7,14 @@ export interface Sintese {
   alinhamento: Alinhamento;
 }
 
-export async function sintetizar(o: { chave: string; voz: string; modelo: string; velocidade: number; estabilidade?: number; estilo?: number; texto: string }): Promise<Sintese> {
+export async function sintetizar(o: { chave: string; voz: string; modelo: string; velocidade: number; estabilidade?: number; estilo?: number; texto: string; /** texto que vem antes/depois (só dá contexto de entonação; não é falado) */ antes?: string; depois?: string }): Promise<Sintese> {
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(o.voz)}/with-timestamps?output_format=mp3_44100_128`, {
     method: "POST",
     headers: { "xi-api-key": o.chave, "Content-Type": "application/json" },
     body: JSON.stringify({
       text: o.texto,
+      ...(o.antes ? { previous_text: o.antes } : {}),
+      ...(o.depois ? { next_text: o.depois } : {}),
       model_id: o.modelo,
       voice_settings: { stability: o.estabilidade ?? 0.55, similarity_boost: 0.8, style: o.estilo ?? 0, use_speaker_boost: true, speed: o.velocidade },
     }),

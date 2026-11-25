@@ -12,7 +12,7 @@ decisões: `video-melhorias.md` e `instagram-stories-videos.md`.
 3. Ao aprovar, o próprio servidor monta o vídeo 1080×1920: voz (ElevenLabs, com alinhamento por palavra), imagens com zoom ou
    deslize, transições, cartões de dados animados, legenda palavra por palavra com destaque, trilha e efeitos sintetizados.
 4. O dono baixa o MP4, copia as legendas (Instagram, YouTube, TikTok) ou clica em "Publicar no Instagram (Reels)".
-4b. Antes de gerar, "Ouvir a narração" faz a voz da ElevenLabs uma vez (guardada em `media/video/previa/`, 3 dias), com player e "Ouvir esta cena"; a geração do vídeo reaproveita esse mesmo áudio (mesmo texto, voz e ajustes = nenhum crédito gasto de novo). A música tem volume baixa/média/alta em Configuração.
+4b. A voz é gerada POR PARTE (gancho, cada cena, fechamento), cada uma com cache próprio em `media/video/previa/` (3 dias; chave = texto + voz + ajustes). "Gerar o áudio das cenas" faz a prévia: o dono ouve tudo ou cena por cena; mudar o texto de uma cena marca só ela e "Atualizar o áudio" gera só a voz dela (poucos créditos). A geração do vídeo junta esses mesmos áudios (com pausa de 0,12 s entre as partes) e não gasta crédito de novo. A música tem volume baixa/média/alta em Configuração.
 5. Enquanto gera, o painel mostra a porcentagem e a etapa (voz, imagens, trechos de vídeo, montagem); se o ffmpeg ficar 6 min sem andar, é encerrado e o vídeo falha com mensagem. (O sistema de estatísticas dos Reels foi retirado em 2026-11-25: não há coleta de insights nem permissão extra no token do Instagram.)
 6. Séries fixas: Grátis da semana, Lançamentos da semana, Review em 60 s, Top 5.
 

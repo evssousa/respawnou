@@ -340,95 +340,95 @@ function ProgressoGeracao({ progress }: { progress?: string | null }) {
 /** Lista de cenas. Guarda aqui o cartão escolhido em cada uma, para o "já na cena N" das outras valer na hora (e não só depois de salvar). */
 function CenasEditor({ j, r, max, previa, busy }: { j: Job; r: NonNullable<Job["script"]>; max: number; previa: PreviaVoz | null; busy: boolean }) {
   const [cart, setCart] = useState<string[]>(() => r.cenas.map((c) => c.cartao ?? ""));
+  const [falas, setFalas] = useState<string[]>(() => r.cenas.map((c) => c.fala));
   const usados: Record<string, number> = {};
   cart.forEach((t, k) => {
     if (t) usados[t] = k;
   });
-  // Player único: o da narração inteira; os botões "Ouvir esta cena" posicionam o mesmo áudio no começo da cena e param no fim dela.
-  // O mp3 é baixado inteiro para a memória (blob): assim o navegador sempre consegue pular para o começo da cena, mesmo quando o
-  // servidor/CDN não aceita pedir só um pedaço do arquivo (nesse caso o áudio tocava do começo ao fim).
+  // Cada parte (gancho, cenas, fechamento) tem o próprio áudio. Um <audio> só toca uma fila de arquivos, na ordem.
   const audio = useRef<HTMLAudioElement>(null);
-  const quadro = useRef<number | null>(null);
-  const [tocando, setTocando] = useState<number | null>(null);
-  const [fonte, setFonte] = useState<string | null>(null);
-  const urlPrevia = previa?.url ?? null;
-  useEffect(() => {
-    if (!urlPrevia) {
-      setFonte(null);
+  const fila = useRef<string[]>([]);
+  const [tocando, setTocando] = useState<string | null>(null);
+  const proxima = () => {
+    const a = audio.current;
+    const u = fila.current.shift();
+    if (!a || !u) {
+      setTocando(null);
       return;
     }
-    let vivo = true;
-    let objeto: string | null = null;
-    fetch(urlPrevia, { cache: "force-cache", credentials: "same-origin" })
-      .then((x) => (x.ok ? x.blob() : Promise.reject(new Error(`HTTP ${x.status}`))))
-      .then((b) => {
-        objeto = URL.createObjectURL(b);
-        if (vivo) setFonte(objeto);
-      })
-      .catch(() => vivo && setFonte(urlPrevia));
-    return () => {
-      vivo = false;
-      if (objeto) URL.revokeObjectURL(objeto);
-    };
-  }, [urlPrevia]);
+    a.src = u;
+    void a.play().catch(() => setTocando(null));
+  };
   const parar = () => {
-    if (quadro.current != null) cancelAnimationFrame(quadro.current);
-    quadro.current = null;
+    fila.current = [];
     audio.current?.pause();
     setTocando(null);
   };
-  const tocar = (k: number, ini: number, fim: number) => {
-    const a = audio.current;
-    if (!a) return;
-    if (quadro.current != null) cancelAnimationFrame(quadro.current);
-    const comecar = () => {
-      a.currentTime = ini;
-      setTocando(k);
-      void a.play();
-      const vigiar = () => {
-        if (a.paused || a.ended) return;
-        if (a.currentTime >= fim) {
-          parar();
-          return;
-        }
-        quadro.current = requestAnimationFrame(vigiar);
-      };
-      quadro.current = requestAnimationFrame(vigiar);
-    };
-    if (a.readyState >= 1) comecar();
-    else a.addEventListener("loadedmetadata", comecar, { once: true });
+  const tocar = (rotulo: string, urls: string[]) => {
+    fila.current = [...urls];
+    setTocando(rotulo);
+    proxima();
   };
-  useEffect(() => () => {
-    if (quadro.current != null) cancelAnimationFrame(quadro.current);
-  }, []);
-  const caracteres = r.gancho.length + r.cenas.reduce((n, c) => n + c.fala.length, 0) + 110;
+  // Parte i da prévia: 0 = gancho, 1..n = cenas, n+1 = fechamento. Vale se o texto salvo e o que está na tela ainda são os do áudio.
+  const n = r.cenas.length;
+  const textoAtual = (i: number) => (i === 0 ? r.gancho : i === n + 1 ? previa?.partes[i]?.texto ?? "" : falas[i - 1]);
+  const parteOk = (i: number) => !!previa && !!previa.partes[i] && previa.validas[i] === true && textoAtual(i).trim() === previa.partes[i].texto.trim();
+  const todasOk = !!previa && previa.partes.every((_, i) => parteOk(i));
+  const creditosPara = (i: number) => (i === 0 ? r.gancho.length : i === n + 1 ? 110 : falas[i - 1].length);
+  const faltam = Array.from({ length: n + 2 }, (_, i) => i).filter((i) => !parteOk(i));
+  const creditosFaltam = previa ? faltam.reduce((t, i) => t + creditosPara(i), 0) : r.gancho.length + falas.reduce((t, f) => t + f.length, 0) + 110;
   const gerandoVoz = j.progress === "voz";
   return (
     <>
       <div className="flex flex-col gap-2 border border-line p-3">
+        <audio ref={audio} preload="auto" onEnded={proxima} onError={() => setTocando(null)} className="hidden" />
         <div className="flex flex-wrap items-center gap-2">
-          <Button name="intent" value="ouvir" disabled={busy || gerandoVoz}>{previa ? "Ouvir de novo com o texto atual" : "Ouvir a narração"}</Button>
-          <span className="text-[11px] text-muted">{`Salva o roteiro e gera a voz (cerca de ${caracteres.toLocaleString("pt-BR")} créditos da ElevenLabs). Ao gerar o vídeo, esta mesma voz é reaproveitada, sem gastar de novo.`}</span>
+          {!previa || !todasOk ? (
+            <Button name="intent" value="ouvir" disabled={busy || gerandoVoz}>{previa ? "Atualizar o áudio (só o que mudou)" : "Gerar o áudio das cenas"}</Button>
+          ) : null}
+          {previa && (
+            <button type="button" onClick={() => (tocando === "tudo" ? parar() : tocar("tudo", previa.partes.map((x) => x.url)))} disabled={!todasOk} className={`min-h-9 border px-3 font-mono text-xs font-bold disabled:opacity-40 ${tocando === "tudo" ? "border-acc text-acc" : "border-line-soft text-paper hover:border-acc"}`}>{tocando === "tudo" ? "■ Parar" : "▶ Ouvir tudo"}</button>
+          )}
+          {previa && parteOk(n + 1) && (
+            <button type="button" onClick={() => (tocando === "fecho" ? parar() : tocar("fecho", [previa.partes[n + 1].url]))} className={`min-h-9 border px-3 font-mono text-xs font-bold ${tocando === "fecho" ? "border-acc text-acc" : "border-line-soft text-paper hover:border-acc"}`}>{tocando === "fecho" ? "■ Parar" : "▶ Ouvir o fechamento"}</button>
+          )}
         </div>
-        {gerandoVoz && <p className="animate-pulse font-mono text-xs font-bold text-acc">GERANDO A VOZ… ALGUNS SEGUNDOS</p>}
-        {previa ? (
-          <>
-            <audio ref={audio} controls preload="auto" src={fonte ?? previa.url} className="w-full" onPause={() => setTocando(null)} />
-            <p className="text-[11px] text-muted">{`Narração de ${previa.total.toFixed(0)} s. Use "Ouvir esta cena" em cada cena. Mudou alguma fala? Clique em "Ouvir de novo" (ouvir não gasta nada; gerar a voz de novo, sim).`}</p>
-          </>
-        ) : (
-          !gerandoVoz && <p className="text-[11px] text-muted">Ouça antes de gerar o vídeo para conferir pronúncia, ritmo e se alguma fala precisa mudar.</p>
-        )}
+        <p className="text-[11px] text-muted">
+          {gerandoVoz
+            ? "Gerando a voz… alguns segundos."
+            : !previa
+              ? `Gera a voz de cada cena (cerca de ${creditosFaltam.toLocaleString("pt-BR")} créditos da ElevenLabs) para você ouvir cena por cena antes de gerar o vídeo. O vídeo usa estes mesmos áudios, sem gastar de novo.`
+              : todasOk
+                ? "Todas as cenas estão com o áudio em dia. Mudou uma fala? Ela fica marcada e você gera só a voz dela (poucos créditos)."
+                : `${faltam.length} parte${faltam.length === 1 ? "" : "s"} com texto novo ou sem áudio: "Atualizar o áudio" gera só ${faltam.length === 1 ? "essa" : "essas"} (cerca de ${creditosFaltam.toLocaleString("pt-BR")} créditos); o resto vem guardado, sem custo.`}
+        </p>
+        {gerandoVoz && <p className="animate-pulse font-mono text-xs font-bold text-acc">GERANDO A VOZ…</p>}
       </div>
       {r.cenas.map((c, i) => (
-        <CenaLinha key={`${j.id}-${i}`} i={i} c={c} images={j.images} focus={j.focus} max={max} jobId={j.id} fatos={(j.facts as unknown as FatosVideo | null) ?? null} usados={usados} onCartao={(v) => setCart((a) => a.map((x, k) => (k === i ? v : x)))} onOuvir={previa && previa.cenas[i] && previa.cenas[i].fim > 0 ? () => tocar(i, previa.cenas[i].ini, previa.cenas[i].fim) : undefined} tocando={tocando === i} />
+        <CenaLinha
+          key={`${j.id}-${i}`}
+          i={i}
+          c={c}
+          fala={falas[i]}
+          onFala={(t) => setFalas((a) => a.map((x, k) => (k === i ? t : x)))}
+          images={j.images}
+          focus={j.focus}
+          max={max}
+          jobId={j.id}
+          fatos={(j.facts as unknown as FatosVideo | null) ?? null}
+          usados={usados}
+          onCartao={(v) => setCart((a) => a.map((x, k) => (k === i ? v : x)))}
+          audio={previa ? { pronto: parteOk(i + 1) && (i > 0 || parteOk(0)), creditos: falas[i].length + (i === 0 && !parteOk(0) ? r.gancho.length : 0), ouvir: () => (tocando === `c${i}` ? parar() : tocar(`c${i}`, i === 0 ? [previa.partes[0].url, previa.partes[1].url] : [previa.partes[i + 1].url])) } : undefined}
+          tocando={tocando === `c${i}`}
+          busy={busy}
+        />
       ))}
     </>
   );
 }
 
 /** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
-function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao, onOuvir, tocando }: { onOuvir?: () => void; tocando?: boolean; onCartao: (v: string) => void; max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null; ss?: number | null }; images: { src: string; alt: string; trechos?: { ss: number; thumb: string }[]; duracao?: number }[]; focus: Record<string, string> }) {
+function CenaLinha({ i, c, fala, onFala, images, focus, max, jobId, fatos, usados, onCartao, audio, tocando, busy }: { fala: string; onFala: (t: string) => void; audio?: { pronto: boolean; creditos: number; ouvir: () => void }; tocando?: boolean; busy?: boolean; onCartao: (v: string) => void; max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null; ss?: number | null }; images: { src: string; alt: string; trechos?: { ss: number; thumb: string }[]; duracao?: number }[]; focus: Record<string, string> }) {
   const [img, setImg] = useState(c.imagem);
   const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
@@ -454,8 +454,15 @@ function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao, o
         <div className="flex h-[114px] w-16 items-center justify-center border border-line text-[10px] text-muted">ARTE</div>
       )}
       <div className="flex flex-col gap-2">
-        <textarea name={`fala_${i}`} defaultValue={c.fala} rows={2} maxLength={max} aria-label={`Fala da cena ${i + 1}`} className={inputCls} />
-        {onOuvir && <button type="button" onClick={onOuvir} className={`min-h-9 self-start border px-3 font-mono text-xs font-bold ${tocando ? "border-acc text-acc" : "border-line-soft text-paper hover:border-acc"}`}>{tocando ? "▶ Tocando…" : "▶ Ouvir esta cena"}</button>}
+        <textarea name={`fala_${i}`} value={fala} onChange={(e) => onFala(e.target.value)} rows={2} maxLength={max} aria-label={`Fala da cena ${i + 1}`} className={inputCls} />
+        {audio && (audio.pronto ? (
+          <button type="button" onClick={audio.ouvir} className={`min-h-9 self-start border px-3 font-mono text-xs font-bold ${tocando ? "border-acc text-acc" : "border-line-soft text-paper hover:border-acc"}`}>{tocando ? "■ Parar" : "▶ Ouvir esta cena"}</button>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button name="intent" value="ouvir" disabled={busy}>{`Gerar o áudio desta cena (~${audio.creditos.toLocaleString("pt-BR")} créditos)`}</Button>
+            <span className="text-[11px] text-warn">texto novo: o áudio ainda é o antigo</span>
+          </div>
+        ))}
         <input type="hidden" name={`img_${i}`} value={img} />
         <input type="hidden" name={`foco_${i}`} value={foco} />
         <input type="hidden" name={`cartao_${i}`} value={cartao} />

@@ -203,31 +203,89 @@ export function textoDaFala(p: PacoteVideo) {
   return { fala, falado: fala ? fala.falado : p.falado };
 }
 
-/** Identifica uma voz: mesmo texto, mesma voz e mesmos ajustes = mesmo áudio. */
+/** Identifica uma fala: mesmo texto, mesma voz e mesmos ajustes = mesmo áudio. */
 export const chaveDaVoz = (p: PacoteVideo, falado: string) =>
   createHash("sha1").update(JSON.stringify([falado, p.voz, p.modelo, p.velocidade, p.estabilidade ?? null, p.estilo ?? null])).digest("hex").slice(0, 20);
 
-/** Voz da ElevenLabs com cache em disco (`<chave>.mp3` + `<chave>.json` com o alinhamento). */
-export async function obterVoz(p: PacoteVideo, falado: string, o: { chave?: string; cacheDir?: string }): Promise<{ mp3: Buffer; alinhamento: Alinhamento; chave: string; deCache: boolean }> {
-  const chaveCache = chaveDaVoz(p, falado);
-  if (o.cacheDir) {
-    try {
-      const [mp3, json] = await Promise.all([readFile(join(o.cacheDir, `${chaveCache}.mp3`)), readFile(join(o.cacheDir, `${chaveCache}.json`), "utf8")]);
-      return { mp3, alinhamento: JSON.parse(json) as Alinhamento, chave: chaveCache, deCache: true };
-    } catch {
-      /* não está no cache: gera */
+export interface ParteVoz {
+  /** Texto falado desta parte (gancho, uma cena ou o fechamento). */
+  falado: string;
+  mp3: Buffer;
+  /** Tempos de cada caractere, a partir do começo desta parte. */
+  alinhamento: Alinhamento;
+  /** Duração do mp3 (s). */
+  dur: number;
+  chave: string;
+  deCache: boolean;
+}
+
+/** O mp3 da ElevenLabs é CBR de 128 kbps: a duração sai do tamanho do arquivo (sem abrir o ffmpeg). */
+const duracaoDoMp3 = (mp3: Buffer) => (mp3.length * 8) / 128_000;
+
+/**
+ * A voz é gerada POR PARTE (gancho, cada cena, fechamento): cada parte tem cache próprio (`<chave>.mp3` + `<chave>.json`), então
+ * mudar o texto de uma cena gera só a voz dela. A prévia "Ouvir a narração" e a geração do vídeo usam esse mesmo cache: o que o dono
+ * ouviu é o que entra no vídeo e nenhum crédito é gasto duas vezes. A entonação continua natural: a ElevenLabs recebe o texto da
+ * parte anterior e da seguinte como contexto.
+ */
+export async function vozPorPartes(p: PacoteVideo, fala: ReturnType<typeof textoDaFala>["fala"], o: { chave?: string; cacheDir?: string }): Promise<ParteVoz[]> {
+  const falados = fala ? fala.falados : [p.falado];
+  const chaveApi = o.chave ?? process.env.ELEVENLABS_API_KEY;
+  const out: ParteVoz[] = [];
+  for (const [i, falado] of falados.entries()) {
+    const chave = chaveDaVoz(p, falado);
+    if (o.cacheDir) {
+      try {
+        const [mp3, json] = await Promise.all([readFile(join(o.cacheDir, `${chave}.mp3`)), readFile(join(o.cacheDir, `${chave}.json`), "utf8")]);
+        out.push({ falado, mp3, alinhamento: JSON.parse(json) as Alinhamento, dur: duracaoDoMp3(mp3), chave, deCache: true });
+        continue;
+      } catch {
+        /* não está no cache: gera */
+      }
     }
+    if (!chaveApi) throw new Error("ELEVENLABS_API_KEY ausente");
+    if (!p.voz) throw new Error("nenhuma voz configurada para esta editoria (painel /admin/videos)");
+    const sint = await sintetizar({ chave: chaveApi, voz: p.voz, modelo: p.modelo, velocidade: p.velocidade, estabilidade: p.estabilidade, estilo: p.estilo, texto: falado, antes: falados[i - 1]?.slice(-300), depois: falados[i + 1]?.slice(0, 300) });
+    if (o.cacheDir) {
+      await mkdir(o.cacheDir, { recursive: true });
+      await writeFile(join(o.cacheDir, `${chave}.mp3`), sint.mp3);
+      await writeFile(join(o.cacheDir, `${chave}.json`), JSON.stringify(sint.alinhamento));
+    }
+    out.push({ falado, mp3: sint.mp3, alinhamento: sint.alinhamento, dur: duracaoDoMp3(sint.mp3), chave, deCache: false });
   }
-  const chave = o.chave ?? process.env.ELEVENLABS_API_KEY;
-  if (!chave) throw new Error("ELEVENLABS_API_KEY ausente");
-  if (!p.voz) throw new Error("nenhuma voz configurada para esta editoria (painel /admin/videos)");
-  const s = await sintetizar({ chave, voz: p.voz, modelo: p.modelo, velocidade: p.velocidade, estabilidade: p.estabilidade, estilo: p.estilo, texto: falado });
-  if (o.cacheDir) {
-    await mkdir(o.cacheDir, { recursive: true });
-    await writeFile(join(o.cacheDir, `${chaveCache}.mp3`), s.mp3);
-    await writeFile(join(o.cacheDir, `${chaveCache}.json`), JSON.stringify(s.alinhamento));
+  return out;
+}
+
+/** Pausa entre as partes (s): o fôlego de uma frase para a outra. */
+const PAUSA_ENTRE_PARTES = 0.12;
+
+/** Junta as partes num `voz.mp3` só (com uma pausa curta entre elas) e devolve o alinhamento do conjunto, no formato de uma voz única. */
+export async function juntarVozes(partes: ParteVoz[], dir: string, ff: string, saida = "voz.mp3"): Promise<Alinhamento> {
+  const alin: Alinhamento = { characters: [], character_start_times_seconds: [], character_end_times_seconds: [] };
+  let deslocamento = 0;
+  const linhas: string[] = [];
+  if (partes.length > 1) await rodar(ff, ["-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `anullsrc=r=44100:cl=mono`, "-t", String(PAUSA_ENTRE_PARTES), "-c:a", "libmp3lame", "-b:a", "128k", "pausa.mp3"], dir);
+  for (const [i, parte] of partes.entries()) {
+    await writeFile(join(dir, `voz_p${i}.mp3`), parte.mp3);
+    if (i > 0) {
+      linhas.push("file 'pausa.mp3'");
+      alin.characters.push(" ");
+      alin.character_start_times_seconds.push(deslocamento);
+      alin.character_end_times_seconds.push(deslocamento + PAUSA_ENTRE_PARTES);
+      deslocamento += PAUSA_ENTRE_PARTES;
+    }
+    linhas.push(`file 'voz_p${i}.mp3'`);
+    const a = parte.alinhamento;
+    a.characters.forEach((ch, k) => {
+      alin.characters.push(ch);
+      alin.character_start_times_seconds.push((a.character_start_times_seconds[k] ?? 0) + deslocamento);
+      alin.character_end_times_seconds.push((a.character_end_times_seconds[k] ?? 0) + deslocamento);
+    });
+    deslocamento += parte.dur;
   }
-  return { mp3: s.mp3, alinhamento: s.alinhamento, chave: chaveCache, deCache: false };
+  await writeFile(join(dir, "voz_lista.txt"), linhas.join(String.fromCharCode(10)));
+  await rodar(ff, ["-y", "-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", "voz_lista.txt", "-af", "aresample=44100,aformat=channel_layouts=mono", "-c:a", "libmp3lame", "-b:a", "128k", saida], dir);
+  return alin;
 }
 
 /** Palavras com tempo e segmentos (abertura, cenas, fechamento) a partir do alinhamento da voz. */
@@ -282,9 +340,8 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
     const dur = alin.character_end_times_seconds[alin.character_end_times_seconds.length - 1];
     await rodar(ff, ["-y", "-hide_banner", "-loglevel", "warning", "-f", "lavfi", "-i", `sine=frequency=220:duration=${dur.toFixed(2)}`, "-c:a", "libmp3lame", audio], dir);
   } else {
-    const v = await obterVoz(p, falado, { chave: o.chaveElevenLabs, cacheDir: o.cacheVoz });
-    alin = v.alinhamento;
-    await writeFile(join(dir, audio), v.mp3);
+    const partesVoz = await vozPorPartes(p, fala, { chave: o.chaveElevenLabs, cacheDir: o.cacheVoz });
+    alin = await juntarVozes(partesVoz, dir, ff, audio);
   }
   const { palavras, seg, nG, nCenas, textos, volta } = analisarVoz(p, fala, alin);
   await mkdir(join(dir, "fonts"), { recursive: true });
