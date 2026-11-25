@@ -150,6 +150,7 @@ export function validarRoteiro(r: unknown, nImagens: number, secao = "", fatos: 
       usados.add(cartao);
     }
     if (typeof x.item === "number" && Number.isInteger(x.item) && x.item >= 0 && x.item < 50 && cena.cartao) cena.item = x.item;
+    if (typeof x.ss === "number" && Number.isFinite(x.ss) && x.ss >= 0 && x.ss < 36000) cena.ss = Number(x.ss.toFixed(2));
     cenas.push(cena);
   }
   const roteiro: Roteiro = { gancho, cenas, titulo_curto: titulo };

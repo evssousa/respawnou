@@ -6,13 +6,16 @@ export interface OpcaoImagem {
   /** Endereço da imagem (ou do vídeo). `arte:…` e vazio viram um quadro com texto. */
   src: string;
   alt: string;
+  /** Vídeos enviados: quadros dos trechos (o 1º serve de miniatura; o quadro 0 do vídeo costuma ser preto). */
+  trechos?: { ss: number; thumb: string }[];
 }
 
 const ehVideo = (s: string) => /\.(mp4|webm)$/i.test(s);
 const ehLegado = (s: string) => s.startsWith("yt:");
 
 function Miniatura({ op, className }: { op: OpcaoImagem; className: string }) {
-  if (ehVideo(op.src)) return <video src={op.src} muted playsInline preload="metadata" className={className} />;
+  if (ehVideo(op.src) && op.trechos?.[0]) return <img src={op.trechos[Math.min(1, op.trechos.length - 1)].thumb} alt="" loading="lazy" className={className} />;
+  if (ehVideo(op.src)) return <video src={`${op.src}#t=1`} muted playsInline preload="metadata" className={className} />;
   if (op.src.startsWith("arte:") || ehLegado(op.src)) return <div className={`${className} flex items-center justify-center bg-ink text-[10px] text-muted`}>ARTE</div>;
   return <img src={op.src} alt="" loading="lazy" className={className} />;
 }

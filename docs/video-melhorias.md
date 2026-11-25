@@ -62,7 +62,7 @@ Fora do escopo (decisão do dono): vídeo semanal horizontal de 5 min, programa/
 | 8 | C1–C3 | 1 (cartões) | G | 3, 5 | Visual novo; usa a montagem nova |
 | 9 | E1 | 5 (efeitos) | P | 8 | Instantes vêm da linha do tempo dos cartões |
 | 10 | SE1–SE3 | 6 (séries) | G | 5, 8 | Séries usam cartões `gratis`, `dia`, `ranking`, `nota` |
-| 11 | ME3 | 9 (métricas, parte 2) | P | 1 + ≥ 6 vídeos medidos | Só faz sentido com dados |
+| 11 | ME3 | 9 (métricas, parte 2) | P | 1 + ≥ 6 vídeos medidos | CANCELADA em 2026-11-25: o sistema de estatísticas dos Reels (coleta de insights, painel de desempenho e aviso de permissão do token) foi retirado a pedido do dono |
 | 12 | MA2 | 12 (marca, parte 2) | P | todas | Checklist de cópia e doc permanente |
 
 Ao fim das etapas 3, 8 e 10: deploy e 1 vídeo real em produção com o dono olhando (anotar o tempo de montagem na Hostinger

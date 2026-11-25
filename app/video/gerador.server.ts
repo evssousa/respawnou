@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { basename, join } from "node:path";
+import { mediaDir } from "../../server-paths.mjs";
 import { MARCA } from "~/marca";
 import sharp from "sharp";
 import { recortarComFoco } from "~/social/render/imagem.server";
@@ -15,7 +16,7 @@ import { gerarQuadros } from "./render/quadros.server";
 import { gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/ass";
 import { alinhamentoFalso, sintetizar } from "../../scripts/video/elevenlabs";
 import { type ItemPronuncia, montarFala, remapear, semTags } from "../../scripts/video/falar";
-import { type Clip, instantesTransicao, montar } from "../../scripts/video/ffmpeg";
+import { type Clip, comandoClipeVideo, instantesTransicao, montar } from "../../scripts/video/ffmpeg";
 import { comandoEfeitos, filtrarEventos, somDoCartao } from "../../scripts/video/efeitos";
 import { comandoTrilha, estiloDoVideo } from "../../scripts/video/musica";
 import { comandoCortes, ehVideoSrc, escolherTrechos, FRACAO_MAX_VIDEO, lerCortes, lerDuracao, TRECHO_MAX_S } from "../../scripts/video/videoclip";
@@ -59,6 +60,8 @@ export interface OpcoesGerador {
   chaveElevenLabs?: string;
   /** Chamado ao começar cada fase ("voz", "imagens", "quadros", "trilha", "montagem", "capa"): serve para medir o tempo de cada uma. */
   fase?: (nome: string) => void;
+  /** Andamento de 0 a 100 com o nome da etapa (o painel mostra a barra). */
+  progresso?: (pct: number, rotulo: string) => void;
 }
 
 export async function caminhoFfmpeg(): Promise<string> {
@@ -76,10 +79,16 @@ export async function caminhoFfmpeg(): Promise<string> {
  * Roda o ffmpeg. Na hospedagem compartilhada o limite de processos/threads da conta às vezes estoura por um instante
  * ("pthread_create() failed: Resource temporarily unavailable"): espera e tenta de novo (até 6 vezes, 5 s a mais a cada vez).
  */
-async function rodar(cmd: string, args: string[], cwd: string): Promise<string> {
+interface ExtraRodar {
+  /** Duração total (s) do arquivo de saída: liga o `-progress` do ffmpeg e chama `onFracao` de 0 a 1. */
+  total?: number;
+  onFracao?: (f: number) => void;
+}
+
+async function rodar(cmd: string, args: string[], cwd: string, extra: ExtraRodar = {}): Promise<string> {
   for (let tentativa = 1; ; tentativa++) {
     try {
-      return await rodarUma(cmd, args, cwd);
+      return await rodarUma(cmd, args, cwd, extra);
     } catch (e) {
       const m = String((e as Error)?.message ?? e);
       if (tentativa >= 6 || !/pthread_create|Resource temporarily unavailable|Cannot allocate memory|EAGAIN/i.test(m)) throw e;
@@ -88,14 +97,51 @@ async function rodar(cmd: string, args: string[], cwd: string): Promise<string> 
   }
 }
 
-function rodarUma(cmd: string, args: string[], cwd: string): Promise<string> {
+/** Sem nenhum sinal de vida do ffmpeg por tanto tempo, ele é encerrado (travado) e o vídeo falha com mensagem clara. */
+const SEM_SINAL_MS = 6 * 60_000;
+const TETO_MS = 45 * 60_000;
+
+function rodarUma(cmd: string, args: string[], cwd: string, extra: ExtraRodar = {}): Promise<string> {
   return new Promise((ok, erro) => {
-    const p = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    const comProgresso = !!extra.total && extra.total > 0;
+    const p = spawn(cmd, comProgresso ? ["-progress", "pipe:1", "-nostats", ...args] : args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
     let err = "";
-    p.stderr.on("data", (d) => (err += String(d)));
-    p.on("error", erro);
+    let acabou = false;
+    let motivo = "";
+    let ultimo = Date.now();
+    const inicio = Date.now();
+    const vigia = setInterval(() => {
+      // Com `-progress` o ffmpeg dá sinal de vida a cada segundo: parado por 6 min = travou. Sem ele, só vale o teto de 15 min.
+      const parado = comProgresso && Date.now() - ultimo > SEM_SINAL_MS;
+      const demais = Date.now() - inicio > (comProgresso ? TETO_MS : 15 * 60_000);
+      if (parado || demais) {
+        motivo = parado ? "travou (sem andar por 6 minutos)" : "demorou demais e foi encerrado";
+        p.kill("SIGKILL");
+      }
+    }, 5000);
+    p.stderr.on("data", (d) => {
+      err += String(d);
+      if (!comProgresso) ultimo = Date.now();
+    });
+    p.stdout.on("data", (d) => {
+      ultimo = Date.now();
+      if (!comProgresso) return;
+      const m = [...String(d).matchAll(/out_time_(?:us|ms)=(\d+)/g)].pop();
+      if (m) extra.onFracao?.(Math.max(0, Math.min(1, Number(m[1]) / 1e6 / extra.total!)));
+    });
+    p.on("error", (e) => {
+      clearInterval(vigia);
+      if (!acabou) {
+        acabou = true;
+        erro(e);
+      }
+    });
     p.on("close", (c) => {
+      clearInterval(vigia);
+      if (acabou) return;
+      acabou = true;
       if (c === 0) return ok(err);
+      if (motivo) return erro(new Error(`${cmd} ${motivo}`));
       // O ffmpeg enche o log de avisos inofensivos ("deprecated pixel format"): tira esses para o erro de verdade aparecer.
       const util = err.split(String.fromCharCode(10)).filter((l) => l.trim() && !/deprecated pixel format|Guessed Channel Layout/.test(l)).join(" | ");
       erro(new Error(`${cmd} saiu com ${c}: ${util.slice(-900)}`));
@@ -142,6 +188,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   const falado = fala ? fala.falado : p.falado;
   // 1) Voz (ou voz falsa de teste)
   o.fase?.("voz");
+  o.progresso?.(2, "Voz");
   let alin;
   let audio = "voz.mp3";
   if (o.vozFalsa) {
@@ -182,6 +229,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   await copyFile(join(process.cwd(), ttf), join(dir, "fonts", basename(ttf)));
 
   o.fase?.("imagens");
+  o.progresso?.(10, "Imagens");
   // 3) Plano de clipes. Abertura + cena 1 viram um clipe só (o cartão de título fica por cima do gancho). Cada cena mostra SEMPRE a
   //    imagem escolhida para ela (voz e imagem combinam). Cena longa vira cortes de ~4 s na mesma imagem, alternando o quadro
   //    aberto com uma aproximação (punch-in) para dar ritmo sem trocar de assunto.
@@ -194,7 +242,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   if (!usaveis.length) throw new Error("nenhuma imagem utilizável");
   const cenasSeg = seg.segs.filter((x) => x.tipo === "cena").map((x) => ({ ...x }));
   if (cenasSeg.length) cenasSeg[0].ini = 0;
-  const plano: { img: number; ini: number; dur: number; punch: boolean; video: boolean; ss: number }[] = [];
+  const plano: { img: number; ini: number; dur: number; punch: boolean; video: boolean; ss: number; ssManual?: number }[] = [];
   let anterior = -1;
   for (const c of cenasSeg) {
     const dur = c.fim - c.ini;
@@ -204,7 +252,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     const video = ehVideo(img) && !!p.imagens[img]?.url;
     if (!video && !usaveis.includes(img)) img = usaveis.find((i) => i !== anterior) ?? usaveis[0];
     const partes = video ? Math.max(1, Math.min(4, Math.ceil(dur / TRECHO_MAX_S))) : Math.max(1, Math.min(3, Math.round(dur / 4.2)));
-    for (let k = 0; k < partes; k++) plano.push({ img, ini: c.ini + (dur / partes) * k, dur: dur / partes, punch: !video && (k % 2 === 1 || (k === 0 && img === anterior)), video, ss: 0 });
+    for (let k = 0; k < partes; k++) plano.push({ img, ini: c.ini + (dur / partes) * k, dur: dur / partes, punch: !video && (k % 2 === 1 || (k === 0 && img === anterior)), video, ss: 0, ssManual: video && typeof p.roteiro.cenas[c.cena]?.ss === "number" ? p.roteiro.cenas[c.cena].ss! + (dur / partes) * k : undefined });
     anterior = img;
   }
 
@@ -229,15 +277,24 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
     const nome = `video${origem}.mp4`;
     // Vídeo enviado pelo dono (arquivo em /media). Se não der para ler, as cenas dele viram imagens.
     try {
-      await writeFile(join(dir, nome), await baixar(p.imagens[origem].url));
+      // Vídeo enviado fica no disco do próprio site: copia direto (baixar 80 MB pela internet estourava o tempo e a memória).
+      const srcLocal = p.imagens[origem].src;
+      if (/^\/media\/[\w./-]+$/.test(srcLocal) && !srcLocal.includes("..")) await copyFile(join(mediaDir(), srcLocal.slice("/media/".length)), join(dir, nome)).catch(async () => writeFile(join(dir, nome), await baixar(p.imagens[origem].url)));
+      else await writeFile(join(dir, nome), await baixar(p.imagens[origem].url));
     } catch (err) {
       console.warn("[video] não consegui ler o vídeo enviado:", String((err as Error)?.message ?? err));
       itens.forEach(fundirEmImagem);
       continue;
     }
     const info = await rodar(ff, comandoCortes(nome), dir).catch(() => "");
-    const trechos = escolherTrechos(lerDuracao(info), lerCortes(info), itens.map((x) => x.dur));
+    const duracaoVideo = lerDuracao(info);
+    const trechos = escolherTrechos(duracaoVideo, lerCortes(info), itens.map((x) => x.dur));
     itens.forEach((it, k) => {
+      // Ponto de partida escolhido pelo dono no painel: vale no lugar da escolha automática (sempre dentro do vídeo).
+      if (it.ssManual != null && duracaoVideo > it.dur + 0.3) {
+        it.ss = Number(Math.max(0, Math.min(it.ssManual, duracaoVideo - it.dur - 0.2)).toFixed(2));
+        return;
+      }
       const t = trechos[k];
       if (!t || t.dur < it.dur * 0.6) return fundirEmImagem(it);
       it.ss = t.ss;
@@ -300,6 +357,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   await writeFile(join(dir, "legenda.ass"), gerarAss(palavras.slice(nG, nG + nCenas), { creditos, cores: { texto: MARCA.cores.texto, destaque: MARCA.cores.destaque, contorno: MARCA.cores.fundo, alerta: MARCA.cores.alerta }, fonte: MARCA.fontes.legenda.familia, termos: p.termos }));
 
   o.fase?.("quadros");
+  o.progresso?.(22, "Cartões e quadros");
   // 5) Quadros (marca, abertura, fechamento) e montagem
   const q = await gerarQuadros({ titulo: p.titulo, secao: p.secao, cta: p.cta, pergunta: p.pergunta ?? null });
   await sharp(q.moldura).extract({ left: 0, top: 0, width: 1080, height: 420 }).toFile(join(dir, "moldura_topo.png"));
@@ -308,6 +366,7 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   await writeFile(join(dir, "fechamento.png"), q.fechamento);
   const fimAbertura = seg.segs.find((x) => x.tipo === "abertura")?.fim ?? 3;
   o.fase?.("trilha");
+  o.progresso?.(26, "Música e efeitos");
   // Trilha: música sintetizada (sem direitos autorais) + whoosh em cada transição.
   const estilo = estiloDoVideo(p.id, p.trilha);
   const fechIni = seg.inicioFechamento;
@@ -344,6 +403,15 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
       console.warn("[video] efeitos sonoros não saíram (o vídeo segue sem eles):", String((err as Error)?.message ?? err).slice(0, 120));
     }
   }
+  // Cada trecho de vídeo é preparado antes, sozinho (1 processo por vez); a montagem só lê o resultado.
+  const comVideo = clips.map((c, k) => (c.video ? k : -1)).filter((k) => k >= 0);
+  for (const [n, k] of comVideo.entries()) {
+    const c = clips[k];
+    const pronto = `clipe${k}.mp4`;
+    o.progresso?.(32 + (6 * n) / comVideo.length, `Trecho de vídeo ${n + 1} de ${comVideo.length}`);
+    await rodar(ff, comandoClipeVideo(c, pronto, leve), dir, { total: c.dur + 1, onFracao: (f) => o.progresso?.(32 + (6 * (n + f)) / comVideo.length, `Trecho de vídeo ${n + 1} de ${comVideo.length}`) });
+    c.video!.pronto = pronto;
+  }
   const planoMontagem = {
     cartoes,
     efeitos,
@@ -361,10 +429,15 @@ export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador =
   for (const etapa of leve ? ([1, 2] as const) : ([0] as const)) {
     const { args, filtro } = montar({ ...planoMontagem, etapa: etapa || undefined });
     await writeFile(join(dir, "filtro.txt"), filtro);
-    await rodar(ff, args, dir);
+    const duas = leve;
+    const [de, ate] = !duas ? [38, 95] : etapa === 1 ? [38, 66] : [66, 95];
+    const rotulo = !duas ? "Montando o vídeo" : etapa === 1 ? "Montando as cenas" : "Acabamento (moldura, cartões, legenda e áudio)";
+    o.progresso?.(de, rotulo);
+    await rodar(ff, args, dir, { total: seg.total, onFracao: (f) => o.progresso?.(de + (ate - de) * f, rotulo) });
   }
 
   o.fase?.("capa");
+  o.progresso?.(97, "Capa");
   // 6) Capa: 1º quadro com moldura e cartão de abertura por cima
   if (clips[0].video) await rodar(ff, ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(clips[0].video.ss), "-i", clips[0].video.arquivo, "-frames:v", "1", "capa0.jpg"], dir);
   const base = await sharp(join(dir, clips[0].video ? "capa0.jpg" : capaDoPrimeiro)).resize(1080, 1920, { fit: "cover" }).toBuffer();

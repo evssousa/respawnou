@@ -92,7 +92,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⏳ próximo · 💤 depois
 | 7 | Instagram: **Stories** 1080×1920 junto de cada matéria (ST1–ST11, migration 013) — `instagram-stories-videos.md`, frente A | 🔄 ST1–ST9 feitos e testados (2026-11-23); falta ST10 (testar em produção) e ST11 (1º Story real) |
 | 7 | Instagram: **imagens próprias** nos slides da fila (UP1–UP8, migration 014) — frente C | ✅ código pronto (2026-11-24); falta usar em produção |
 | 7 | **Vídeos curtos** fase 1 (gerar no próprio servidor com ffmpeg, voz ElevenLabs, baixar MP4 e legendas; botão "Publicar no Instagram (Reels)"; migrations 015 e 016) — frente B | ✅ no ar: o 1º vídeo foi gerado na Hostinger em 2026-11-24. YouTube e TikTok automáticos ficam para depois (fases 3 e 4) |
-| 7 | **Vídeos: melhorias** (etapas 0–12, `video-melhorias.md`; migration 017) | 🔄 etapas 0 a 10 e 12 feitas; falta a 11 (peso por métricas, só com 6+ Reels medidos) e conferir com serviços reais (voz, Gemini, série, botão de Reels) |
+| 7 | **Vídeos: melhorias** (etapas 0–12, `video-melhorias.md`; migration 017) | 🔄 etapas 0 a 10 e 12 feitas; a etapa 11 (peso por métricas) foi CANCELADA com a retirada das estatísticas (2026-11-25); falta conferir com serviços reais (voz, Gemini, série, botão de Reels) |
 | 7 | Vídeos, estabilidade na Hostinger (2026-11-24): roteiro em segundo plano com tentativas automáticas quando o Gemini está sobrecarregado, correção automática de roteiro reprovado, montagem em 2 passadas com imagens pelo filtro `movie` (~5 threads em vez de ~25), nova tentativa automática quando a conta fica sem processos (`pthread_create`), prévia da capa sem cache e com "Mover e alinhar", cartões liberados na hora | ✅ no ar; vigiar o limite de processos da conta |
 
 ## Próximos passos

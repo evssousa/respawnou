@@ -8,6 +8,9 @@ import { VIDEO } from "./config";
 export interface Imagem {
   src: string;
   alt: string;
+  /** Só para vídeos enviados: duração (s) e quadros de trechos candidatos (o dono escolhe de onde cada cena começa). */
+  duracao?: number;
+  trechos?: { ss: number; thumb: string }[];
 }
 export interface CenaRoteiro {
   fala: string;
@@ -16,6 +19,8 @@ export interface CenaRoteiro {
   cartao?: TipoCartao | null;
   /** Nas séries: número do item da lista de DADOS a que a cena se refere. */
   item?: number | null;
+  /** Cena com vídeo: segundo do vídeo em que o trecho começa (escolhido no painel). Sem isso, o servidor escolhe sozinho. */
+  ss?: number | null;
 }
 export interface Roteiro {
   /** 2 = formato novo (ganchos, pergunta, destaques, cartões). Roteiros antigos não têm. */

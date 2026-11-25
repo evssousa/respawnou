@@ -61,3 +61,21 @@ export function escolherTrechos(duracaoVideo: number, cortes: number[], duracoes
   }
   return out;
 }
+
+/**
+ * Pontos de partida que o dono pode escolher no painel (aparecem como quadros): começos de cenas do vídeo (depois do cortes),
+ * fora do logotipo do começo e da cartela do fim, espalhados pelo vídeo, no máximo `max`. Sem cortes, pontos igualmente espaçados.
+ */
+export function candidatos(duracaoVideo: number, cortes: number[], max = 10): number[] {
+  if (duracaoVideo <= 0) return [];
+  const ini = duracaoVideo * 0.04;
+  const fim = Math.max(ini, duracaoVideo * 0.9 - 1.5);
+  const bordas = [0, ...cortes.filter((c) => c > 0 && c < duracaoVideo)];
+  let pts = bordas.map((b) => b + 0.15).filter((t) => t >= ini && t <= fim);
+  if (pts.length < Math.min(6, max)) {
+    const n = Math.min(max, Math.max(4, Math.floor((fim - ini) / 4)));
+    pts = Array.from({ length: n }, (_, k) => ini + ((fim - ini) * k) / Math.max(1, n - 1));
+  }
+  if (pts.length > max) pts = Array.from({ length: max }, (_, k) => pts[Math.round((k * (pts.length - 1)) / (max - 1))]);
+  return [...new Set(pts.map((t) => Number(t.toFixed(2))))].sort((a, b) => a - b);
+}

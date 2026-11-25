@@ -1,6 +1,7 @@
 // NÚCLEO (copiar igual para outro site; o que é do site fica em app/marca.ts)
 // Fila dos vídeos (tabela video_jobs): escolha do dia, roteiro, aprovação, entrega ao worker, resultado e limpeza.
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ import { MARCA } from "~/marca";
 import { SOCIAL } from "~/social/config";
 import { escolherModelo, lerEntrada, urlDaMateria } from "~/social/site.server";
 import type { Foco } from "~/social/tipos";
-import { lerDuracao } from "../../scripts/video/videoclip";
+import { candidatos, comandoCortes, lerCortes, lerDuracao } from "../../scripts/video/videoclip";
 import { VIDEO, vozDaSecao, ENERGIA_VOZ } from "./config";
 import { lerConfig } from "./config.server";
 import { exec, hasDatabase, query } from "./db";
@@ -232,8 +233,68 @@ export async function adicionarVideo(id: number, file: File, credito: string): P
     await rm(caminho, { force: true }).catch(() => undefined);
     return "Não deu para ler esse vídeo (ou ele tem menos de 4 segundos).";
   }
-  await exec("UPDATE video_jobs SET images = ? WHERE id = ?", [JSON.stringify([...job.images, { src: `/media/${rel}/${nome}`, alt: `Vídeo: ${cred}` }]), id]);
+  const srcNovo = `/media/${rel}/${nome}`;
+  await exec("UPDATE video_jobs SET images = ? WHERE id = ?", [JSON.stringify([...job.images, { src: srcNovo, alt: `Vídeo: ${cred}`, duracao: Number(dur.toFixed(1)) }]), id]);
+  // Os quadros dos trechos (para escolher de onde cada cena começa) saem em segundo plano; a tela se atualiza sozinha.
+  void analisarVideoEnviado(id, srcNovo).catch((e) => console.error("[video] análise do vídeo enviado:", String((e as Error)?.message ?? e).slice(0, 160)));
   return "ok";
+}
+
+/** Roda o ffmpeg e devolve o stderr (nunca lança): serve para ler duração e cortes e para tirar quadros. */
+function ffmpegTexto(ff: string, args: string[]): Promise<string> {
+  return new Promise((ok) => {
+    const p = spawn(ff, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let e = "";
+    p.stderr.on("data", (x) => (e += String(x)));
+    p.on("error", () => ok(e));
+    p.on("close", () => ok(e));
+  });
+}
+
+/**
+ * Analisa um vídeo enviado: duração, cortes de cena e um quadro (270 px) de cada ponto de partida possível. Os quadros vão para
+ * `images[i].trechos`; no painel o dono vê esses quadros em cada cena de vídeo e escolhe de onde o trecho começa.
+ */
+export async function analisarVideoEnviado(id: number, src: string): Promise<void> {
+  try {
+    await analisarVideo(id, src);
+  } catch (e) {
+    // Falhou: grava lista vazia (a tela para de esperar e oferece o botão para tentar de novo).
+    await gravarTrechos(id, src, [], 0).catch(() => undefined);
+    throw e;
+  }
+}
+
+async function gravarTrechos(id: number, src: string, trechos: { ss: number; thumb: string }[], dur: number): Promise<void> {
+  const [j] = await query<{ images: unknown }>("SELECT images FROM video_jobs WHERE id = ?", [id]);
+  const imagens = json<Imagem[]>(j?.images, []);
+  const i = imagens.findIndex((x) => x.src === src);
+  if (i < 0) return;
+  imagens[i] = { ...imagens[i], ...(dur > 0 ? { duracao: Number(dur.toFixed(1)) } : {}), trechos };
+  await exec("UPDATE video_jobs SET images = ? WHERE id = ?", [JSON.stringify(imagens), id]);
+}
+
+async function analisarVideo(id: number, src: string): Promise<void> {
+  if (!/^\/media\/video\/uploads\/\d{4}\/\d{2}\/[\w.-]+$/.test(src)) return;
+  const caminho = join(mediaDir(), src.slice("/media/".length));
+  const { caminhoFfmpeg } = await import("./gerador.server");
+  const ff = await caminhoFfmpeg();
+  let info = "";
+  for (let t = 1; t <= 3; t++) {
+    info = await ffmpegTexto(ff, comandoCortes(caminho));
+    if (lerDuracao(info) > 0) break;
+    await new Promise((r) => setTimeout(r, 4000 * t)); // a hospedagem às vezes fica sem processos por instantes
+  }
+  const dur = lerDuracao(info);
+  const pts = candidatos(dur, lerCortes(info));
+  const semExt = src.replace(/\.\w+$/, "");
+  const trechos: { ss: number; thumb: string }[] = [];
+  for (const [k, ss] of pts.entries()) {
+    const arq = join(mediaDir(), `${semExt}-t${k}.jpg`.slice("/media/".length));
+    await ffmpegTexto(ff, ["-y", "-hide_banner", "-loglevel", "error", "-threads", "1", "-filter_threads", "1", "-ss", String(ss), "-i", caminho, "-frames:v", "1", "-vf", "scale=270:-2", "-q:v", "4", arq]);
+    if (await stat(arq).then((x) => x.size > 0).catch(() => false)) trechos.push({ ss, thumb: `${semExt}-t${k}.jpg` });
+  }
+  await gravarTrechos(id, src, trechos, dur);
 }
 
 /** O dono enviou uma imagem própria para o vídeo: entra no fim da lista (os números das imagens existentes não mudam). */
@@ -325,7 +386,19 @@ export async function processarFilaNoServidor(): Promise<void> {
       if (!pacote) break;
       const dir = await mkdtemp(join(tmpdir(), "video-"));
       try {
-        const out = await gerarVideo(pacote, dir, { qualidade: "leve" });
+        // Andamento para o painel ("g:42:Montando as cenas"); cada gravação também renova o sinal de vida (locked_at).
+        let gravadoEm = 0;
+        let gravadoPct = -1;
+        const progresso = (pct: number, rotulo: string) => {
+          const p = Math.max(0, Math.min(99, Math.round(pct)));
+          const agora = Date.now();
+          if (p === gravadoPct ? agora - gravadoEm < 30_000 : agora - gravadoEm < 2000 && p - gravadoPct < 3) return;
+          gravadoEm = agora;
+          gravadoPct = p;
+          void exec("UPDATE video_jobs SET progress = ?, locked_at = UTC_TIMESTAMP() WHERE id = ? AND status = 'gerando'", [`g:${p}:${rotulo}`.slice(0, 60), pacote.id]).catch(() => undefined);
+        };
+        progresso(1, "Começando");
+        const out = await gerarVideo(pacote, dir, { qualidade: "leve", progresso });
         await concluir(pacote.id, { video: await readFile(join(dir, "saida.mp4")), capa: out.capa, chars: out.chars, duracao: out.duracao });
         esperasDeProcesso.delete(pacote.id);
       } catch (err) {
@@ -336,7 +409,7 @@ export async function processarFilaNoServidor(): Promise<void> {
           // A hospedagem ficou sem folga de processos por alguns instantes (limite da conta): volta para a fila e tenta de novo sozinho.
           esperasDeProcesso.set(pacote.id, espera);
           console.warn(`[video] #${pacote.id}: hospedagem sem processos livres; nova tentativa ${espera}/4 em ${espera * 3} min`);
-          await exec("UPDATE video_jobs SET status = 'aprovado', error = ?, locked_at = NULL, attempts = 0 WHERE id = ?", [`A hospedagem estava sem processos livres (limite da conta). Tento de novo sozinho em ${espera * 3} min (tentativa ${espera} de 4).`, pacote.id]);
+          await exec("UPDATE video_jobs SET status = 'aprovado', progress = NULL, error = ?, locked_at = NULL, attempts = 0 WHERE id = ?", [`A hospedagem estava sem processos livres (limite da conta). Tento de novo sozinho em ${espera * 3} min (tentativa ${espera} de 4).`, pacote.id]);
           setTimeout(() => void processarFilaNoServidor(), espera * 3 * 60_000);
           parar = true;
         } else {
@@ -364,6 +437,9 @@ async function apagarArquivosDoJob(id: number): Promise<void> {
   const [im] = await query<{ images: unknown }>("SELECT images FROM video_jobs WHERE id = ?", [id]);
   for (const x of json<Imagem[]>(im?.images, [])) {
     if (/^\/media\/video\/uploads\/\d{4}\/\d{2}\/[\w.-]+$/.test(x.src)) await rm(join(mediaDir(), x.src.slice("/media/".length)), { force: true }).catch(() => undefined);
+    for (const t of x.trechos ?? []) {
+      if (/^\/media\/video\/uploads\/\d{4}\/\d{2}\/[\w.-]+\.jpg$/.test(t.thumb)) await rm(join(mediaDir(), t.thumb.slice("/media/".length)), { force: true }).catch(() => undefined);
+    }
   }
 }
 
@@ -473,17 +549,17 @@ export async function concluir(id: number, arq: { video: Buffer; capa: Buffer; c
   await writeFile(join(mediaDir(), dir, `v${id}-${hash}.jpg`), arq.capa);
   const legendas = e && job.script ? legendasDoVideo(e, escolherModelo(e), job.script, urlDaMateria(e)) : null;
   await exec(
-    "UPDATE video_jobs SET status = 'pronto', video = ?, cover = ?, chars = ?, duration_s = ?, captions = ?, error = NULL, locked_at = NULL, rendered_at = UTC_TIMESTAMP() WHERE id = ?",
+    "UPDATE video_jobs SET status = 'pronto', progress = NULL, video = ?, cover = ?, chars = ?, duration_s = ?, captions = ?, error = NULL, locked_at = NULL, rendered_at = UTC_TIMESTAMP() WHERE id = ?",
     [`/media/${dir}/v${id}-${hash}.mp4`, `/media/${dir}/v${id}-${hash}.jpg`, Math.round(arq.chars), Math.round(arq.duracao * 10) / 10, legendas ? JSON.stringify(legendas) : null, id],
   );
 }
 
-export const falhar = (id: number, msg: string) => exec("UPDATE video_jobs SET status = 'falhou', error = ?, locked_at = NULL WHERE id = ?", [msg.slice(0, 900), id]);
+export const falhar = (id: number, msg: string) => exec("UPDATE video_jobs SET status = 'falhou', progress = NULL, error = ?, locked_at = NULL WHERE id = ?", [msg.slice(0, 900), id]);
 
 /** `gerando` preso há mais de 20 min (o worker caiu): volta para `aprovado`; depois de 2 tentativas, `falhou`. */
 export async function recuperarPresos(): Promise<void> {
-  await exec("UPDATE video_jobs SET status = 'falhou', error = 'o gerador não respondeu (2 tentativas)', locked_at = NULL WHERE status = 'gerando' AND locked_at < UTC_TIMESTAMP() - INTERVAL 90 MINUTE AND attempts >= 2");
-  await exec("UPDATE video_jobs SET status = 'aprovado', locked_at = NULL WHERE status = 'gerando' AND locked_at < UTC_TIMESTAMP() - INTERVAL 90 MINUTE");
+  await exec("UPDATE video_jobs SET status = 'falhou', error = 'o gerador não respondeu (2 tentativas)', locked_at = NULL WHERE status = 'gerando' AND locked_at < UTC_TIMESTAMP() - INTERVAL 15 MINUTE AND attempts >= 2");
+  await exec("UPDATE video_jobs SET status = 'aprovado', locked_at = NULL WHERE status = 'gerando' AND locked_at < UTC_TIMESTAMP() - INTERVAL 15 MINUTE");
 }
 
 // ───────────── Escolha automática do dia ─────────────
@@ -547,7 +623,7 @@ export async function obterJob(id: number): Promise<(JobVideo & { titulo_post: s
 
 /** Vídeos em andamento e prontos ainda não publicados (os já publicados vão para a lista recolhida). */
 export async function listarJobs(limite = 10): Promise<JobVideo[]> {
-  await exec("UPDATE video_jobs SET progress = NULL WHERE progress = 'roteiro' AND (locked_at IS NULL OR locked_at < UTC_TIMESTAMP() - INTERVAL 10 MINUTE)").catch(() => undefined);
+  await exec("UPDATE video_jobs SET progress = NULL WHERE (progress = 'roteiro' AND (locked_at IS NULL OR locked_at < UTC_TIMESTAMP() - INTERVAL 10 MINUTE)) OR (progress LIKE 'g:%' AND status <> 'gerando')").catch(() => undefined);
   const rows = await query<Record<string, unknown>>(
     "SELECT j.*, p.title, p.section, p.image_url AS post_image FROM video_jobs j JOIN posts p ON p.id = j.post_id WHERE j.status <> 'descartado' AND (j.ig_status IS NULL OR j.ig_status <> 'publicado') ORDER BY j.created_at DESC, j.id DESC LIMIT ?",
     [limite],

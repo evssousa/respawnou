@@ -12,7 +12,7 @@ decisões: `video-melhorias.md` e `instagram-stories-videos.md`.
 3. Ao aprovar, o próprio servidor monta o vídeo 1080×1920: voz (ElevenLabs, com alinhamento por palavra), imagens com zoom ou
    deslize, transições, cartões de dados animados, legenda palavra por palavra com destaque, trilha e efeitos sintetizados.
 4. O dono baixa o MP4, copia as legendas (Instagram, YouTube, TikTok) ou clica em "Publicar no Instagram (Reels)".
-5. A cada 3 h o robô busca as métricas dos Reels (views, retenção, curtidas) e o painel mostra o desempenho por formato.
+5. Enquanto gera, o painel mostra a porcentagem e a etapa (voz, imagens, trechos de vídeo, montagem); se o ffmpeg ficar 6 min sem andar, é encerrado e o vídeo falha com mensagem. (O sistema de estatísticas dos Reels foi retirado em 2026-11-25: não há coleta de insights nem permissão extra no token do Instagram.)
 6. Séries fixas: Grátis da semana, Lançamentos da semana, Review em 60 s, Top 5.
 
 Sem GitHub Actions, sem worker externo, sem música de terceiros (trilha e efeitos são sintetizados pelo ffmpeg), sem baixar
@@ -25,7 +25,7 @@ Cada arquivo tem na 1ª linha `// NÚCLEO (copiar igual…)` ou `// DO SITE (ada
 | Núcleo: copiar igual | Do site: adaptar |
 |---|---|
 | `scripts/video/` inteiro: `ass.ts`, `ffmpeg.ts`, `musica.ts`, `efeitos.ts`, `falar.ts`, `videoclip.ts`, `elevenlabs.ts`, `teste-local.ts`, `testes/` | `app/marca.ts` — **o único arquivo de marca** |
-| `app/video/`: `roteiro.ts`, `roteiro.server.ts`, `cartoes.ts`, `config.ts`, `config.server.ts`, `fila.server.ts`, `gerador.server.ts`, `legendas.ts`, `metricas.ts`, `metricas.server.ts`, `pronuncia.ts`, `pronuncia.server.ts`, `fatos.server.ts`, `render/` | `app/video/db.ts` e `app/social/db.ts` — ponte com o banco do site |
+| `app/video/`: `roteiro.ts`, `roteiro.server.ts`, `cartoes.ts`, `config.ts`, `config.server.ts`, `fila.server.ts`, `gerador.server.ts`, `legendas.ts`, `pronuncia.ts`, `pronuncia.server.ts`, `fatos.server.ts`, `render/` | `app/video/db.ts` e `app/social/db.ts` — ponte com o banco do site |
 | `app/social/` (`core/`, `render/`, `server/`, `tipos.ts`, `config.ts`) | `app/social/site.server.ts` — `lerEntrada` e `escolherModelo` leem as tabelas do site e devolvem `EntradaSocial` |
 | `app/components/video/*`, `EscolherImagem.tsx`, `AlinharImagem.tsx`, `app/routes/admin/videos*.ts(x)` | `app/video/series.server.ts` — dados das séries (pode começar sem séries) |
 | `app/routes/admin/post-edit.tsx` (só o botão "Fazer vídeo", se o site tiver editor de matérias) | `app/video/fonts/` e `app/social/fonts/` (fontes), `public/logo-512.png` |
@@ -67,7 +67,7 @@ Pontos de acoplamento que **não** são genéricos (ajustar ao copiar):
 5. `series.server.ts`: começar sem séries (`dadosDaSerie` e `serieDeCalendario` devolvendo `null`), ativar depois.
 6. Migrations equivalentes (social 012–014; vídeo 015–017) com a numeração do site; **colar o SQL no chat** para o dono rodar.
 7. Rotas em `app/routes.ts`: `videos`, `videos/capa/:id`, `videos/cartao/:id`, e item "Vídeos" no menu do painel.
-8. No robô do site, no fim da coleta, em `try/catch`: `escolherDoDia()`, `processarFilaNoServidor()`, `coletarMetricas()` e
+8. No robô do site, no fim da coleta, em `try/catch`: `escolherDoDia()`, `processarFilaNoServidor()`, e
    `limparArquivos()` (ver `rodarVideoDoDia` em `app/lib/robot/robot.server.ts`).
 9. Dependências: `satori`, `sharp`, `ffmpeg-static`, `react`. Variáveis: `ELEVENLABS_API_KEY`, `SOCIAL_KEY` (cifra o token do
    Instagram), chaves do Gemini (`GEMINI_MODEL_VIDEO` opcional).

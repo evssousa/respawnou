@@ -1,6 +1,5 @@
 // Robô de postagem do Respawnou. Chamado pelas rotas /api/cron/* (Cron Job da Hostinger).
 // Regras de qualidade: docs/adsense.md. Arquitetura: docs/automacao.md.
-import { coletarMetricas } from "~/video/metricas.server";
 import { enfileirar, tick as tickSocial } from "../../social/server/fila.server.ts";
 import { escolherDoDia, limparArquivos as limparVideos, processarFilaNoServidor } from "../../video/fila.server.ts";
 import { atualizarPecas } from "./atualizacoes.server.ts";
@@ -221,8 +220,6 @@ export async function rodarVideoDoDia() {
     if (/^job/.test(r)) console.log(`[video] ${r}`);
     await limparVideos();
     void processarFilaNoServidor();
-    const m = await coletarMetricas();
-    if (/gravado/.test(m) && !/^0/.test(m)) console.log(`[video] métricas: ${m}`);
   } catch (e) {
     console.error(`[video] rotina diária falhou: ${String((e as Error)?.message ?? e).slice(0, 120)}`);
   }

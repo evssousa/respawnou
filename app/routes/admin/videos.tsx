@@ -11,10 +11,8 @@ import { MARCA } from "~/marca";
 import { cartoesDisponiveis, rotuloOpcaoCartao, type FatosVideo } from "~/video/cartoes";
 import { AlinharImagem } from "~/components/AlinharImagem";
 import { EscolherImagem } from "~/components/EscolherImagem";
-import { ChipsMetricas, TabelaDesempenho } from "~/components/video/Desempenho";
 import { BlocoFechamento, BlocoGancho } from "~/components/video/Ganchos";
 import { CartaoPronuncia } from "~/components/video/Pronuncia";
-import { avisoMetricas, desempenho, metricasDosJobs } from "~/video/metricas.server";
 import { juntarDicionario, suspeitas, type ItemPronuncia } from "~/video/pronuncia";
 import { lerPronuncia, salvarPronuncia } from "~/video/pronuncia.server";
 import { ehFocoManual, foco as focoValido, FOCOS, ROTULO_FOCO } from "~/social/core/overrides";
@@ -22,7 +20,7 @@ import type { Foco } from "~/social/tipos";
 import { ENERGIA_VOZ, perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
 import { ErroUpload } from "~/social/server/uploads.server";
-import { adicionarImagem, adicionarVideo, aprovar, descartar, listarJobs, listarPublicados, pedirRoteiro, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { adicionarImagem, adicionarVideo, analisarVideoEnviado, aprovar, descartar, obterJob, listarJobs, listarPublicados, pedirRoteiro, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro, textoFalado } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -59,18 +57,14 @@ async function carregar(request: Request) {
   if (!hasDatabase()) return { semBanco: true as const };
   const url = new URL(request.url);
   const busca = (url.searchParams.get("q") ?? "").slice(0, 80);
-  const [jobs, resumo, cfg, publicados, desemp, avisoMet] = await Promise.all([listarJobs(10), resumoMes(), lerConfig(), listarPublicados(busca), desempenho(), avisoMetricas()]);
-  const metricas = await metricasDosJobs(publicados.itens.map((j) => j.id));
+  const [jobs, resumo, cfg, publicados] = await Promise.all([listarJobs(10), resumoMes(), lerConfig(), listarPublicados(busca)]);
   const pronunciaDono = await lerPronuncia();
   return {
     semBanco: false as const,
     jobs,
     publicados,
-    metricas,
     pronunciaDono,
     nova: (url.searchParams.get("nova") ?? "").slice(0, 40),
-    desemp,
-    avisoMet,
     busca,
     resumo,
     cfg,
@@ -114,6 +108,14 @@ export async function action({ request }: Route.ActionArgs) {
       await salvarConfig(cfg);
       return back("ok=config");
     }
+    if (f.get("analisar") != null) {
+      // "Mostrar trechos do vídeo": analisa um vídeo enviado antes desta versão (ou que a análise não terminou) em segundo plano.
+      const job = await obterJob(id);
+      const alvo = job?.images[Number(f.get("analisar"))];
+      if (!alvo) return back(`erro=${encodeURIComponent("Vídeo não encontrado na lista.")}`);
+      void analisarVideoEnviado(id, alvo.src).catch((e) => console.error("[video] análise:", String((e as Error)?.message ?? e).slice(0, 160)));
+      return back("ok=analisando");
+    }
     if (intent === "gerar_roteiro") {
       const r = await pedirRoteiro(id);
       return back(r === "ok" ? "ok=roteiro" : `erro=${encodeURIComponent(r)}`);
@@ -132,7 +134,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (intent === "reabrir") return (await reabrir(id)) ? back("ok=reaberto") : back(`erro=${encodeURIComponent("Este vídeo não pode ser reaberto agora.")}`);
     if (intent === "salvar" || intent === "aprovar" || intent === "refazer" || intent === "img_add" || intent === "vid_add") {
       if (intent !== "refazer") {
-        const cenas: { fala: string; imagem: number; cartao?: string; item?: number | null }[] = [];
+        const cenas: { fala: string; imagem: number; cartao?: string; item?: number | null; ss?: number }[] = [];
         const json = <T,>(v: FormDataEntryValue | null, fb: T): T => {
           try {
             return v ? (JSON.parse(String(v)) as T) : fb;
@@ -145,7 +147,7 @@ export async function action({ request }: Route.ActionArgs) {
           const imagem = Number(f.get(`img_${i}`));
           const cartao = String(f.get(`cartao_${i}`) ?? "");
           const itemTxt = String(f.get(`item_${i}`) ?? "");
-          cenas.push({ fala: String(f.get(`fala_${i}`) ?? "").trim(), imagem, ...(cartao ? { cartao } : {}), ...(itemTxt !== "" ? { item: Number(itemTxt) } : {}) });
+          cenas.push({ fala: String(f.get(`fala_${i}`) ?? "").trim(), imagem, ...(cartao ? { cartao } : {}), ...(itemTxt !== "" ? { item: Number(itemTxt) } : {}), ...(String(f.get(`ss_${i}`) ?? "") !== "" && Number.isFinite(Number(f.get(`ss_${i}`))) ? { ss: Number(f.get(`ss_${i}`)) } : {}) });
           const fo = String(f.get(`foco_${i}`) ?? "auto");
           if (fo === "inteira") focus[String(imagem)] = "inteira" as Foco;
           else focus[String(imagem)] = focoValido(fo);
@@ -199,6 +201,7 @@ const MSG: Record<string, string> = {
   roteiro: "Pedi o roteiro ao Gemini. Ele aparece aqui sozinho em até 2 minutos (a tela atualiza sozinha).",
   salvo: "Roteiro salvo.",
   descartado: "Vídeo excluído (arquivos apagados).",
+  analisando: "Analisando o vídeo: os quadros dos trechos aparecem em instantes (a tela atualiza sozinha).",
   imagem: "Imagem acrescentada (e o roteiro salvo). Escolha-a numa cena, ou como capa.",
   video: "Vídeo acrescentado (e o roteiro salvo). Escolha-o numa cena: o sistema recorta os melhores trechos sozinho.",
   pronuncia: "Pronúncias salvas. Valem para os próximos vídeos (não mudam a legenda).",
@@ -289,6 +292,24 @@ function CapaEscolha({ j }: { j: Job }) {
   );
 }
 
+/** Barra de andamento da geração do vídeo: porcentagem e etapa (vêm de `progress`, no formato "g:42:Montando as cenas"). */
+function ProgressoGeracao({ progress }: { progress?: string | null }) {
+  const m = /^g:(\d{1,3}):(.*)$/.exec(progress ?? "");
+  const pct = m ? Math.min(100, Number(m[1])) : null;
+  const rotulo = m?.[2] || "Preparando";
+  return (
+    <div className="absolute inset-x-0 top-0 bg-ink/90 p-2" role="progressbar" aria-label="Andamento da geração do vídeo" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct ?? undefined}>
+      <div className="flex items-center justify-between gap-2 font-mono text-xs font-bold text-acc">
+        <span className="truncate">{rotulo}</span>
+        <span>{pct != null ? `${pct}%` : "…"}</span>
+      </div>
+      <div className="mt-1 h-2 w-full bg-line">
+        <div className="h-2 bg-acc transition-all duration-700" style={{ width: `${pct ?? 3}%` }} />
+      </div>
+    </div>
+  );
+}
+
 /** Lista de cenas. Guarda aqui o cartão escolhido em cada uma, para o "já na cena N" das outras valer na hora (e não só depois de salvar). */
 function CenasEditor({ j, r, max }: { j: Job; r: NonNullable<Job["script"]>; max: number }) {
   const [cart, setCart] = useState<string[]>(() => r.cenas.map((c) => c.cartao ?? ""));
@@ -306,16 +327,20 @@ function CenasEditor({ j, r, max }: { j: Job; r: NonNullable<Job["script"]>; max
 }
 
 /** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
-function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao }: { onCartao: (v: string) => void; max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null }; images: { src: string; alt: string }[]; focus: Record<string, string> }) {
+function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao }: { onCartao: (v: string) => void; max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null; ss?: number | null }; images: { src: string; alt: string; trechos?: { ss: number; thumb: string }[]; duracao?: number }[]; focus: Record<string, string> }) {
   const [img, setImg] = useState(c.imagem);
   const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
   const [cartao, setCartao] = useState<string>(c.cartao ?? "");
   const [semPrevia, setSemPrevia] = useState(false);
+  const [ss, setSs] = useState<string>(c.ss != null ? String(c.ss) : "");
   const disponiveis = fatos ? cartoesDisponiveis(fatos) : [];
   const src = images[img]?.src;
   const ehVid = !!src && /\.(mp4|webm)$/i.test(src);
   const real = src && !src.startsWith("arte:") && !ehVid ? src : null;
+  const trechos = ehVid ? (images[img]?.trechos ?? []) : [];
+  const trechoAtual = ss !== "" ? trechos.reduce<{ ss: number; thumb: string } | null>((a, t) => (a == null || Math.abs(t.ss - Number(ss)) < Math.abs(a.ss - Number(ss)) ? t : a), null) : (trechos[0] ?? null);
+  const mmss = (n: number) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
   return (
     <div className="grid gap-2 border border-line p-2 sm:grid-cols-[64px_1fr]">
       {real ? (
@@ -323,7 +348,7 @@ function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao }:
           <img src={real} alt="" width={64} height={114} className="h-[114px] w-16 border border-line object-cover" style={ehFocoManual(foco) ? { objectPosition: foco.replace(",", "% ") + "%" } : undefined} loading="lazy" />
         </button>
       ) : ehVid ? (
-        <video src={src} muted playsInline preload="metadata" className="h-[114px] w-16 border border-line object-cover" />
+        trechoAtual ? <img src={trechoAtual.thumb} alt="Quadro do trecho escolhido" width={64} height={114} className="h-[114px] w-16 border border-line object-cover" /> : <video src={`${src}#t=1`} muted playsInline preload="metadata" className="h-[114px] w-16 border border-line object-cover" />
       ) : (
         <div className="flex h-[114px] w-16 items-center justify-center border border-line text-[10px] text-muted">ARTE</div>
       )}
@@ -333,8 +358,30 @@ function CenaLinha({ i, c, images, focus, max, jobId, fatos, usados, onCartao }:
         <input type="hidden" name={`foco_${i}`} value={foco} />
         <input type="hidden" name={`cartao_${i}`} value={cartao} />
         <input type="hidden" name={`item_${i}`} value={c.item ?? ""} />
+        <input type="hidden" name={`ss_${i}`} value={ehVid ? ss : ""} />
+        {ehVid && (
+          <div className="flex flex-col gap-1 border border-dashed border-line-soft p-2">
+            <span className="text-[11px] text-muted">{`Vídeo: de onde o trecho desta cena começa${ss === "" ? " (automático, o servidor escolhe)" : ` (a partir de ${mmss(Number(ss))})`}. Clique num quadro para escolher.`}</span>
+            {trechos.length ? (
+              <div className="flex gap-1 overflow-x-auto pb-1">
+                <button type="button" onClick={() => setSs("")} className={`min-h-[54px] shrink-0 border px-2 font-mono text-[11px] font-bold ${ss === "" ? "border-acc text-acc" : "border-line text-paper hover:border-acc"}`}>AUTO</button>
+                {trechos.map((t) => (
+                  <button key={t.ss} type="button" onClick={() => setSs(String(t.ss))} aria-label={`Começar em ${mmss(t.ss)}`} className={`shrink-0 border p-0.5 ${ss !== "" && Number(ss) === t.ss ? "border-acc" : "border-line hover:border-acc"}`}>
+                    <img src={t.thumb} alt="" width={96} height={54} loading="lazy" className="h-[54px] w-24 object-cover" />
+                    <span className="block text-center font-mono text-[10px] text-muted">{mmss(t.ss)}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="submit" name="analisar" value={String(img)} formNoValidate className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc">Mostrar os trechos do vídeo</button>
+                <span className="text-[11px] text-muted">Os quadros aparecem em até 1 minuto depois do envio (a tela atualiza sozinha; se não aparecerem, clique aqui).</span>
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
-          <EscolherImagem opcoes={images} valor={String(img)} onChange={(v) => { const n = Number(v); setImg(n); setFoco(focus[String(n)] ?? "auto"); }} rotulo={`Imagem da cena ${i + 1}`} />
+          <EscolherImagem opcoes={images} valor={String(img)} onChange={(v) => { const n = Number(v); setImg(n); setSs(""); setFoco(focus[String(n)] ?? "auto"); }} rotulo={`Imagem da cena ${i + 1}`} />
           <select value={foco} onChange={(e) => setFoco(e.target.value)} aria-label="Enquadramento" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
             {ehFocoManual(foco) && <option value={foco}>{`Manual (${foco.replace(",", "% / ")}%)`}</option>}
             <option value="inteira">Imagem inteira (fundo desfocado)</option>
@@ -385,7 +432,7 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
             <div className="relative aspect-[9/16] w-[270px] overflow-hidden border border-line bg-ink">
               {capa && <img src={capa} alt="" className="h-full w-full object-cover" loading="lazy" />}
               <div className="absolute inset-x-0 bottom-0 bg-ink/80 p-2 text-xs font-bold text-paper">{j.title}</div>
-              {j.status === "gerando" && <div className="absolute inset-x-0 top-0 animate-pulse bg-acc px-2 py-1 font-mono text-xs font-bold text-ink">GERANDO… 2 A 5 MIN</div>}
+              {j.status === "gerando" && <ProgressoGeracao progress={j.progress} />}
               {j.progress === "roteiro" && <div className="absolute inset-x-0 top-0 animate-pulse bg-acc px-2 py-1 font-mono text-xs font-bold text-ink">GERANDO O ROTEIRO… ATÉ 2 MIN</div>}
             </div>
           )}
@@ -491,10 +538,10 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
   const busy = useNavigation().state !== "idle";
   // Enquanto algo está sendo gerado ou enviado ao Instagram, a tela se atualiza sozinha a cada 8 s.
   const revalidador = useRevalidator();
-  const ativo = !d.semBanco && d.jobs.some((j) => j.ig_status === "enviando" || j.status === "gerando" || j.status === "aprovado" || (j.status === "falhou" && /tentando de novo/.test(j.error ?? "")) || j.progress === "roteiro");
+  const ativo = !d.semBanco && d.jobs.some((j) => j.ig_status === "enviando" || j.status === "gerando" || j.status === "aprovado" || (j.status === "falhou" && /tentando de novo/.test(j.error ?? "")) || j.progress === "roteiro" || j.images.some((x) => /\.(mp4|webm)$/i.test(x.src) && x.duracao != null && !x.trechos));
   useEffect(() => {
     if (!ativo) return;
-    const t = setInterval(() => revalidador.revalidate(), 8000);
+    const t = setInterval(() => revalidador.revalidate(), 4000);
     return () => clearInterval(t);
   }, [ativo]); // eslint-disable-line react-hooks/exhaustive-deps
   if (d.semBanco) return <><PageTitle>Vídeos</PageTitle><Notice tone="warn">Precisa do banco de dados.</Notice></>;
@@ -508,14 +555,12 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
       {msg && <Notice>{msg}</Notice>}
       {d.aviso && <Notice tone="warn">{decodeURIComponent(d.aviso)}</Notice>}
       {d.erro && <Notice tone="warn">{decodeURIComponent(d.erro)}</Notice>}
-      {d.avisoMet && <Notice tone="warn">{d.avisoMet}</Notice>}
       {!d.chaveVoz && <Notice tone="warn">Falta cadastrar ELEVENLABS_API_KEY nas variáveis de ambiente do hPanel: sem ela o servidor não consegue gerar a voz.</Notice>}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Stat label="Prontos este mês" value={d.resumo.prontos} />
         <Stat label="Créditos usados" value={`${d.resumo.creditos.toLocaleString("pt-BR")}/${cfg.creditsMonth.toLocaleString("pt-BR")}`} tone={pct >= 80 ? "warn" : undefined} />
         <Stat label="Aguardando aprovação" value={d.resumo.aguardando} />
-        <Stat label="Views médias (72 h)" value={d.desemp.viewsMedias72h == null ? "—" : d.desemp.viewsMedias72h.toLocaleString("pt-BR")} />
       </div>
 
       <div className="mt-4 flex flex-col gap-4">
@@ -542,7 +587,6 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
                   <span className="font-mono">{(j.section ?? "").toUpperCase()}</span>
                   <span className="min-w-0 flex-1 truncate text-body">{j.title}</span>
                   <span className="font-mono">{j.ig_published_at ? when(j.ig_published_at) : ""}</span>
-                  <span className="basis-full sm:basis-auto"><ChipsMetricas linhas={d.metricas[j.id] ?? []} duracaoS={j.duration_s} /></span>
                 </summary>
                 <div className="flex flex-col gap-3 border-t border-line-soft p-2">
                   <div className="flex flex-wrap gap-2">
@@ -566,11 +610,6 @@ export default function AdminVideos({ loaderData: d }: Route.ComponentProps) {
           ))}
         </ul>
         {d.publicados.total > d.publicados.itens.length && <p className="mt-2 text-xs text-muted">Mostrando os {d.publicados.itens.length} mais recentes de {d.publicados.total}. Use a busca para achar os outros.</p>}
-      </details>
-
-      <details className="mt-6 border border-line p-3" open={d.desemp.medidos >= 3}>
-        <summary className="cursor-pointer font-mono text-xs font-bold text-muted">DESEMPENHO POR FORMATO ({d.desemp.medidos} vídeo{d.desemp.medidos === 1 ? "" : "s"} medido{d.desemp.medidos === 1 ? "" : "s"})</summary>
-        <div className="mt-3"><TabelaDesempenho formatos={d.desemp.formatos} /></div>
       </details>
 
       <CartaoPronuncia dono={d.pronunciaDono} base={MARCA.video.pronunciaBase} nova={d.nova} busy={busy} />

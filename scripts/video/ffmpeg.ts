@@ -21,7 +21,7 @@ export interface Clip {
   /** Imagem larga que preenche a tela: a imagem tem 1920 px de altura e a janela 1080×1920 desliza de x0 a x1 (px) durante o clipe. */
   pan?: { x0: number; x1: number };
   /** Trecho de vídeo (material enviado pelo dono) no lugar da imagem: arquivo na pasta de trabalho e instante inicial. */
-  video?: { arquivo: string; ss: number };
+  video?: { arquivo: string; ss: number; /** Clipe já preparado por `comandoClipeVideo` (1080×1920, 30 fps): entra pelo filtro `movie`, sem entrada extra do ffmpeg. */ pronto?: string };
   /** Corte de aproximação (zoom forte e centrado) para dar ritmo quando a mesma imagem segue na tela. */
   punch?: boolean;
 }
@@ -74,6 +74,24 @@ export function movimento(i: number, quadros: number, suave = false, modo: "livr
 
 const s3 = (n: number) => n.toFixed(3);
 
+/**
+ * Prepara UM trecho de vídeo (material enviado pelo dono) em arquivo próprio, 1080×1920 a 30 fps: ele mesmo desfocado ao fundo (o
+ * borrão é feito num quadro minúsculo e ampliado: bem mais barato) e inteiro no centro. Roda sozinho, uma entrada só, antes da
+ * montagem (a hospedagem libera poucos processos por vez). Se o trecho acabar antes, congela o último quadro.
+ */
+export function comandoClipeVideo(c: Clip, saida: string, leve = true): string[] {
+  const dur = c.dur + TRANSICAO;
+  const v = c.video!;
+  const filtro =
+    `fps=${FPS},split=2[va][vb];[va]scale=108:192:force_original_aspect_ratio=increase,crop=108:192,boxblur=3:1,scale=1080:1920,eq=brightness=-0.12[vf];` +
+    `[vb]scale=1080:1920:force_original_aspect_ratio=decrease[vg];[vf][vg]overlay=(W-w)/2:(H-h)/2,eq=contrast=1.07:saturation=1.22,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=3,trim=duration=${s3(dur)},setpts=PTS-STARTPTS`;
+  return [
+    "-y", "-hide_banner", "-loglevel", "error", ...(leve ? ["-threads", "1", "-filter_threads", "1", "-filter_complex_threads", "1"] : []),
+    "-ss", s3(v.ss), "-t", s3(dur), "-i", v.arquivo, "-an", "-vf", filtro,
+    "-c:v", "libx264", "-preset", "ultrafast", ...(leve ? ["-threads", "1", "-x264-params", "threads=1:lookahead-threads=1:sliced-threads=0"] : []), "-crf", "17", "-pix_fmt", "yuv420p", "-r", String(FPS), saida,
+  ];
+}
+
 /** Argumentos do ffmpeg (a pasta de trabalho é o cwd; o filtergraph vai em arquivo para fugir de aspas). */
 export function montar(plano: PlanoMontagem): { args: string[]; filtro: string } {
   const { clips, fechamento, total, fimAbertura, arq } = plano;
@@ -88,6 +106,11 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   if (etapa !== 2) clips.forEach((c, k) => {
     // A transição fica centrada na fronteira da fala: o clipe começa T/2 antes do seu início e sobra T/2 depois do fim.
     const dur = c.dur + TRANSICAO;
+    if (c.video?.pronto) {
+      partes.push(`movie=${c.video.pronto},setpts=PTS-STARTPTS,fps=${FPS},format=yuv420p,setsar=1,settb=AVTB[c${k}]`);
+      rotulos.push(`[c${k}]`);
+      return;
+    }
     if (c.video) {
       // Trecho de vídeo: tela cheia com ele mesmo desfocado ao fundo (não corta os lados); se acabar antes, congela o último quadro.
       args.push(...t1, "-ss", s3(c.video.ss), "-t", s3(dur), "-i", c.video.arquivo);

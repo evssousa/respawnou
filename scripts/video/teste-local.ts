@@ -45,9 +45,19 @@ async function imagens(): Promise<string[]> {
   return out;
 }
 
+/** --video: acrescenta um vídeo de teste (material enviado pelo dono) e o usa nas cenas 2 e 3. Gerado com o próprio ffmpeg. */
+async function videoDeTeste(ff: string): Promise<string> {
+  const arq = join(FIX, "video0.mp4");
+  if (!existsSync(arq)) {
+    const r = spawnSync(ff, ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30:duration=30", "-f", "lavfi", "-i", "sine=frequency=440:duration=30", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", arq], { encoding: "utf8" });
+    if (r.status !== 0) throw new Error(`não gerou o vídeo de teste: ${r.stderr}`);
+  }
+  return pathToFileURL(arq).href;
+}
+
 const FALA = "Esta cena explica mais um ponto da matéria com calma, citando detalhes importantes para quem joga e quer entender cada passo";
 
-function pacote(urls: string[]): PacoteVideo {
+function pacote(urls: string[], iVideo = -1): PacoteVideo {
   const n = perfil === "longo" ? 10 : 4;
   // As primeiras cenas usam algarismos, sigla e data de propósito: o gerador converte para a fala e remapeia a legenda.
   const ESPECIAIS = ["GTA 6 chega em 28/11 no PS5 e no Xbox.", "Sai por R$ 249,90 e tem nota 8,7 da crítica.", "A RTX 4060 roda em 100% do tempo a 60 quadros?"];
@@ -58,7 +68,8 @@ function pacote(urls: string[]): PacoteVideo {
   const nSerie = serie === "top5" ? 5 : serie === "gratis" ? 3 : serie === "semana" ? 3 : n;
   const cenas: CenaRoteiro[] = Array.from({ length: tipoSerie ? nSerie : n }, (_, i) => ({
     fala: tipoSerie ? `${i + 1}. ${FALA} ${i + 1}` : (ESPECIAIS[i] ?? `${FALA} ${i + 1}`),
-    imagem: i % urls.length,
+    imagem: iVideo >= 0 && (i === 1 || i === 2) ? iVideo : i % urls.length,
+    ...(iVideo >= 0 && (i === 1 || i === 2) && arg("ss") ? { ss: Number(arg("ss")) } : {}),
     ...(tipoSerie ? { cartao: tipoSerie, item: i } : CARTAO[i] ? { cartao: CARTAO[i] } : {}),
   }));
   const gancho = "Olha só esta novidade que muda tudo";
@@ -71,7 +82,7 @@ function pacote(urls: string[]): PacoteVideo {
     titulo: "Teste local do gerador de vídeo",
     secao: serie ? (MARCA.video.series[serie === "semana" ? "lancamentos-semana" : serie === "gratis" ? "gratis-semana" : serie]?.rotulo ?? "SÉRIE") : "NOTÍCIAS",
     roteiro: { gancho, cenas, titulo_curto: "TESTE" },
-    imagens: urls.map((u, i) => ({ src: `/teste/${i}.jpg`, url: u, foco: "auto" })),
+    imagens: urls.map((u, i) => ({ src: i === iVideo ? "/teste/video0.mp4" : `/teste/${i}.jpg`, url: u, foco: "auto" })),
     voz: "x",
     modelo: "m",
     velocidade: 1,
@@ -111,7 +122,13 @@ const marca = (proxima: string) => {
   t0 = Date.now();
 };
 const total0 = Date.now();
-const r = await gerarVideo(pacote(await imagens()), base, { qualidade: "leve", vozFalsa: true, fase: marca });
+const urls = await imagens();
+let iVideo = -1;
+if (process.argv.includes("--video")) {
+  urls.push(await videoDeTeste(await caminhoFfmpeg()));
+  iVideo = urls.length - 1;
+}
+const r = await gerarVideo(pacote(urls, iVideo), base, { qualidade: "leve", vozFalsa: true, fase: marca, progresso: (p, r) => process.argv.includes("--progresso") && console.log(`  [${String(Math.round(p)).padStart(3)}%] ${r}`) });
 marca("fim");
 await writeFile(join(base, "capa.jpg"), r.capa);
 console.log(`\nperfil ${perfil}: ${r.duracao.toFixed(1)} s de vídeo em ${((Date.now() - total0) / 1000).toFixed(1)} s`);
