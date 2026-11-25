@@ -345,26 +345,62 @@ function CenasEditor({ j, r, max, previa, busy }: { j: Job; r: NonNullable<Job["
     if (t) usados[t] = k;
   });
   // Player único: o da narração inteira; os botões "Ouvir esta cena" posicionam o mesmo áudio no começo da cena e param no fim dela.
+  // O mp3 é baixado inteiro para a memória (blob): assim o navegador sempre consegue pular para o começo da cena, mesmo quando o
+  // servidor/CDN não aceita pedir só um pedaço do arquivo (nesse caso o áudio tocava do começo ao fim).
   const audio = useRef<HTMLAudioElement>(null);
-  const parar = useRef<(() => void) | null>(null);
+  const quadro = useRef<number | null>(null);
   const [tocando, setTocando] = useState<number | null>(null);
+  const [fonte, setFonte] = useState<string | null>(null);
+  const urlPrevia = previa?.url ?? null;
+  useEffect(() => {
+    if (!urlPrevia) {
+      setFonte(null);
+      return;
+    }
+    let vivo = true;
+    let objeto: string | null = null;
+    fetch(urlPrevia, { cache: "force-cache", credentials: "same-origin" })
+      .then((x) => (x.ok ? x.blob() : Promise.reject(new Error(`HTTP ${x.status}`))))
+      .then((b) => {
+        objeto = URL.createObjectURL(b);
+        if (vivo) setFonte(objeto);
+      })
+      .catch(() => vivo && setFonte(urlPrevia));
+    return () => {
+      vivo = false;
+      if (objeto) URL.revokeObjectURL(objeto);
+    };
+  }, [urlPrevia]);
+  const parar = () => {
+    if (quadro.current != null) cancelAnimationFrame(quadro.current);
+    quadro.current = null;
+    audio.current?.pause();
+    setTocando(null);
+  };
   const tocar = (k: number, ini: number, fim: number) => {
     const a = audio.current;
     if (!a) return;
-    if (parar.current) a.removeEventListener("timeupdate", parar.current);
-    const fn = () => {
-      if (a.currentTime >= fim) {
-        a.pause();
-        a.removeEventListener("timeupdate", fn);
-        setTocando(null);
-      }
+    if (quadro.current != null) cancelAnimationFrame(quadro.current);
+    const comecar = () => {
+      a.currentTime = ini;
+      setTocando(k);
+      void a.play();
+      const vigiar = () => {
+        if (a.paused || a.ended) return;
+        if (a.currentTime >= fim) {
+          parar();
+          return;
+        }
+        quadro.current = requestAnimationFrame(vigiar);
+      };
+      quadro.current = requestAnimationFrame(vigiar);
     };
-    parar.current = fn;
-    a.addEventListener("timeupdate", fn);
-    a.currentTime = ini;
-    setTocando(k);
-    void a.play();
+    if (a.readyState >= 1) comecar();
+    else a.addEventListener("loadedmetadata", comecar, { once: true });
   };
+  useEffect(() => () => {
+    if (quadro.current != null) cancelAnimationFrame(quadro.current);
+  }, []);
   const caracteres = r.gancho.length + r.cenas.reduce((n, c) => n + c.fala.length, 0) + 110;
   const gerandoVoz = j.progress === "voz";
   return (
@@ -377,7 +413,7 @@ function CenasEditor({ j, r, max, previa, busy }: { j: Job; r: NonNullable<Job["
         {gerandoVoz && <p className="animate-pulse font-mono text-xs font-bold text-acc">GERANDO A VOZ… ALGUNS SEGUNDOS</p>}
         {previa ? (
           <>
-            <audio ref={audio} controls preload="auto" src={previa.url} className="w-full" onPause={() => setTocando(null)} />
+            <audio ref={audio} controls preload="auto" src={fonte ?? previa.url} className="w-full" onPause={() => setTocando(null)} />
             <p className="text-[11px] text-muted">{`Narração de ${previa.total.toFixed(0)} s. Use "Ouvir esta cena" em cada cena. Mudou alguma fala? Clique em "Ouvir de novo" (ouvir não gasta nada; gerar a voz de novo, sim).`}</p>
           </>
         ) : (
