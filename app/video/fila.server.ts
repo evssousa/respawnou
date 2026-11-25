@@ -373,6 +373,8 @@ export async function aprovar(id: number): Promise<{ ok: boolean; aviso?: string
 }
 
 let gerandoAgora = false;
+/** Vídeos cujo cancelamento foi pedido pelo dono (a geração em andamento para na hora). */
+const cancelados = new Set<number>();
 /** Quantas vezes cada vídeo já esperou a hospedagem liberar processos (o limite da conta estoura por instantes). */
 const esperasDeProcesso = new Map<number, number>();
 
@@ -384,6 +386,7 @@ export async function processarFilaNoServidor(): Promise<void> {
     for (let n = 0, parar = false; n < 5 && !parar; n++) {
       const pacote = await proximo();
       if (!pacote) break;
+      cancelados.delete(pacote.id);
       const dir = await mkdtemp(join(tmpdir(), "video-"));
       try {
         // Andamento para o painel ("g:42:Montando as cenas"); cada gravação também renova o sinal de vida (locked_at).
@@ -398,11 +401,17 @@ export async function processarFilaNoServidor(): Promise<void> {
           void exec("UPDATE video_jobs SET progress = ?, locked_at = UTC_TIMESTAMP() WHERE id = ? AND status = 'gerando'", [`g:${p}:${rotulo}`.slice(0, 60), pacote.id]).catch(() => undefined);
         };
         progresso(1, "Começando");
-        const out = await gerarVideo(pacote, dir, { qualidade: "leve", progresso });
+        const out = await gerarVideo(pacote, dir, { qualidade: "leve", progresso, cancelado: () => cancelados.has(pacote.id) });
+        if (cancelados.has(pacote.id)) throw new Error("geração cancelada");
         await concluir(pacote.id, { video: await readFile(join(dir, "saida.mp4")), capa: out.capa, chars: out.chars, duracao: out.duracao });
         esperasDeProcesso.delete(pacote.id);
       } catch (err) {
         let msg = String((err as Error)?.message ?? err);
+        if (cancelados.has(pacote.id) || /geração cancelada/.test(msg)) {
+          cancelados.delete(pacote.id);
+          console.log(`[video] #${pacote.id}: geração cancelada pelo dono`);
+          continue;
+        }
         if (/ENOENT/.test(msg) && /ffmpeg/i.test(msg)) msg = "ffmpeg não encontrado neste servidor. Confira se o ffmpeg-static foi instalado no deploy.";
         const espera = (esperasDeProcesso.get(pacote.id) ?? 0) + 1;
         if (/pthread_create|Resource temporarily unavailable/i.test(msg) && espera <= 4) {
@@ -424,6 +433,19 @@ export async function processarFilaNoServidor(): Promise<void> {
   } finally {
     gerandoAgora = false;
   }
+}
+
+/**
+ * Cancela a geração: o ffmpeg em andamento é encerrado e o vídeo volta para rascunho (nada é perdido: roteiro, imagens e escolhas
+ * ficam). Vale também para vídeo aprovado que ainda espera na fila.
+ */
+export async function cancelarGeracao(id: number): Promise<boolean> {
+  const [j] = await query<{ status: string }>("SELECT status FROM video_jobs WHERE id = ?", [id]);
+  if (!j || (j.status !== "gerando" && j.status !== "aprovado")) return false;
+  if (j.status === "gerando") cancelados.add(id);
+  esperasDeProcesso.delete(id);
+  await exec("UPDATE video_jobs SET status = 'aguardando', progress = NULL, locked_at = NULL, error = 'Geração cancelada por você. O roteiro e as escolhas estão salvos: aprove de novo quando quiser.' WHERE id = ? AND status IN ('gerando','aprovado')", [id]);
+  return true;
 }
 
 /** Apaga do disco o MP4 e a capa de um job (só caminhos de /media/video). */

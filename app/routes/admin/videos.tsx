@@ -20,7 +20,7 @@ import type { Foco } from "~/social/tipos";
 import { ENERGIA_VOZ, perfilDaSecao, SECOES_VOZ, VIDEO, type VideoConfig } from "~/video/config";
 import { lerConfig, salvarConfig } from "~/video/config.server";
 import { ErroUpload } from "~/social/server/uploads.server";
-import { adicionarImagem, adicionarVideo, analisarVideoEnviado, aprovar, descartar, obterJob, listarJobs, listarPublicados, pedirRoteiro, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
+import { adicionarImagem, adicionarVideo, analisarVideoEnviado, aprovar, cancelarGeracao, descartar, obterJob, listarJobs, listarPublicados, pedirRoteiro, publicarReel, reabrir, resumoMes, salvarRoteiro } from "~/video/fila.server";
 import { caracteresDoRoteiro, palavrasDoRoteiro, textoFalado } from "~/video/roteiro";
 
 export const meta = () => adminMeta("Vídeos");
@@ -116,6 +116,7 @@ export async function action({ request }: Route.ActionArgs) {
       void analisarVideoEnviado(id, alvo.src).catch((e) => console.error("[video] análise:", String((e as Error)?.message ?? e).slice(0, 160)));
       return back("ok=analisando");
     }
+    if (intent === "cancelar") return (await cancelarGeracao(id)) ? back("ok=cancelado") : back(`erro=${encodeURIComponent("Esse vídeo não está sendo gerado agora.")}`);
     if (intent === "gerar_roteiro") {
       const r = await pedirRoteiro(id);
       return back(r === "ok" ? "ok=roteiro" : `erro=${encodeURIComponent(r)}`);
@@ -201,6 +202,7 @@ const MSG: Record<string, string> = {
   roteiro: "Pedi o roteiro ao Gemini. Ele aparece aqui sozinho em até 2 minutos (a tela atualiza sozinha).",
   salvo: "Roteiro salvo.",
   descartado: "Vídeo excluído (arquivos apagados).",
+  cancelado: "Geração cancelada. O vídeo voltou para rascunho, com o roteiro e as escolhas salvos.",
   analisando: "Analisando o vídeo: os quadros dos trechos aparecem em instantes (a tela atualiza sozinha).",
   imagem: "Imagem acrescentada (e o roteiro salvo). Escolha-a numa cena, ou como capa.",
   video: "Vídeo acrescentado (e o roteiro salvo). Escolha-o numa cena: o sistema recorta os melhores trechos sozinho.",
@@ -485,6 +487,9 @@ function CartaoJob({ j, cfg, busy, dicionario }: { j: Job; cfg: VideoConfig; bus
                 <Button name="intent" value="salvar" disabled={busy}>Salvar roteiro</Button>
               </div>
             </Form>
+          )}
+          {(j.status === "gerando" || j.status === "aprovado") && (
+            <Form method="post" onSubmit={(e) => { if (!confirm("Cancelar a geração deste vídeo? Ele volta para rascunho (o roteiro e as escolhas ficam salvos).")) e.preventDefault(); }}><input type="hidden" name="id" value={j.id} /><Button name="intent" value="cancelar">Cancelar geração</Button></Form>
           )}
           {(j.status === "aguardando" || j.status === "falhou") && (
             <div className="flex flex-wrap gap-2">

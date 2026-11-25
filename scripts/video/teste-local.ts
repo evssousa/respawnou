@@ -128,7 +128,7 @@ if (process.argv.includes("--video")) {
   urls.push(await videoDeTeste(await caminhoFfmpeg()));
   iVideo = urls.length - 1;
 }
-const r = await gerarVideo(pacote(urls, iVideo), base, { qualidade: "leve", vozFalsa: true, fase: marca, progresso: (p, r) => process.argv.includes("--progresso") && console.log(`  [${String(Math.round(p)).padStart(3)}%] ${r}`) });
+const r = await gerarVideo(pacote(urls, iVideo), base, { qualidade: "leve", vozFalsa: true, fase: marca, cancelado: () => !!arg("cancelar-em") && Date.now() - total0 > Number(arg("cancelar-em")) * 1000, progresso: (p, r) => process.argv.includes("--progresso") && console.log(`  [${String(Math.round(p)).padStart(3)}%] ${r}`) });
 marca("fim");
 await writeFile(join(base, "capa.jpg"), r.capa);
 console.log(`\nperfil ${perfil}: ${r.duracao.toFixed(1)} s de vídeo em ${((Date.now() - total0) / 1000).toFixed(1)} s`);

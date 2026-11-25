@@ -62,6 +62,8 @@ export interface OpcoesGerador {
   fase?: (nome: string) => void;
   /** Andamento de 0 a 100 com o nome da etapa (o painel mostra a barra). */
   progresso?: (pct: number, rotulo: string) => void;
+  /** Devolve true quando o dono cancelou: o ffmpeg em andamento é encerrado e a geração para. */
+  cancelado?: () => boolean;
 }
 
 export async function caminhoFfmpeg(): Promise<string> {
@@ -85,12 +87,18 @@ interface ExtraRodar {
   onFracao?: (f: number) => void;
 }
 
+/** Cancelamento do vídeo que está sendo gerado agora (a geração roda um por vez). */
+let cancelamentoAtual: (() => boolean) | null = null;
+export const ERRO_CANCELADO = "geração cancelada";
+
 async function rodar(cmd: string, args: string[], cwd: string, extra: ExtraRodar = {}): Promise<string> {
+  if (cancelamentoAtual?.()) throw new Error(ERRO_CANCELADO);
   for (let tentativa = 1; ; tentativa++) {
     try {
       return await rodarUma(cmd, args, cwd, extra);
     } catch (e) {
       const m = String((e as Error)?.message ?? e);
+      if (cancelamentoAtual?.() || /geração cancelada/.test(m)) throw new Error(ERRO_CANCELADO);
       if (tentativa >= 6 || !/pthread_create|Resource temporarily unavailable|Cannot allocate memory|EAGAIN/i.test(m)) throw e;
       await new Promise((r) => setTimeout(r, 5000 * tentativa));
     }
@@ -111,6 +119,11 @@ function rodarUma(cmd: string, args: string[], cwd: string, extra: ExtraRodar = 
     let ultimo = Date.now();
     const inicio = Date.now();
     const vigia = setInterval(() => {
+      if (cancelamentoAtual?.()) {
+        motivo = ERRO_CANCELADO;
+        p.kill("SIGKILL");
+        return;
+      }
       // Com `-progress` o ffmpeg dá sinal de vida a cada segundo: parado por 6 min = travou. Sem ele, só vale o teto de 15 min.
       const parado = comProgresso && Date.now() - ultimo > SEM_SINAL_MS;
       const demais = Date.now() - inicio > (comProgresso ? TETO_MS : 15 * 60_000);
@@ -118,7 +131,7 @@ function rodarUma(cmd: string, args: string[], cwd: string, extra: ExtraRodar = 
         motivo = parado ? "travou (sem andar por 6 minutos)" : "demorou demais e foi encerrado";
         p.kill("SIGKILL");
       }
-    }, 5000);
+    }, 1000);
     p.stderr.on("data", (d) => {
       err += String(d);
       if (!comProgresso) ultimo = Date.now();
@@ -141,6 +154,7 @@ function rodarUma(cmd: string, args: string[], cwd: string, extra: ExtraRodar = 
       if (acabou) return;
       acabou = true;
       if (c === 0) return ok(err);
+      if (motivo === ERRO_CANCELADO) return erro(new Error(ERRO_CANCELADO));
       if (motivo) return erro(new Error(`${cmd} ${motivo}`));
       // O ffmpeg enche o log de avisos inofensivos ("deprecated pixel format"): tira esses para o erro de verdade aparecer.
       const util = err.split(String.fromCharCode(10)).filter((l) => l.trim() && !/deprecated pixel format|Guessed Channel Layout/.test(l)).join(" | ");
@@ -179,6 +193,15 @@ export async function enquadrarVertical(buf: Buffer, w: number, h: number, foco:
 }
 
 export async function gerarVideo(p: PacoteVideo, dir: string, o: OpcoesGerador = {}): Promise<{ mp4: string; capa: Buffer; chars: number; duracao: number }> {
+  cancelamentoAtual = o.cancelado ?? null;
+  try {
+    return await gerarVideoInterno(p, dir, o);
+  } finally {
+    cancelamentoAtual = null;
+  }
+}
+
+async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador): Promise<{ mp4: string; capa: Buffer; chars: number; duracao: number }> {
   const ff = o.ffmpeg ?? (await caminhoFfmpeg());
   const leve = o.qualidade === "leve";
   // libvips (sharp) cria uma thread por núcleo: no servidor compartilhado limita a 1 para sobrar espaço no limite da conta.
