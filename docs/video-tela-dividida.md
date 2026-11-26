@@ -348,11 +348,13 @@ e anotar os tempos na tabela abaixo.
 
 | Medição (local) | curto | longo |
 |---|---|---|
-| Tela cheia com `--video` (referência) | | |
-| Dividido: vídeo de cima (preparo) | | |
-| Dividido: montagem (2 passadas) | | |
-| Dividido: total | | |
+| Tela cheia com `--video` (referência) | 35,4 s de vídeo; ~291 s (rodou junto com o build, PC ocupado) | |
+| Dividido: vídeo de cima (preparo) | 31 s | 64 s (`--topo inteira`) |
+| Dividido: montagem (2 passadas) | 94 s | 317 s |
+| Dividido: total | 35,4 s de vídeo em 146 s | 86,5 s de vídeo em 406 s |
 | Na VPS (1º vídeo real) | | |
+
+Medido no PC (Windows, 1 thread por etapa, voz falsa) em 2026-11-26. "Topo mudou entre 0 s e 0,5 s: sim" nos dois.
 
 ### DV9 (M) Prévia da 1ª tela dividida
 
