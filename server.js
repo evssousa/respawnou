@@ -1,6 +1,6 @@
-// Entrada de produção (Hostinger): `node server.js` (ou require, pelo LiteSpeed).
+// Entrada de produção: `node server.js` (Docker na VPS; na Hostinger gerenciada, também por require, pelo LiteSpeed).
 //
-// Regras para rodar na Hostinger:
+// Regras (continuam valendo no Docker e na Hostinger):
 // - nada de `await` no nível do módulo (o LiteSpeed usa require() e daria ERR_REQUIRE_ASYNC_MODULE);
 // - NODE_ENV não vai nas variáveis de ambiente do painel: com ele, o `npm install` do build
 //   pula pacotes de desenvolvimento. É definido aqui, ANTES de carregar React e cia.

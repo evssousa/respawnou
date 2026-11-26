@@ -8,7 +8,7 @@ import { mediaDir } from "./server-paths.mjs";
 const PORT = Number(process.env.PORT || 3000);
 
 async function prepareDatabase() {
-  // O MySQL da Hostinger só aceita conexão local, então as migrations rodam daqui.
+  // As migrations rodam daqui, a cada início do app (o banco não fica exposto para fora).
   const db = dbConfigFromEnv();
   if (!db) {
     console.log("[db] sem DB_NAME/DB_USER: usando os dados de exemplo");

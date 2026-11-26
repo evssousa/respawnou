@@ -1,4 +1,4 @@
-// Rotas do robô, chamadas pelo Cron Job da Hostinger:
+// Rotas do robô, chamadas pelas tarefas agendadas do Coolify (antes, Cron Jobs da Hostinger):
 //   GET /api/cron/coletar?token=...   lê os feeds e enche a fila de pautas
 //   GET /api/cron/publicar?token=...  publica 1 matéria (respeita horário, limite e intervalo)
 //   GET /api/cron/status?token=...    últimas execuções (com o rascunho dos testes dry=1)

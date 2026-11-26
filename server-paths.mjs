@@ -3,8 +3,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 /**
- * Pasta das imagens das matérias. Fica FORA da pasta do app: a cada deploy a Hostinger
- * cria uma versão nova do app e a anterior some; as imagens precisam sobreviver.
+ * Pasta das imagens das matérias. Fica FORA da pasta do app: a cada deploy o app é trocado
+ * e as imagens precisam sobreviver. Na VPS é /data/media (pasta do servidor montada no container).
  * Servida em /media (cache de 1 ano: o nome do arquivo nunca é reaproveitado).
  */
 export function mediaDir() {

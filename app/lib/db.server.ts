@@ -1,7 +1,7 @@
 // Conexão com o MySQL. Só roda no servidor.
 //
-// Na Hostinger o banco fica no mesmo servidor do site: conectar em 127.0.0.1:3306
-// (não em "localhost", que pode resolver para IPv6, nem no host srvNNNN.hstgr.io).
+// Na VPS (Coolify) o host é o nome interno do serviço MariaDB, vindo de DB_HOST.
+// Na Hostinger gerenciada era 127.0.0.1:3306 (não "localhost", que pode resolver para IPv6).
 // Sem DB_NAME definido, o site usa os dados de exemplo (mock-data.ts).
 import mysql, { type Pool, type RowDataPacket } from "mysql2/promise";
 
