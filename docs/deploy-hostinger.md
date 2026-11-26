@@ -1,6 +1,8 @@
 # Deploy na Hostinger
 
-Status: ✅ no ar desde 2026-11-10 em https://respawnou.com.br
+**Histórico:** o site saiu da Hostinger gerenciada em 2026-11-26; ver [deploy-vps.md](deploy-vps.md).
+
+Status (até 2026-11-26): ✅ no ar desde 2026-11-10 em https://respawnou.com.br
 
 ## Conta
 

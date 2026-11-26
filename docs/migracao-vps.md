@@ -1,6 +1,6 @@
 # Migração para a VPS (Hostinger KVM 1 + Coolify)
 
-Status: 🔄 **em preparação (2026-11-26)**. 2º site a migrar (o criasite foi o 1º, virada em 2026-11-26).
+Status: ✅ **virada feita em 2026-11-26** (13:06–13:30 de Brasília); falta o ok do dono para apagar o site antigo e a Parte D (24 h e 7 dias). 2º site a migrar (o criasite foi o 1º, virada em 2026-11-26).
 Módulo de origem: `../criasite/docs/migracao-vps.md`, Partes B a F e "Lições do criasite". A Parte A (base da VPS)
 já está feita e **não se repete**.
 
@@ -220,3 +220,17 @@ Começar aos **:52** de uma hora (depois do `coletar` das :30 e antes do das :00
   total 1,58 GB de 3,9 GB. IP real: o respawnou não tem a rota `cabecalhos`; o Traefik é o mesmo do criasite (conferido lá);
   a conferência fica pelas visitas (item 9, dono).
 - Falta do ensaio (dono): entrar no `/admin` do endereço temporário e ver `/admin/visitas` "Hoje" subir.
+
+**2026-11-26, virada (Claude; dono fez o dump final)**
+- 16:07 UTC: snapshot da VPS; os 2 Cron Jobs do respawnou **apagados** na Hostinger (os 3 do vibecoin e o do animeprofile
+  ficaram). Último `coletar` antigo 16:00 (ok); `publicar` 16:05 pulou (intervalo de 3 h). Nenhum vídeo aprovado.
+- Dump final (16:14, 11,6 MB) importado: 84 posts (o mais novo de 15:05), 3.596 feed_items, 1.343 cron_runs; migration 017.
+  Nenhuma mídia nova (342 de 343; a que falta dá 404 também no antigo).
+- `SOCIAL_KEY` e `ELEVENLABS_API_KEY` no app: o token do Instagram guardado no banco **decifra** com a chave (conferido).
+- DNS: `@` ALIAS e `www` CNAME apagados, `A 189.24.17.85` nos dois (TTL 300). Sem AAAA. MX intacto. Propagou em < 1 min.
+- Coolify: domínios `respawnou.com.br`, `www` e o temporário (noindex); rótulos 301 (`to-non-www` e `redirect-to-https`).
+  Let's Encrypt emitido para os dois na hora. `http://criasite.app/x` continua 301 e o proxy sem erros.
+- Checklist no domínio real: 12 páginas ok e 404 certo, sitemap 143, canonical certo, 342/343 mídias, Brotli, sem
+  `X-Robots-Tag` no domínio real, `/admin` noindex; `http://` e `www` → `https://respawnou.com.br` em até 2 saltos (301).
+- Tarefas agendadas criadas às 16:27 UTC (desta vez o Coolify **não** rodou na criação). `coletar` das 16:30 rodou sozinho
+  (6 novos, 0 erros): **robô confirmado na VPS**.
