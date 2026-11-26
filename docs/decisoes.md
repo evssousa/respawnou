@@ -2,6 +2,25 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+## 2026-11-26 — Vídeo vertical em tela dividida (plano `video-tela-dividida.md`; propostas, falta o dono responder as perguntas)
+
+- **Pedido do dono:** com vídeo enviado, o Reel fica dividido ao meio (vídeo em cima, capa ou imagens da matéria embaixo,
+  legenda no meio) e começa já com as cenas rodando, para prender quem assiste no primeiro segundo.
+- **Liga sozinho ao enviar um vídeo**, com chave "Formato da tela" no painel para voltar à tela cheia. Guardado no roteiro
+  (`layout`, `topo`, `cenas[].baixo`); roteiro sem `layout` = tela cheia. Sem migration. Por quê: é o que o dono pediu
+  ("ao adicionar um vídeo") e os roteiros antigos não mudam.
+- **Sem cartão de título no vídeo dividido:** o gancho vira legenda desde o quadro 0; o título fica só na capa. Por quê:
+  cartão estático no começo é o que o dono quer evitar.
+- **Vídeo de cima "cobrindo" 1080×960** (crop central, opções Esquerda/Direita/Inteiro), cortes secos de até 4,5 s;
+  **imagem de baixo** com alinhamento próprio na proporção 9:8 (por imagem, chave `b:<i>` no `focus`) e só uma
+  respiração de zoom. Por quê: um movimento forte por vez; o de cima prende, o de baixo dá contexto.
+- **Legenda centrada na divisa (y 960)** sobre uma faixa verde da marca com sombra; cartões de dados descem para a metade
+  de baixo (y 1060); crédito do vídeo fixo no alto à esquerda.
+- **Montagem:** cada corte de cima preparado sozinho em 1080×960 e juntado sem recodificar (`topo.mp4`); passada 1 com
+  `vstack`; 2 passadas mantidas. Por quê: VPS com 1 vCPU; metade dos pixels no zoompan e um único vídeo aberto na montagem.
+- **Proposto (a confirmar, pergunta 1):** sem o teto de 40% de vídeo de terceiros no modo dividido, com crédito na tela o
+  tempo todo, só com material oficial.
+
 ## 2026-11-24 — Plano de melhorias dos vídeos curtos (`video-melhorias.md`; itens aprovados pelo dono)
 
 - **Fora do escopo:** vídeo semanal horizontal de 5 min, programa no PC do dono, versão em inglês (decisão do dono).
