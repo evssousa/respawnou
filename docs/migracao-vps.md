@@ -1,6 +1,6 @@
 # Migração para a VPS (Hostinger KVM 1 + Coolify)
 
-Status: ✅ **virada feita em 2026-11-26** (13:06–13:30 de Brasília); falta o ok do dono para apagar o site antigo e a Parte D (24 h e 7 dias). 2º site a migrar (o criasite foi o 1º, virada em 2026-11-26).
+Status: ✅ **virada feita em 2026-11-26** (13:06–13:30 de Brasília); site antigo apagado com o ok do dono; falta a Parte D (24 h e 7 dias). A Parte E (volta) não vale mais. 2º site a migrar (o criasite foi o 1º, virada em 2026-11-26).
 Módulo de origem: `../criasite/docs/migracao-vps.md`, Partes B a F e "Lições do criasite". A Parte A (base da VPS)
 já está feita e **não se repete**.
 
@@ -234,3 +234,6 @@ Começar aos **:52** de uma hora (depois do `coletar` das :30 e antes do das :00
   `X-Robots-Tag` no domínio real, `/admin` noindex; `http://` e `www` → `https://respawnou.com.br` em até 2 saltos (301).
 - Tarefas agendadas criadas às 16:27 UTC (desta vez o Coolify **não** rodou na criação). `coletar` das 16:30 rodou sozinho
   (6 novos, 0 erros): **robô confirmado na VPS**.
+- 17:06 UTC: com o ok do dono, **site antigo apagado do Cloud Startup** (`hosting_websites_delete`). Zona: sumiu só o `ftp`
+  e o TTL do `@` foi para 1800; A da VPS, MX, SPF, DKIM, DMARC e TXT do Google intactos. Caixa `contato@respawnou.com.br`
+  ativa (pedido de e-mail separado, válido até 2027-11-14). Site seguiu 200 na VPS.

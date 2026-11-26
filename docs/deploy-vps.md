@@ -35,4 +35,6 @@ conferir `curl -sI http://criasite.app/x` → 301.
 
 ## Site antigo na Hostinger
 
-Parado (sem Cron Jobs) até o ok do dono para apagar. Volta: Parte E de `migracao-vps.md`.
+**Apagado em 2026-11-26** (17:06 UTC) com o ok do dono; não há mais volta. A exclusão apagou arquivos e banco antigos e o
+registro `ftp` da zona, e mudou o TTL do `@` para 1800; `@` e `www` (A da VPS), MX, SPF, DKIM, DMARC e a verificação do
+Google ficaram. A caixa `contato@respawnou.com.br` (pedido "Free Business Email", separado, até 2027-11-14) continua ativa.
