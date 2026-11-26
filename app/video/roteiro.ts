@@ -21,6 +21,8 @@ export interface CenaRoteiro {
   item?: number | null;
   /** Cena com vídeo: segundo do vídeo em que o trecho começa (escolhido no painel). Sem isso, o servidor escolhe sozinho. */
   ss?: number | null;
+  /** Tela dividida: imagem da metade de baixo nesta cena (vazio = a padrão, a da capa). */
+  baixo?: number | null;
 }
 export interface Roteiro {
   /** 2 = formato novo (ganchos, pergunta, destaques, cartões). Roteiros antigos não têm. */
@@ -36,6 +38,10 @@ export interface Roteiro {
   destaques?: string[];
   cenas: CenaRoteiro[];
   titulo_curto: string;
+  /** Formato: "dividido" = vídeo enviado em cima, imagem da matéria embaixo, legenda no meio. Sem o campo = tela cheia. */
+  layout?: "dividido" | "cheio";
+  /** Tela dividida: índice (em images) do vídeo da metade de cima. */
+  topo?: number | null;
 }
 
 export const contarPalavras = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;

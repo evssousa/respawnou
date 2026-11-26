@@ -32,15 +32,30 @@ export function Moldura({ logo, secao }: { logo: string; secao: string }) {
  * Cartão de abertura: painel escuro (para o título ler sobre qualquer imagem) com a barra verde da marca, o chip da seção e o
  * título (Anton 96/84/72, até 4 linhas), em y 960–1500.
  */
-export function Abertura({ titulo, secao }: { titulo: string; secao: string }) {
+export function Abertura({ titulo, secao, topo = 980 }: { titulo: string; secao: string; /** y do painel (tela dividida usa 700, só na capa). */ topo?: number }) {
   const t = ajustarTitulo(cortar(titulo, 120), 800, 4, [96, 84, 72]);
   return (
     <div style={{ display: "flex", position: "relative", width: W, height: H }}>
-      <div style={{ position: "absolute", left: 0, top: 940, width: W, height: 580, backgroundImage: "linear-gradient(to bottom, rgba(6,8,7,0), rgba(6,8,7,0.55))" }} />
-      <div style={{ position: "absolute", left: 40, top: 980, width: 900, display: "flex", flexDirection: "column", padding: "28px 36px 36px 40px", backgroundColor: "rgba(6,8,7,0.82)", borderLeft: `10px solid ${COR.destaque}` }}>
+      {/* O escurecimento de fundo só na posição de sempre (lá ele emenda com a moldura de baixo; mais acima deixaria uma borda reta). */}
+      {topo === 980 && <div style={{ position: "absolute", left: 0, top: topo - 40, width: W, height: 580, backgroundImage: "linear-gradient(to bottom, rgba(6,8,7,0), rgba(6,8,7,0.55))" }} />}
+      <div style={{ position: "absolute", left: 40, top: topo, width: 900, display: "flex", flexDirection: "column", padding: "28px 36px 36px 40px", backgroundColor: "rgba(6,8,7,0.82)", borderLeft: `10px solid ${COR.destaque}` }}>
         <div style={{ display: "flex", alignItems: "center", alignSelf: "flex-start", height: 48, padding: "0 20px", backgroundColor: COR.destaque, color: COR.sobreDestaque, fontFamily: MONO, fontWeight: 700, fontSize: 24 }}>{caixa(secao)}</div>
         <div style={{ display: "flex", width: 800, marginTop: 22, fontFamily: ANTON, fontSize: t.tam, lineHeight: 1.04, color: COR.texto }}>{caixa(t.texto)}</div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Tela dividida: faixa de 8 px na cor de destaque entre as duas metades, com sombra escura para cima e para baixo (dá contraste à
+ * legenda sobre qualquer imagem). PNG 1080×160, sobreposto em y 880 (a faixa cai em 956–964).
+ */
+export function Divisoria() {
+  return (
+    <div style={{ display: "flex", position: "relative", width: W, height: 160 }}>
+      <div style={{ position: "absolute", left: 0, top: 0, width: W, height: 76, backgroundImage: "linear-gradient(to bottom, rgba(6,8,7,0), rgba(6,8,7,0.6))" }} />
+      <div style={{ position: "absolute", left: 0, top: 76, width: W, height: 8, backgroundColor: COR.destaque }} />
+      <div style={{ position: "absolute", left: 0, top: 84, width: W, height: 76, backgroundImage: "linear-gradient(to bottom, rgba(6,8,7,0.6), rgba(6,8,7,0))" }} />
     </div>
   );
 }

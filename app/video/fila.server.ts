@@ -138,6 +138,9 @@ export async function gerarRoteiroDoJob(id: number): Promise<string> {
     const dadosSerie = job.serie ? await dadosDaSerie(job.serie, e) : null;
     const fatosVideo: FatosVideo = { ...fatosDe(e), ...(dadosSerie?.fatos ?? {}) };
     const roteiro = await gerarRoteiro(e, job.images, fatosVideo, job.serie ?? "");
+    // O formato da tela escolhido continua no roteiro novo (as cenas mudam, então a imagem de baixo de cada uma não).
+    if (job.script?.layout) roteiro.layout = job.script.layout;
+    if (job.script?.topo != null) roteiro.topo = job.script.topo;
     await exec("UPDATE video_jobs SET script = ?, facts = ?, status = 'aguardando', error = NULL, progress = NULL WHERE id = ?", [JSON.stringify(roteiro), JSON.stringify(fatosVideo), id]);
     tentativasGemini.delete(id);
     return "ok";
@@ -234,10 +237,14 @@ export async function adicionarVideo(id: number, file: File, credito: string): P
     return "Não deu para ler esse vídeo (ou ele tem menos de 4 segundos).";
   }
   const srcNovo = `/media/${rel}/${nome}`;
-  await exec("UPDATE video_jobs SET images = ? WHERE id = ?", [JSON.stringify([...job.images, { src: srcNovo, alt: `Vídeo: ${cred}`, duracao: Number(dur.toFixed(1)) }]), id]);
+  const imagensNovas = [...job.images, { src: srcNovo, alt: `Vídeo: ${cred}`, duracao: Number(dur.toFixed(1)) }];
+  // 1º vídeo de um roteiro que ainda não escolheu formato: liga a tela dividida (vídeo em cima, imagem embaixo).
+  const ligaDividido = !!job.script && job.script.layout === undefined;
+  if (ligaDividido) await exec("UPDATE video_jobs SET images = ?, script = ? WHERE id = ?", [JSON.stringify(imagensNovas), JSON.stringify({ ...job.script, layout: "dividido", topo: job.images.length }), id]);
+  else await exec("UPDATE video_jobs SET images = ? WHERE id = ?", [JSON.stringify(imagensNovas), id]);
   // Os quadros dos trechos (para escolher de onde cada cena começa) saem em segundo plano; a tela se atualiza sozinha.
   void analisarVideoEnviado(id, srcNovo).catch((e) => console.error("[video] análise do vídeo enviado:", String((e as Error)?.message ?? e).slice(0, 160)));
-  return "ok";
+  return ligaDividido ? "ok_dividido" : "ok";
 }
 
 /** Roda o ffmpeg e devolve o stderr (nunca lança): serve para ler duração e cortes e para tirar quadros. */
@@ -488,7 +495,7 @@ export interface PacoteWorker {
   /** Estilo fixo da trilha da série (vazio = pelo id do vídeo). */
   trilha?: string;
   roteiro: Roteiro;
-  imagens: { src: string; url: string; foco: Foco }[];
+  imagens: { src: string; url: string; foco: Foco; alt?: string; focoBaixo?: string; focoTopo?: string }[];
   voz: string;
   modelo: string;
   velocidade: number;
@@ -545,7 +552,7 @@ async function pacoteDoJob(job: JobVideo): Promise<PacoteWorker | null> {
     trilha: MARCA.video.series[job.serie ?? ""]?.trilha,
     chaveSecao: e.section,
     roteiro: job.script,
-    imagens: job.images.map((x, i) => ({ src: x.src, url: abs(x.src), foco: job.focus[String(i)] ?? "auto", alt: x.alt })),
+    imagens: job.images.map((x, i) => ({ src: x.src, url: abs(x.src), foco: job.focus[String(i)] ?? "auto", alt: x.alt, focoBaixo: job.focus[`b:${i}`] ?? undefined, focoTopo: job.focus[`t:${i}`] ?? undefined })),
     capa: job.focus["_capa"] != null && Number.isInteger(Number(job.focus["_capa"])) ? Number(job.focus["_capa"]) : undefined,
     voz,
     modelo: job.voice_model || cfg.model,

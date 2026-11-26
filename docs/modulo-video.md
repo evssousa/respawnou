@@ -15,6 +15,11 @@ decisões: `video-melhorias.md` e `instagram-stories-videos.md`.
 4b. A voz é gerada POR PARTE (gancho, cada cena, fechamento), cada uma com cache próprio em `media/video/previa/` (3 dias; chave = texto + voz + ajustes). "Gerar o áudio das cenas" faz a prévia: o dono ouve tudo ou cena por cena; mudar o texto de uma cena marca só ela e "Atualizar o áudio" gera só a voz dela (poucos créditos). A geração do vídeo junta esses mesmos áudios (com pausa de 0,12 s entre as partes) e não gasta crédito de novo. A música tem volume baixa/média/alta em Configuração.
 5. Enquanto gera, o painel mostra a porcentagem e a etapa (voz, imagens, trechos de vídeo, montagem); se o ffmpeg ficar 6 min sem andar, é encerrado e o vídeo falha com mensagem. (O sistema de estatísticas dos Reels foi retirado em 2026-11-25: não há coleta de insights nem permissão extra no token do Instagram.)
 6. Séries fixas: Grátis da semana, Lançamentos da semana, Review em 60 s, Top 5.
+7. **Tela dividida** (`video-tela-dividida.md`): ao enviar um vídeo, o roteiro ganha `layout: "dividido"` e o Reel sai com o
+   vídeo em cima (1080×960, cortes de até 4,5 s desde o quadro 0, sem o áudio original), a capa ou uma imagem por cena embaixo
+   (alinhamento 9:8, chave `b:<i>` no `focus`) e a legenda na divisa, sem cartão de título. Chave "Formato da tela" no painel
+   volta para tela cheia. Peças: `scripts/video/dividido.ts` (puro), `app/video/layout.ts` (puro),
+   `app/components/video/FormatoTela.tsx`, ramo `gerarDividido` em `gerador.server.ts`.
 
 Sem GitHub Actions, sem worker externo, sem música de terceiros (trilha e efeitos são sintetizados pelo ffmpeg), sem baixar
 vídeo do YouTube (só envio manual de arquivo).
@@ -25,8 +30,8 @@ Cada arquivo tem na 1ª linha `// NÚCLEO (copiar igual…)` ou `// DO SITE (ada
 
 | Núcleo: copiar igual | Do site: adaptar |
 |---|---|
-| `scripts/video/` inteiro: `ass.ts`, `ffmpeg.ts`, `musica.ts`, `efeitos.ts`, `falar.ts`, `videoclip.ts`, `elevenlabs.ts`, `teste-local.ts`, `testes/` | `app/marca.ts` — **o único arquivo de marca** |
-| `app/video/`: `roteiro.ts`, `roteiro.server.ts`, `cartoes.ts`, `config.ts`, `config.server.ts`, `fila.server.ts`, `gerador.server.ts`, `legendas.ts`, `pronuncia.ts`, `pronuncia.server.ts`, `fatos.server.ts`, `render/` | `app/video/db.ts` e `app/social/db.ts` — ponte com o banco do site |
+| `scripts/video/` inteiro: `ass.ts`, `ffmpeg.ts`, `dividido.ts`, `musica.ts`, `efeitos.ts`, `falar.ts`, `videoclip.ts`, `elevenlabs.ts`, `teste-local.ts`, `testes/` | `app/marca.ts` — **o único arquivo de marca** |
+| `app/video/`: `roteiro.ts`, `roteiro.server.ts`, `layout.ts`, `cartoes.ts`, `config.ts`, `config.server.ts`, `fila.server.ts`, `gerador.server.ts`, `legendas.ts`, `pronuncia.ts`, `pronuncia.server.ts`, `fatos.server.ts`, `render/` | `app/video/db.ts` e `app/social/db.ts` — ponte com o banco do site |
 | `app/social/` (`core/`, `render/`, `server/`, `tipos.ts`, `config.ts`) | `app/social/site.server.ts` — `lerEntrada` e `escolherModelo` leem as tabelas do site e devolvem `EntradaSocial` |
 | `app/components/video/*`, `EscolherImagem.tsx`, `AlinharImagem.tsx`, `app/routes/admin/videos*.ts(x)` | `app/video/series.server.ts` — dados das séries (pode começar sem séries) |
 | `app/routes/admin/post-edit.tsx` (só o botão "Fazer vídeo", se o site tiver editor de matérias) | `app/video/fonts/` e `app/social/fonts/` (fontes), `public/logo-512.png` |
@@ -74,7 +79,7 @@ Pontos de acoplamento que **não** são genéricos (ajustar ao copiar):
    Instagram), chaves do Gemini (`GEMINI_MODEL_VIDEO` opcional).
 10. Teste local, sem gastar crédito: `VIDEO_TESTE=1 npx tsx --tsconfig tsconfig.json scripts/video/teste-local.ts --perfil curto --manter`
     (PowerShell: `$env:VIDEO_TESTE=1; …`). Conferir os quadros (moldura, abertura, legenda, cartões, fechamento). Variações:
-    `--perfil longo`, `--pergunta`, `--serie top5|gratis|semana`. Testes puros: `scripts/video/testes/*.teste.ts`
+    `--perfil longo`, `--pergunta`, `--serie top5|gratis|semana`, `--video`, `--dividido` (tela dividida; `--topo west|east|inteira`). Testes puros: `scripts/video/testes/*.teste.ts`
     (`npx tsx --tsconfig tsconfig.json scripts/video/testes/<arquivo>`; terminam com "ok").
 11. `npm run build` e deploy.
 12. No painel do site novo: voz de cada editoria, pronúncias, séries (as de calendário vêm desligadas), energia da voz.

@@ -17,7 +17,9 @@ import { gerarQuadros } from "./render/quadros.server";
 import { type Alinhamento, gerarAss, palavrasDoAlinhamento, segmentos } from "../../scripts/video/ass";
 import { alinhamentoFalso, sintetizar } from "../../scripts/video/elevenlabs";
 import { type ItemPronuncia, montarFala, remapear, semTags } from "../../scripts/video/falar";
-import { type Clip, comandoClipeVideo, instantesTransicao, montar } from "../../scripts/video/ffmpeg";
+import { type Clip, comandoClipeVideo, instantesTransicao, montar, type PlanoMontagem, TRANSICAO } from "../../scripts/video/ffmpeg";
+import { comandoCorteTopo, comandoJuntarTopo, comandoJuntarTopoRecodificando, DIVIDIDO, gruposBaixo, quadrosDosCortes } from "../../scripts/video/dividido";
+import { type EnquadramentoTopo, enquadramentoTopoValido, layoutDoRoteiro } from "./layout";
 import { comandoEfeitos, filtrarEventos, somDoCartao } from "../../scripts/video/efeitos";
 import { comandoTrilha, estiloDoVideo } from "../../scripts/video/musica";
 import { comandoCortes, ehVideoSrc, escolherTrechos, FRACAO_MAX_VIDEO, lerCortes, lerDuracao, TRECHO_MAX_S } from "../../scripts/video/videoclip";
@@ -27,7 +29,8 @@ export interface PacoteVideo {
   titulo: string;
   secao: string;
   roteiro: Roteiro;
-  imagens: { src: string; url: string; foco: string; alt?: string }[];
+  /** `focoBaixo`: enquadramento da imagem na metade de baixo da tela dividida (9:8); `focoTopo`: como o vídeo de cima preenche a metade. */
+  imagens: { src: string; url: string; foco: string; alt?: string; focoBaixo?: string; focoTopo?: string }[];
   capa?: number;
   voz: string;
   modelo: string;
@@ -176,6 +179,13 @@ async function baixar(url: string): Promise<Buffer> {
   const r = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { "User-Agent": MARCA.video.userAgent } });
   if (!r.ok) throw new Error(`imagem ${url} → HTTP ${r.status}`);
   return Buffer.from(await r.arrayBuffer());
+}
+
+/** Vídeo enviado fica no disco do próprio site: copia direto (baixar 80 MB pela internet estourava o tempo e a memória). */
+async function copiarVideo(p: PacoteVideo, origem: number, destino: string): Promise<void> {
+  const srcLocal = p.imagens[origem].src;
+  if (/^\/media\/[\w./-]+$/.test(srcLocal) && !srcLocal.includes("..")) await copyFile(join(mediaDir(), srcLocal.slice("/media/".length)), destino).catch(async () => writeFile(destino, await baixar(p.imagens[origem].url)));
+  else await writeFile(destino, await baixar(p.imagens[origem].url));
 }
 
 /**
@@ -343,10 +353,18 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
     const partesVoz = await vozPorPartes(p, fala, { chave: o.chaveElevenLabs, cacheDir: o.cacheVoz });
     alin = await juntarVozes(partesVoz, dir, ff, audio);
   }
-  const { palavras, seg, nG, nCenas, textos, volta } = analisarVoz(p, fala, alin);
+  const analise = analisarVoz(p, fala, alin);
+  const { palavras, seg, nG, nCenas } = analise;
   await mkdir(join(dir, "fonts"), { recursive: true });
   const ttf = MARCA.fontes.legenda.ttf;
   await copyFile(join(process.cwd(), ttf), join(dir, "fonts", basename(ttf)));
+
+  // Tela dividida (vídeo enviado em cima, imagem embaixo). Sem vídeo legível, segue em tela cheia.
+  const lay = layoutDoRoteiro(p.roteiro, p.imagens);
+  if (lay.modo === "dividido") {
+    const r = await gerarDividido({ p, dir, o, ff, leve, topo: lay.topo, analise, fala, falado, audio });
+    if (r) return r;
+  }
 
   o.fase?.("imagens");
   o.progresso?.(10, "Imagens");
@@ -400,10 +418,7 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
     const nome = `video${origem}.mp4`;
     // Vídeo enviado pelo dono (arquivo em /media). Se não der para ler, as cenas dele viram imagens.
     try {
-      // Vídeo enviado fica no disco do próprio site: copia direto (baixar 80 MB pela internet estourava o tempo e a memória).
-      const srcLocal = p.imagens[origem].src;
-      if (/^\/media\/[\w./-]+$/.test(srcLocal) && !srcLocal.includes("..")) await copyFile(join(mediaDir(), srcLocal.slice("/media/".length)), join(dir, nome)).catch(async () => writeFile(join(dir, nome), await baixar(p.imagens[origem].url)));
-      else await writeFile(join(dir, nome), await baixar(p.imagens[origem].url));
+      await copiarVideo(p, origem, join(dir, nome));
     } catch (err) {
       console.warn("[video] não consegui ler o vídeo enviado:", String((err as Error)?.message ?? err));
       itens.forEach(fundirEmImagem);
@@ -497,38 +512,8 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
   const estilo = estiloDoVideo(p.id, p.trilha);
   const fechIni = seg.inicioFechamento;
   await rodar(ff, comandoTrilha(estilo, seg.total, instantesTransicao(clips, fechIni), "trilha.wav", leve), dir);
-  // Cartões de dados (só no caminho novo, em que as palavras da tela estão mapeadas): PNG por cartão e o plano de tempo.
-  const cartoes: { arquivo: string; ini: number; fim: number; tipo: string; y: number }[] = [];
-  if (fala && volta && textos && p.fatos) {
-    let pos = textos[0].length;
-    const porCena = seg.segs
-      .filter((x) => x.tipo === "cena")
-      .map((x) => {
-        const n = textos[1 + x.cena]?.length ?? 0;
-        const palavrasCena = palavras.slice(pos, pos + n);
-        pos += n;
-        return { ini: x.ini, fim: x.fim, palavras: palavrasCena };
-      });
-    // a 1ª cena começa em 0 (junto com a abertura); o plano respeita fimAbertura
-    for (const c of planoCartoes(porCena, p.roteiro, p.fatos, fimAbertura)) {
-      const r = await gerarCartao(c.tipo, p.fatos, c.item ?? 0);
-      if (!r) continue;
-      const arquivo = `cartao_${cartoes.length}.png`;
-      await writeFile(join(dir, arquivo), r.png);
-      cartoes.push({ arquivo, ini: c.ini, fim: c.fim, tipo: c.tipo, y: c.y });
-    }
-  }
-  // Efeitos sonoros: um por cartão, no instante em que ele entra (intervalo mínimo de 1,5 s).
-  let efeitos: { arquivo: string; volume: number } | undefined;
-  const eventos = filtrarEventos(cartoes.map((c) => ({ t: c.ini, tipo: somDoCartao(c.tipo) })));
-  if (p.efeitos !== false && eventos.length) {
-    try {
-      await rodar(ff, comandoEfeitos(eventos, seg.total, "efeitos.wav", leve), dir);
-      efeitos = { arquivo: "efeitos.wav", volume: VIDEO.efeitos.volume };
-    } catch (err) {
-      console.warn("[video] efeitos sonoros não saíram (o vídeo segue sem eles):", String((err as Error)?.message ?? err).slice(0, 120));
-    }
-  }
+  const cartoes = await cartoesDoVideo(p, analise, fala, fimAbertura, dir);
+  const efeitos = await efeitosDoVideo(p, cartoes, seg.total, ff, leve, dir);
   // Cada trecho de vídeo é preparado antes, sozinho (1 processo por vez); a montagem só lê o resultado.
   const comVideo = clips.map((c, k) => (c.video ? k : -1)).filter((k) => k >= 0);
   for (const [n, k] of comVideo.entries()) {
@@ -551,16 +536,7 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
     arq: { molduraTopo: "moldura_topo.png", molduraBase: "moldura_base.png", abertura: "abertura.png", fechamento: "fechamento.png", audio, legenda: "legenda.ass", saida: "saida.mp4" },
   };
   o.fase?.("montagem");
-  // Servidor compartilhado: duas passadas, cada uma com metade das entradas (cada entrada do ffmpeg usa threads e o limite da conta é baixo).
-  for (const etapa of leve ? ([1, 2] as const) : ([0] as const)) {
-    const { args, filtro } = montar({ ...planoMontagem, etapa: etapa || undefined });
-    await writeFile(join(dir, "filtro.txt"), filtro);
-    const duas = leve;
-    const [de, ate] = !duas ? [38, 95] : etapa === 1 ? [38, 66] : [66, 95];
-    const rotulo = !duas ? "Montando o vídeo" : etapa === 1 ? "Montando as cenas" : "Acabamento (moldura, cartões, legenda e áudio)";
-    o.progresso?.(de, rotulo);
-    await rodar(ff, args, dir, { total: seg.total, onFracao: (f) => o.progresso?.(de + (ate - de) * f, rotulo) });
-  }
+  await montarPassadas(planoMontagem, ff, dir, o);
 
   o.fase?.("capa");
   o.progresso?.(97, "Capa");
@@ -569,4 +545,203 @@ async function gerarVideoInterno(p: PacoteVideo, dir: string, o: OpcoesGerador):
   const base = await sharp(join(dir, clips[0].video ? "capa0.jpg" : capaDoPrimeiro)).resize(1080, 1920, { fit: "cover" }).toBuffer();
   const capa = await sharp(base).composite([{ input: q.moldura }, { input: q.abertura }]).jpeg({ quality: 88 }).toBuffer();
   return { mp4: join(dir, "saida.mp4"), capa, chars: falado.length, duracao: seg.total };
+}
+
+type Analise = ReturnType<typeof analisarVoz>;
+type Fala = ReturnType<typeof textoDaFala>["fala"];
+type Cartoes = { arquivo: string; ini: number; fim: number; tipo: string; y: number }[];
+type Resultado = { mp4: string; capa: Buffer; chars: number; duracao: number };
+
+/** Cartões de dados (só no caminho novo, em que as palavras da tela estão mapeadas): PNG por cartão e o plano de tempo. */
+async function cartoesDoVideo(p: PacoteVideo, a: Analise, fala: Fala, fimAbertura: number, dir: string): Promise<Cartoes> {
+  const cartoes: Cartoes = [];
+  const { textos, volta, palavras, seg } = a;
+  if (!(fala && volta && textos && p.fatos)) return cartoes;
+  let pos = textos[0].length;
+  const porCena = seg.segs
+    .filter((x) => x.tipo === "cena")
+    .map((x) => {
+      const n = textos[1 + x.cena]?.length ?? 0;
+      const palavrasCena = palavras.slice(pos, pos + n);
+      pos += n;
+      return { ini: x.ini, fim: x.fim, palavras: palavrasCena };
+    });
+  // a 1ª cena começa em 0 (junto com a abertura); o plano respeita fimAbertura
+  for (const c of planoCartoes(porCena, p.roteiro, p.fatos, fimAbertura)) {
+    const r = await gerarCartao(c.tipo, p.fatos, c.item ?? 0);
+    if (!r) continue;
+    const arquivo = `cartao_${cartoes.length}.png`;
+    await writeFile(join(dir, arquivo), r.png);
+    cartoes.push({ arquivo, ini: c.ini, fim: c.fim, tipo: c.tipo, y: c.y });
+  }
+  return cartoes;
+}
+
+/** Efeitos sonoros: um por cartão, no instante em que ele entra (intervalo mínimo de 1,5 s). */
+async function efeitosDoVideo(p: PacoteVideo, cartoes: Cartoes, total: number, ff: string, leve: boolean, dir: string): Promise<{ arquivo: string; volume: number } | undefined> {
+  const eventos = filtrarEventos(cartoes.map((c) => ({ t: c.ini, tipo: somDoCartao(c.tipo) })));
+  if (p.efeitos === false || !eventos.length) return undefined;
+  try {
+    await rodar(ff, comandoEfeitos(eventos, total, "efeitos.wav", leve), dir);
+    return { arquivo: "efeitos.wav", volume: VIDEO.efeitos.volume };
+  } catch (err) {
+    console.warn("[video] efeitos sonoros não saíram (o vídeo segue sem eles):", String((err as Error)?.message ?? err).slice(0, 120));
+    return undefined;
+  }
+}
+
+/** Servidor com poucos recursos: duas passadas, cada uma com metade das entradas (cada entrada do ffmpeg usa threads). */
+async function montarPassadas(plano: PlanoMontagem, ff: string, dir: string, o: OpcoesGerador): Promise<void> {
+  const duas = !!plano.leve;
+  for (const etapa of duas ? ([1, 2] as const) : ([0] as const)) {
+    const { args, filtro } = montar({ ...plano, etapa: etapa || undefined });
+    await writeFile(join(dir, "filtro.txt"), filtro);
+    const [de, ate] = !duas ? [38, 95] : etapa === 1 ? [38, 66] : [66, 95];
+    const rotulo = !duas ? "Montando o vídeo" : etapa === 1 ? "Montando as cenas" : "Acabamento (moldura, cartões, legenda e áudio)";
+    o.progresso?.(de, rotulo);
+    await rodar(ff, args, dir, { total: plano.total, onFracao: (f) => o.progresso?.(de + (ate - de) * f, rotulo) });
+  }
+}
+
+/**
+ * Tela dividida: em cima o vídeo enviado (cortes de até 4,5 s desde o quadro 0, sem o áudio original), embaixo a imagem da capa ou
+ * a escolhida para cada cena (respiração lenta, troca com fade), legenda na divisa (com o gancho), sem cartão de título.
+ * Devolve `null` se o vídeo não puder ser lido (o gerador segue em tela cheia).
+ */
+async function gerarDividido(c: { p: PacoteVideo; dir: string; o: OpcoesGerador; ff: string; leve: boolean; topo: number; analise: Analise; fala: Fala; falado: string; audio: string }): Promise<Resultado | null> {
+  const { p, dir, o, ff, leve, analise, fala } = c;
+  const { palavras, seg, nG, nCenas } = analise;
+  const item = p.imagens[c.topo];
+  const ext = (/\.(mp4|webm|mov)$/i.exec(item.src)?.[1] ?? "mp4").toLowerCase();
+  const nomeVideo = `video_topo.${ext}`;
+  o.progresso?.(10, "Vídeo de cima");
+  try {
+    await copiarVideo(p, c.topo, join(dir, nomeVideo));
+  } catch (err) {
+    console.warn("[video] tela dividida sem vídeo legível: gerando em tela cheia:", String((err as Error)?.message ?? err).slice(0, 160));
+    return null;
+  }
+  const info = await rodar(ff, comandoCortes(nomeVideo), dir).catch(() => "");
+  const duracaoVideo = lerDuracao(info);
+  const cenasSeg = seg.segs.filter((x) => x.tipo === "cena").map((x) => ({ ...x }));
+  if (duracaoVideo < 4 || !cenasSeg.length) {
+    console.warn("[video] tela dividida sem vídeo legível: gerando em tela cheia");
+    return null;
+  }
+  cenasSeg[0].ini = 0;
+
+  // 1) Plano de cima: cortes de até 4,5 s por cena; o ponto de partida escolhido no painel vale para o 1º corte da cena.
+  const cortes: { ini: number; dur: number; ssManual?: number }[] = [];
+  for (const s of cenasSeg) {
+    const dur = s.fim - s.ini;
+    const partes = Math.max(1, Math.ceil(dur / TRECHO_MAX_S));
+    const ssCena = p.roteiro.cenas[s.cena]?.ss;
+    for (let k = 0; k < partes; k++) cortes.push({ ini: s.ini + (dur / partes) * k, dur: dur / partes, ssManual: typeof ssCena === "number" ? ssCena + (dur / partes) * k : undefined });
+  }
+  const trechos = escolherTrechos(duracaoVideo, lerCortes(info), cortes.map((x) => x.dur));
+  const pontos = cortes.map((x, k) => (x.ssManual != null && duracaoVideo > x.dur + 0.3 ? Number(Math.max(0, Math.min(x.ssManual, duracaoVideo - x.dur - 0.2)).toFixed(2)) : (trechos[k]?.ss ?? 0)));
+  const fimCenas = seg.inicioFechamento + TRANSICAO / 2;
+  const quadros = quadrosDosCortes(cortes, fimCenas);
+  const enq: EnquadramentoTopo = enquadramentoTopoValido(item.focoTopo) ? item.focoTopo : "centre";
+
+  // 2) Prepara cada corte sozinho (1 processo por vez) e junta sem recodificar.
+  o.fase?.("imagens");
+  for (let k = 0; k < cortes.length; k++) {
+    o.progresso?.(10 + (14 * k) / cortes.length, `Vídeo de cima: corte ${k + 1} de ${cortes.length}`);
+    await rodar(ff, comandoCorteTopo({ arquivo: nomeVideo, ss: pontos[k], quadros: quadros[k], enquadramento: enq, saida: `topo_${k}.mp4`, leve }), dir);
+  }
+  await writeFile(join(dir, "topo_lista.txt"), cortes.map((_, k) => `file 'topo_${k}.mp4'`).join(String.fromCharCode(10)));
+  try {
+    await rodar(ff, comandoJuntarTopo("topo_lista.txt", "topo.mp4"), dir);
+  } catch (err) {
+    console.warn("[video] juntar o vídeo de cima sem recodificar falhou; recodificando:", String((err as Error)?.message ?? err).slice(0, 160));
+    await rodar(ff, comandoJuntarTopoRecodificando("topo_lista.txt", "topo.mp4", leve), dir);
+  }
+
+  // 3) Plano de baixo: a imagem da capa (ou a 1ª utilizável) e, por cena, a escolhida pelo dono.
+  o.progresso?.(24, "Imagens de baixo");
+  const usavel = (i: number | null | undefined): i is number => {
+    const x = i == null ? undefined : p.imagens[i];
+    return !!x && !!x.url && !x.url.startsWith("arte:") && !x.url.startsWith("yt:") && !ehVideoSrc(x.src);
+  };
+  const usaveis = p.imagens.map((_, i) => i).filter(usavel);
+  if (!usaveis.length) throw new Error("nenhuma imagem utilizável");
+  const padrao = usavel(p.capa) ? p.capa : usaveis[0];
+  const grupos = gruposBaixo(
+    cenasSeg.map((s) => {
+      const b = p.roteiro.cenas[s.cena]?.baixo;
+      return { ini: s.ini, fim: s.fim, baixo: usavel(b) ? b : padrao };
+    }),
+  );
+  for (const i of new Set([padrao, ...grupos.map((g) => g.img)])) {
+    const img = p.imagens[i];
+    const { jpeg } = await enquadrarVertical(await baixar(img.url), DIVIDIDO.prepBaixo.w, DIVIDIDO.prepBaixo.h, img.focoBaixo || "auto");
+    await writeFile(join(dir, `baixo${i}.jpg`), jpeg);
+  }
+
+  // 4) Legenda na divisa, já com o gancho (não há cartão de título); crédito do vídeo o tempo todo.
+  const credito = item.alt || "Vídeo: material de divulgação";
+  await writeFile(
+    join(dir, "legenda.ass"),
+    gerarAss(palavras.slice(0, nG + nCenas), { posicao: "meio", creditos: [{ ini: 0, fim: seg.inicioFechamento, texto: credito }], cores: { texto: MARCA.cores.texto, destaque: MARCA.cores.destaque, contorno: MARCA.cores.fundo, alerta: MARCA.cores.alerta }, fonte: MARCA.fontes.legenda.familia, termos: p.termos }),
+  );
+
+  // 5) Quadros: moldura, divisória, fechamento (sem abertura).
+  o.fase?.("quadros");
+  o.progresso?.(26, "Cartões e quadros");
+  const q = await gerarQuadros({ titulo: p.titulo, secao: p.secao, cta: p.cta, pergunta: p.pergunta ?? null, dividido: true });
+  await sharp(q.moldura).extract({ left: 0, top: 0, width: 1080, height: 420 }).toFile(join(dir, "moldura_topo.png"));
+  await sharp(q.moldura).extract({ left: 0, top: 1100, width: 1080, height: 820 }).toFile(join(dir, "moldura_base.png"));
+  await writeFile(join(dir, "divisoria.png"), q.divisoria!);
+  await writeFile(join(dir, "fechamento.png"), q.fechamento);
+  const fimAbertura = seg.segs.find((x) => x.tipo === "abertura")?.fim ?? 3;
+
+  // 6) Trilha (whoosh só nas trocas da imagem de baixo e no fechamento), cartões sobre a metade de baixo, efeitos.
+  o.fase?.("trilha");
+  o.progresso?.(30, "Música e efeitos");
+  const estilo = estiloDoVideo(p.id, p.trilha);
+  await rodar(ff, comandoTrilha(estilo, seg.total, [...grupos.slice(1).map((g) => g.ini), seg.inicioFechamento], "trilha.wav", leve), dir);
+  const cartoes = (await cartoesDoVideo(p, analise, fala, fimAbertura, dir)).map((x) => ({ ...x, y: DIVIDIDO.cartaoY }));
+  const efeitos = await efeitosDoVideo(p, cartoes, seg.total, ff, leve, dir);
+
+  // 7) Montagem (as mesmas 2 passadas).
+  o.fase?.("montagem");
+  await montarPassadas(
+    {
+      clips: [],
+      dividido: { topo: "topo.mp4", fimCenas, baixo: grupos.map((g) => ({ img: `baixo${g.img}.jpg`, ini: g.ini, dur: g.dur })) },
+      semAbertura: true,
+      divisoria: "divisoria.png",
+      cartoes,
+      efeitos,
+      corBarra: MARCA.cores.destaque,
+      trilha: { arquivo: "trilha.wav", bpm: estilo.bpm, volume: VIDEO.musica[p.musica ?? "media"].volume, razao: VIDEO.musica[p.musica ?? "media"].razao },
+      leve,
+      fechamento: { ini: seg.inicioFechamento, dur: Math.max(0.5, seg.total - seg.inicioFechamento) },
+      total: seg.total,
+      fimAbertura,
+      arq: { molduraTopo: "moldura_topo.png", molduraBase: "moldura_base.png", abertura: "abertura.png", fechamento: "fechamento.png", audio: c.audio, legenda: "legenda.ass", saida: "saida.mp4" },
+    },
+    ff,
+    dir,
+    o,
+  );
+
+  // 8) Capa: a 1ª tela dividida (quadro do vídeo + imagem padrão) com moldura, divisória e o título centrado na divisa.
+  o.fase?.("capa");
+  o.progresso?.(97, "Capa");
+  await rodar(ff, ["-y", "-hide_banner", "-loglevel", "error", "-ss", "0.4", "-i", "topo.mp4", "-frames:v", "1", "capa_topo.jpg"], dir);
+  const cima = await sharp(join(dir, "capa_topo.jpg")).resize(1080, 960, { fit: "cover" }).toBuffer();
+  const baixo = await sharp(join(dir, `baixo${padrao}.jpg`)).resize(1080, 960, { fit: "cover" }).toBuffer();
+  const capa = await sharp({ create: { width: 1080, height: 1920, channels: 3, background: MARCA.cores.fundo } })
+    .composite([
+      { input: cima, top: 0, left: 0 },
+      { input: baixo, top: 960, left: 0 },
+      { input: q.moldura, top: 0, left: 0 },
+      { input: q.divisoria!, top: DIVIDIDO.divisoria.y, left: 0 },
+      { input: q.aberturaCapa!, top: 0, left: 0 },
+    ])
+    .jpeg({ quality: 88 })
+    .toBuffer();
+  return { mp4: join(dir, "saida.mp4"), capa, chars: c.falado.length, duracao: seg.total };
 }

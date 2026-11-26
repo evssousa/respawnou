@@ -12,6 +12,8 @@ import { cartoesDisponiveis, rotuloOpcaoCartao, type FatosVideo } from "~/video/
 import { AlinharImagem } from "~/components/AlinharImagem";
 import { EscolherImagem } from "~/components/EscolherImagem";
 import { BlocoFechamento, BlocoGancho } from "~/components/video/Ganchos";
+import { FormatoTela } from "~/components/video/FormatoTela";
+import { ASPECTO_BAIXO, ehVideoSrc, enquadramentoTopoValido, layoutDoRoteiro } from "~/video/layout";
 import { CartaoPronuncia } from "~/components/video/Pronuncia";
 import { juntarDicionario, suspeitas, type ItemPronuncia } from "~/video/pronuncia";
 import { lerPronuncia, salvarPronuncia } from "~/video/pronuncia.server";
@@ -154,7 +156,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (intent === "reabrir") return (await reabrir(id)) ? back("ok=reaberto") : back(`erro=${encodeURIComponent("Este vídeo não pode ser reaberto agora.")}`);
     if (intent === "salvar" || intent === "ouvir" || intent === "aprovar" || intent === "refazer" || intent === "img_add" || intent === "vid_add") {
       if (intent !== "refazer") {
-        const cenas: { fala: string; imagem: number; cartao?: string; item?: number | null; ss?: number }[] = [];
+        const cenas: { fala: string; imagem: number; cartao?: string; item?: number | null; ss?: number; baixo?: number }[] = [];
         const json = <T,>(v: FormDataEntryValue | null, fb: T): T => {
           try {
             return v ? (JSON.parse(String(v)) as T) : fb;
@@ -163,15 +165,32 @@ export async function action({ request }: Route.ActionArgs) {
           }
         };
         const focus: Record<string, Foco> = {};
+        // Tela dividida: os enquadramentos de baixo ("b:<i>") e do vídeo de cima ("t:<i>") que o formulário não mandar continuam os salvos.
+        const atual = await obterJob(id);
+        for (const [k, v] of Object.entries(atual?.focus ?? {})) if (k.startsWith("b:") || k.startsWith("t:")) focus[k] = v;
+        const focoDe = (fo: string) => (fo === "inteira" ? ("inteira" as Foco) : focoValido(fo));
+        const baixoPadrao = Number(f.get("baixo_padrao"));
         for (let i = 0; f.has(`fala_${i}`); i++) {
           const imagem = Number(f.get(`img_${i}`));
           const cartao = String(f.get(`cartao_${i}`) ?? "");
           const itemTxt = String(f.get(`item_${i}`) ?? "");
-          cenas.push({ fala: String(f.get(`fala_${i}`) ?? "").trim(), imagem, ...(cartao ? { cartao } : {}), ...(itemTxt !== "" ? { item: Number(itemTxt) } : {}), ...(String(f.get(`ss_${i}`) ?? "") !== "" && Number.isFinite(Number(f.get(`ss_${i}`))) ? { ss: Number(f.get(`ss_${i}`)) } : {}) });
+          const baixoTxt = String(f.get(`baixo_${i}`) ?? "");
+          const baixo = baixoTxt !== "" && Number.isInteger(Number(baixoTxt)) ? Number(baixoTxt) : undefined;
+          cenas.push({ fala: String(f.get(`fala_${i}`) ?? "").trim(), imagem, ...(cartao ? { cartao } : {}), ...(itemTxt !== "" ? { item: Number(itemTxt) } : {}), ...(String(f.get(`ss_${i}`) ?? "") !== "" && Number.isFinite(Number(f.get(`ss_${i}`))) ? { ss: Number(f.get(`ss_${i}`)) } : {}), ...(baixo != null ? { baixo } : {}) });
           const fo = String(f.get(`foco_${i}`) ?? "auto");
-          if (fo === "inteira") focus[String(imagem)] = "inteira" as Foco;
-          else focus[String(imagem)] = focoValido(fo);
+          focus[String(imagem)] = focoDe(fo);
+          // Enquadramento da metade de baixo (por imagem: vale em todas as cenas com ela).
+          const fob = String(f.get(`focob_${i}`) ?? "");
+          const efetivo = baixo ?? (Number.isInteger(baixoPadrao) ? baixoPadrao : undefined);
+          if (fob && efetivo != null) focus[`b:${efetivo}`] = focoDe(fob);
         }
+        const capaFocob = String(f.get("capa_focob") ?? "");
+        if (capaFocob && Number.isInteger(baixoPadrao)) focus[`b:${baixoPadrao}`] = focoDe(capaFocob);
+        const topoTxt = String(f.get("topo") ?? "");
+        const topo = topoTxt !== "" && Number.isInteger(Number(topoTxt)) ? Number(topoTxt) : undefined;
+        const focot = String(f.get("focot") ?? "");
+        if (topo != null && enquadramentoTopoValido(focot)) focus[`t:${topo}`] = focot as Foco;
+        const layout = f.get("layout") === "dividido" ? "dividido" : f.get("layout") === "cheio" ? "cheio" : undefined;
         const capa = Number(f.get("capa"));
         if (f.get("capa") !== "" && Number.isInteger(capa) && capa >= 0) focus["_capa"] = String(capa) as Foco;
         // Enquadramento da imagem da capa (feito na própria caixa da capa); vale para essa imagem em todo o vídeo.
@@ -186,6 +205,8 @@ export async function action({ request }: Route.ActionArgs) {
             gancho: String(f.get("gancho") ?? ""),
             titulo_curto: String(f.get("titulo_curto") ?? ""),
             cenas,
+            ...(layout ? { layout } : {}),
+            ...(topo != null ? { topo } : {}),
             ...(v2 ? { ganchos: json<string[]>(f.get("ganchos_json"), []), pergunta: String(f.get("pergunta") ?? ""), usarPergunta: f.get("usar_pergunta") === "on", destaques: json<string[]>(f.get("destaques_json"), []) } : {}),
           },
           focus,
@@ -202,7 +223,7 @@ export async function action({ request }: Route.ActionArgs) {
         const file = f.get("video");
         if (!(file instanceof File) || !file.size) return back(`erro=${encodeURIComponent("Escolha um arquivo de vídeo primeiro.")}`);
         const r = await adicionarVideo(id, file, String(f.get("credito") ?? ""));
-        return r === "ok" ? back("ok=video") : back(`erro=${encodeURIComponent(r)}`);
+        return r === "ok" ? back("ok=video") : r === "ok_dividido" ? back("ok=video_dividido") : back(`erro=${encodeURIComponent(r)}`);
       }
       if (intent === "salvar") return back("ok=salvo");
       if (intent === "ouvir") {
@@ -231,6 +252,7 @@ const MSG: Record<string, string> = {
   analisando: "Analisando o vídeo: os quadros dos trechos aparecem em instantes (a tela atualiza sozinha).",
   imagem: "Imagem acrescentada (e o roteiro salvo). Escolha-a numa cena, ou como capa.",
   video: "Vídeo acrescentado (e o roteiro salvo). Escolha-o numa cena: o sistema recorta os melhores trechos sozinho.",
+  video_dividido: "Vídeo acrescentado (e o roteiro salvo). O vídeo vertical passou para tela dividida: o vídeo em cima, a imagem da matéria embaixo. Dá para voltar à tela cheia em Formato da tela.",
   pronuncia: "Pronúncias salvas. Valem para os próximos vídeos (não mudam a legenda).",
   reel: "Enviando ao Instagram… o vídeo leva alguns minutos para processar. Esta tela atualiza sozinha.",
   reaberto: "Vídeo reaberto: mexa no roteiro, nas imagens e no enquadramento e clique em Aprovar e gerar quando quiser.",
@@ -256,21 +278,29 @@ function Copiavel({ titulo, texto }: { titulo: string; texto: string }) {
 type Job = Extract<Route.ComponentProps["loaderData"], { semBanco: false }>["jobs"][number];
 
 /** Escolha da imagem da capa/abertura com a prévia da 1ª tela (imagem enquadrada + moldura + cartão de título), montada pelo servidor. */
-function CapaEscolha({ j }: { j: Job }) {
+function CapaEscolha({ j, dividido, topo, enqTopo, ssCena1 }: { j: Job; dividido: boolean; topo: number; enqTopo: string; ssCena1: number | null }) {
   const [sel, setSel] = useState<string>(j.focus["_capa"] ?? "");
   const [v, setV] = useState(0);
   const [prev, setPrev] = useState<{ url: string | null; erro: string | null; carregando: boolean; indice: string }>({ url: null, erro: null, carregando: true, indice: "" });
-  const indice = sel !== "" ? sel : String(j.script?.cenas[0]?.imagem ?? 0);
+  // Automático: tela cheia = a imagem da 1ª cena; tela dividida = a 1ª imagem utilizável (a capa da matéria), como no gerador.
+  const usavel = (s?: string) => !!s && !s.startsWith("arte:") && !s.startsWith("yt:") && !ehVideoSrc(s);
+  const primeira = Math.max(0, j.images.findIndex((x) => usavel(x.src)));
+  const automatica = dividido ? String(primeira) : String(j.script?.cenas[0]?.imagem ?? 0);
+  const indice = sel !== "" ? sel : automatica;
   const [foco, setFoco] = useState<string>(j.focus[indice] ?? "auto");
+  const [focoB, setFocoB] = useState<string>(j.focus[`b:${indice}`] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
   const real = j.images[Number(indice)]?.src;
-  const imagemReal = !!real && !real.startsWith("arte:") && !real.startsWith("yt:") && !/\.(mp4|webm)$/i.test(real);
+  const imagemReal = usavel(real);
+  const focoAtual = dividido ? focoB : foco;
+  const setFocoAtual = dividido ? setFocoB : setFoco;
+  const extra = dividido ? `&layout=dividido&focob=${encodeURIComponent(focoB)}&topo=${topo}&focot=${encodeURIComponent(enqTopo)}${ssCena1 != null ? `&ss=${ssCena1}` : ""}` : "";
   // Busca a prévia por fetch (sem cache) e mostra o resultado: assim a imagem sempre acompanha a escolha e qualquer erro aparece escrito.
   useEffect(() => {
     let vivo = true;
     let objeto: string | null = null;
     setPrev((p) => ({ ...p, carregando: true, erro: null }));
-    fetch(`/admin/videos/capa/${j.id}/${indice}/${Date.now()}-${v}?foco=${encodeURIComponent(foco)}`, { cache: "no-store", credentials: "same-origin" })
+    fetch(`/admin/videos/capa/${j.id}/${indice}/${Date.now()}-${v}?foco=${encodeURIComponent(foco)}${extra}`, { cache: "no-store", credentials: "same-origin" })
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.text()).slice(0, 160) || `HTTP ${r.status}`);
         const b = await r.blob();
@@ -283,26 +313,33 @@ function CapaEscolha({ j }: { j: Job }) {
       vivo = false;
       if (objeto) setTimeout(() => URL.revokeObjectURL(objeto!), 5000);
     };
-  }, [indice, v, j.id, foco]);
+  }, [indice, v, j.id, foco, extra]);
   return (
     <>
-    <Field label="Imagem da capa e da abertura (a 1ª imagem do vídeo)">
+    <Field label={dividido ? "Imagem de baixo (padrão) e da capa" : "Imagem da capa e da abertura (a 1ª imagem do vídeo)"}>
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex min-w-[220px] flex-1 flex-col gap-2">
           <input type="hidden" name="capa" value={sel} />
-          <EscolherImagem opcoes={j.images} valor={sel} onChange={(x) => { setSel(x); const n = x !== "" ? x : String(j.script?.cenas[0]?.imagem ?? 0); setFoco(j.focus[n] ?? "auto"); }} rotulo="Escolha a imagem da capa e da abertura" permitirAutomatica="a imagem da 1ª cena" semVideo />
-          <input type="hidden" name="capa_foco" value={foco} />
+          <EscolherImagem opcoes={j.images} valor={sel} onChange={(x) => { setSel(x); const n = x !== "" ? x : automatica; setFoco(j.focus[n] ?? "auto"); setFocoB(j.focus[`b:${n}`] ?? "auto"); }} rotulo={dividido ? "Escolha a imagem de baixo e da capa" : "Escolha a imagem da capa e da abertura"} permitirAutomatica={dividido ? "a capa da matéria" : "a imagem da 1ª cena"} semVideo />
+          {/* Na tela dividida com a capa automática, o índice aqui não é o da 1ª cena: o foco 9:16 não vai (senão gravaria na imagem errada). */}
+          {(!dividido || sel !== "") && <input type="hidden" name="capa_foco" value={foco} />}
+          {dividido && <input type="hidden" name="capa_focob" value={focoB} />}
+          {dividido && <input type="hidden" name="baixo_padrao" value={indice} />}
           <div className="flex flex-wrap gap-2">
-            <select value={foco} onChange={(e) => setFoco(e.target.value)} aria-label="Enquadramento da capa" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
-              {ehFocoManual(foco) && <option value={foco}>{`Manual (${foco.replace(",", "% / ")}%)`}</option>}
+            <select value={focoAtual} onChange={(e) => setFocoAtual(e.target.value)} aria-label={dividido ? "Enquadramento da imagem de baixo" : "Enquadramento da capa"} className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+              {ehFocoManual(focoAtual) && <option value={focoAtual}>{`Manual (${focoAtual.replace(",", "% / ")}%)`}</option>}
               <option value="inteira">Imagem inteira (fundo desfocado)</option>
               <option value="auto">Automático</option>
               {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
             </select>
-            {imagemReal && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando(true)}>Mover e alinhar</button>}
+            {imagemReal && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando(true)}>{dividido ? "Alinhar embaixo" : "Mover e alinhar"}</button>}
             <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setV(v + 1)}>Atualizar prévia</button>
           </div>
-          <p className="text-[11px] text-muted">Use "Mover e alinhar" para arrastar a imagem até o encaixe certo; a prévia já usa o que você escolheu. Clique em Salvar roteiro para guardar. O enquadramento vale para essa imagem em todo o vídeo.</p>
+          <p className="text-[11px] text-muted">
+            {dividido
+              ? "Esta imagem fica embaixo em todas as cenas que não têm imagem própria. A prévia mostra a 1ª tela do vídeo. O que importa da imagem deve ficar no alto (o pé da tela é coberto pelo app)."
+              : 'Use "Mover e alinhar" para arrastar a imagem até o encaixe certo; a prévia já usa o que você escolheu. Clique em Salvar roteiro para guardar. O enquadramento vale para essa imagem em todo o vídeo.'}
+          </p>
         </div>
         <div className="flex flex-col gap-1">
           {prev.url && !prev.erro ? (
@@ -314,7 +351,11 @@ function CapaEscolha({ j }: { j: Job }) {
         </div>
       </div>
     </Field>
-    {alinhando && imagemReal && <AlinharImagem src={real!} aspecto={9 / 16} inicial={foco} titulo="CAPA E ABERTURA · enquadramento (9:16)" onSalvar={(f) => { setFoco(f); setAlinhando(false); }} onFechar={() => setAlinhando(false)} />}
+    {alinhando && imagemReal && (dividido ? (
+      <AlinharImagem src={real!} aspecto={ASPECTO_BAIXO} inicial={focoB} titulo="PARTE DE BAIXO · enquadramento (1080×960)" onSalvar={(f) => { setFocoB(f); setAlinhando(false); }} onFechar={() => setAlinhando(false)} />
+    ) : (
+      <AlinharImagem src={real!} aspecto={9 / 16} inicial={foco} titulo="CAPA E ABERTURA · enquadramento (9:16)" onSalvar={(f) => { setFoco(f); setAlinhando(false); }} onFechar={() => setAlinhando(false)} />
+    ))}
     </>
   );
 }
@@ -338,7 +379,11 @@ function ProgressoGeracao({ progress }: { progress?: string | null }) {
 }
 
 /** Lista de cenas. Guarda aqui o cartão escolhido em cada uma, para o "já na cena N" das outras valer na hora (e não só depois de salvar). */
-function CenasEditor({ j, r, max, previa, busy }: { j: Job; r: NonNullable<Job["script"]>; max: number; previa: PreviaVoz | null; busy: boolean }) {
+function CenasEditor({ j, r, max, previa, busy, dividido, topo }: { j: Job; r: NonNullable<Job["script"]>; max: number; previa: PreviaVoz | null; busy: boolean; dividido: boolean; topo: number }) {
+  // Imagem padrão da metade de baixo (a da capa salva ou a 1ª utilizável), para a miniatura das cenas sem imagem própria.
+  const usavel = (s?: string) => !!s && !s.startsWith("arte:") && !s.startsWith("yt:") && !ehVideoSrc(s);
+  const capaSalva = Number(j.focus["_capa"]);
+  const padrao = Number.isInteger(capaSalva) && usavel(j.images[capaSalva]?.src) ? capaSalva : Math.max(0, j.images.findIndex((x) => usavel(x.src)));
   const [cart, setCart] = useState<string[]>(() => r.cenas.map((c) => c.cartao ?? ""));
   const [falas, setFalas] = useState<string[]>(() => r.cenas.map((c) => c.fala));
   const usados: Record<string, number> = {};
@@ -421,6 +466,9 @@ function CenasEditor({ j, r, max, previa, busy }: { j: Job; r: NonNullable<Job["
           audio={previa ? { pronto: parteOk(i + 1) && (i > 0 || parteOk(0)), creditos: falas[i].length + (i === 0 && !parteOk(0) ? r.gancho.length : 0), ouvir: () => (tocando === `c${i}` ? parar() : tocar(`c${i}`, i === 0 ? [previa.partes[0].url, previa.partes[1].url] : [previa.partes[i + 1].url])) } : undefined}
           tocando={tocando === `c${i}`}
           busy={busy}
+          dividido={dividido}
+          topo={topo}
+          padrao={padrao}
         />
       ))}
     </>
@@ -428,23 +476,40 @@ function CenasEditor({ j, r, max, previa, busy }: { j: Job; r: NonNullable<Job["
 }
 
 /** Uma cena do roteiro: fala, imagem, enquadramento (presets, imagem inteira ou alinhamento manual arrastando) e ver maior. */
-function CenaLinha({ i, c, fala, onFala, images, focus, max, jobId, fatos, usados, onCartao, audio, tocando, busy }: { fala: string; onFala: (t: string) => void; audio?: { pronto: boolean; creditos: number; ouvir: () => void }; tocando?: boolean; busy?: boolean; onCartao: (v: string) => void; max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null; ss?: number | null }; images: { src: string; alt: string; trechos?: { ss: number; thumb: string }[]; duracao?: number }[]; focus: Record<string, string> }) {
+function CenaLinha({ i, c, fala, onFala, images, focus, max, jobId, fatos, usados, onCartao, audio, tocando, busy, dividido = false, topo = -1, padrao = 0 }: { fala: string; onFala: (t: string) => void; audio?: { pronto: boolean; creditos: number; ouvir: () => void }; tocando?: boolean; busy?: boolean; onCartao: (v: string) => void; max: number; i: number; jobId: number; fatos: FatosVideo | null; usados: Record<string, number>; c: { fala: string; imagem: number; cartao?: string | null; item?: number | null; ss?: number | null; baixo?: number | null }; images: { src: string; alt: string; trechos?: { ss: number; thumb: string }[]; duracao?: number }[]; focus: Record<string, string>; dividido?: boolean; topo?: number; padrao?: number }) {
   const [img, setImg] = useState(c.imagem);
   const [foco, setFoco] = useState<string>(focus[String(c.imagem)] ?? "auto");
   const [alinhando, setAlinhando] = useState(false);
   const [cartao, setCartao] = useState<string>(c.cartao ?? "");
   const [semPrevia, setSemPrevia] = useState(false);
   const [ss, setSs] = useState<string>(c.ss != null ? String(c.ss) : "");
+  // Tela dividida: imagem da metade de baixo desta cena (vazio = a padrão) e o enquadramento dela (9:8, por imagem).
+  const [baixo, setBaixo] = useState<string>(c.baixo != null ? String(c.baixo) : "");
+  const [focoB, setFocoB] = useState<string>(c.baixo != null ? (focus[`b:${c.baixo}`] ?? "auto") : "auto");
+  const [alinhandoB, setAlinhandoB] = useState(false);
   const disponiveis = fatos ? cartoesDisponiveis(fatos) : [];
   const src = images[img]?.src;
   const ehVid = !!src && /\.(mp4|webm)$/i.test(src);
   const real = src && !src.startsWith("arte:") && !ehVid ? src : null;
-  const trechos = ehVid ? (images[img]?.trechos ?? []) : [];
+  // De qual vídeo saem os quadros de "onde o trecho começa": na tela dividida, sempre o vídeo de cima.
+  const idxVideo = dividido ? topo : img;
+  const blocoVideo = dividido ? topo >= 0 : ehVid;
+  const trechos = blocoVideo ? (images[idxVideo]?.trechos ?? []) : [];
   const trechoAtual = ss !== "" ? trechos.reduce<{ ss: number; thumb: string } | null>((a, t) => (a == null || Math.abs(t.ss - Number(ss)) < Math.abs(a.ss - Number(ss)) ? t : a), null) : (trechos[0] ?? null);
   const mmss = (n: number) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
+  const baixoIdx = baixo !== "" ? Number(baixo) : padrao;
+  const srcBaixo = images[baixoIdx]?.src;
+  const realBaixo = srcBaixo && !srcBaixo.startsWith("arte:") && !srcBaixo.startsWith("yt:") && !ehVideoSrc(srcBaixo) ? srcBaixo : null;
+  const focoBaixoMostrado = baixo !== "" ? focoB : (focus[`b:${padrao}`] ?? "auto");
   return (
     <div className="grid gap-2 border border-line p-2 sm:grid-cols-[64px_1fr]">
-      {real ? (
+      {dividido ? (
+        <button type="button" className="flex h-[114px] w-16 flex-col border border-line hover:opacity-90" aria-label="Miniatura da tela dividida desta cena" onClick={() => baixo !== "" && realBaixo && setAlinhandoB(true)}>
+          {trechoAtual ? <img src={trechoAtual.thumb} alt="" width={64} height={57} className="h-[57px] w-full object-cover" /> : <span className="flex h-[57px] w-full items-center justify-center bg-ink text-[9px] text-muted">VÍDEO</span>}
+          <span className="h-[2px] w-full bg-acc" />
+          {realBaixo ? <img src={realBaixo} alt="" width={64} height={55} loading="lazy" className="h-[55px] w-full object-cover" style={ehFocoManual(focoBaixoMostrado) ? { objectPosition: focoBaixoMostrado.replace(",", "% ") + "%" } : undefined} /> : <span className="h-[55px] w-full bg-ink" />}
+        </button>
+      ) : real ? (
         <button type="button" className="block hover:opacity-90" aria-label="Ver a imagem grande e alinhar" onClick={() => setAlinhando(true)}>
           <img src={real} alt="" width={64} height={114} className="h-[114px] w-16 border border-line object-cover" style={ehFocoManual(foco) ? { objectPosition: foco.replace(",", "% ") + "%" } : undefined} loading="lazy" />
         </button>
@@ -467,10 +532,12 @@ function CenaLinha({ i, c, fala, onFala, images, focus, max, jobId, fatos, usado
         <input type="hidden" name={`foco_${i}`} value={foco} />
         <input type="hidden" name={`cartao_${i}`} value={cartao} />
         <input type="hidden" name={`item_${i}`} value={c.item ?? ""} />
-        <input type="hidden" name={`ss_${i}`} value={ehVid ? ss : ""} />
-        {ehVid && (
+        <input type="hidden" name={`ss_${i}`} value={blocoVideo ? ss : ""} />
+        <input type="hidden" name={`baixo_${i}`} value={baixo} />
+        {dividido && baixo !== "" && <input type="hidden" name={`focob_${i}`} value={focoB} />}
+        {blocoVideo && (
           <div className="flex flex-col gap-1 border border-dashed border-line-soft p-2">
-            <span className="text-[11px] text-muted">{`Vídeo: de onde o trecho desta cena começa${ss === "" ? " (automático, o servidor escolhe)" : ` (a partir de ${mmss(Number(ss))})`}. Clique num quadro para escolher.`}</span>
+            <span className="text-[11px] text-muted">{`${dividido ? "Em cima: vídeo. " : "Vídeo: "}de onde o trecho desta cena começa${ss === "" ? " (automático, o servidor escolhe)" : ` (a partir de ${mmss(Number(ss))})`}. Clique num quadro para escolher.`}</span>
             {trechos.length ? (
               <div className="flex gap-1 overflow-x-auto pb-1">
                 <button type="button" onClick={() => setSs("")} className={`min-h-[54px] shrink-0 border px-2 font-mono text-[11px] font-bold ${ss === "" ? "border-acc text-acc" : "border-line text-paper hover:border-acc"}`}>AUTO</button>
@@ -483,20 +550,44 @@ function CenaLinha({ i, c, fala, onFala, images, focus, max, jobId, fatos, usado
               </div>
             ) : (
               <div className="flex flex-wrap items-center gap-2">
-                <button type="submit" name="analisar" value={String(img)} formNoValidate className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc">Mostrar os trechos do vídeo</button>
+                <button type="submit" name="analisar" value={String(idxVideo)} formNoValidate className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc">Mostrar os trechos do vídeo</button>
                 <span className="text-[11px] text-muted">Os quadros aparecem em até 1 minuto depois do envio (a tela atualiza sozinha; se não aparecerem, clique aqui).</span>
               </div>
             )}
           </div>
         )}
+        {dividido && (
+          <div className="flex flex-col gap-1 border border-dashed border-line-soft p-2">
+            <span className="text-[11px] text-muted">Embaixo: {baixo === "" ? "a imagem padrão (a da capa; alinhe na caixa da capa)" : `imagem ${Number(baixo) + 1}`}.</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <EscolherImagem opcoes={images} valor={baixo} onChange={(v) => { setBaixo(v); setFocoB(v !== "" ? (focus[`b:${v}`] ?? "auto") : "auto"); }} rotulo={`Imagem de baixo da cena ${i + 1}`} permitirAutomatica="a imagem padrão (capa)" semVideo />
+              {baixo !== "" && (
+                <>
+                  <select value={focoB} onChange={(e) => setFocoB(e.target.value)} aria-label={`Enquadramento de baixo da cena ${i + 1}`} className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+                    {ehFocoManual(focoB) && <option value={focoB}>{`Manual (${focoB.replace(",", "% / ")}%)`}</option>}
+                    <option value="inteira">Imagem inteira (fundo desfocado)</option>
+                    <option value="auto">Automático</option>
+                    {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
+                  </select>
+                  {realBaixo && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhandoB(true)}>Alinhar embaixo</button>}
+                </>
+              )}
+            </div>
+            {baixo !== "" && <span className="text-[11px] text-muted">O alinhamento vale para esta imagem em todo o vídeo.</span>}
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
-          <EscolherImagem opcoes={images} valor={String(img)} onChange={(v) => { const n = Number(v); setImg(n); setSs(""); setFoco(focus[String(n)] ?? "auto"); }} rotulo={`Imagem da cena ${i + 1}`} />
-          <select value={foco} onChange={(e) => setFoco(e.target.value)} aria-label="Enquadramento" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
-            {ehFocoManual(foco) && <option value={foco}>{`Manual (${foco.replace(",", "% / ")}%)`}</option>}
-            <option value="inteira">Imagem inteira (fundo desfocado)</option>
-            {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
-          </select>
-          {real && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando(true)}>Ver maior e alinhar</button>}
+          {!dividido && (
+            <>
+              <EscolherImagem opcoes={images} valor={String(img)} onChange={(v) => { const n = Number(v); setImg(n); setSs(""); setFoco(focus[String(n)] ?? "auto"); }} rotulo={`Imagem da cena ${i + 1}`} />
+              <select value={foco} onChange={(e) => setFoco(e.target.value)} aria-label="Enquadramento" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+                {ehFocoManual(foco) && <option value={foco}>{`Manual (${foco.replace(",", "% / ")}%)`}</option>}
+                <option value="inteira">Imagem inteira (fundo desfocado)</option>
+                {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
+              </select>
+              {real && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando(true)}>Ver maior e alinhar</button>}
+            </>
+          )}
           {fatos && (
             <span className="flex items-center gap-2">
               <select value={cartao} onChange={(e) => { setCartao(e.target.value); onCartao(e.target.value); setSemPrevia(false); }} aria-label="Cartão de dados desta cena" className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
@@ -513,6 +604,7 @@ function CenaLinha({ i, c, fala, onFala, images, focus, max, jobId, fatos, usado
         </div>
       </div>
       {alinhando && real && <AlinharImagem src={real} aspecto={9 / 16} inicial={foco} titulo={`CENA ${i + 1} · enquadramento no vídeo (9:16)`} onSalvar={(f) => { setFoco(f); setAlinhando(false); }} onFechar={() => setAlinhando(false)} />}
+      {alinhandoB && realBaixo && baixo !== "" && <AlinharImagem src={realBaixo} aspecto={ASPECTO_BAIXO} inicial={focoB} titulo={`CENA ${i + 1} · PARTE DE BAIXO (1080×960)`} onSalvar={(f) => { setFocoB(f); setAlinhandoB(false); }} onFechar={() => setAlinhandoB(false)} />}
     </div>
   );
 }
@@ -527,6 +619,13 @@ function CartaoJob({ j, cfg, busy, dicionario, previa }: { j: Job; cfg: VideoCon
   const custo = ((chars * (cfg.model === "eleven_flash_v2_5" ? 0.5 : 1)) / 1000) * VIDEO.usdPorMilCreditos;
   const editavel = (j.status === "aguardando" || j.status === "falhou") && !!r;
   const capa = j.post_image ?? undefined;
+  // Formato da tela: a escolha vale na hora para a capa e as cenas (a tela muda antes de salvar).
+  const videos = j.images.map((x, i) => ({ indice: i, alt: x.alt, src: x.src })).filter((x) => ehVideoSrc(x.src));
+  const lay = layoutDoRoteiro(r, j.images);
+  const [formato, setFormato] = useState<"dividido" | "cheio">(lay.modo);
+  const [topo, setTopo] = useState(lay.topo >= 0 ? lay.topo : (videos[0]?.indice ?? -1));
+  const [enqTopo, setEnqTopo] = useState<string>(j.focus[`t:${topo}`] ?? "centre");
+  const dividido = formato === "dividido" && videos.length > 0;
   return (
     <Card title={`${j.serie ? `${MARCA.video.series[j.serie]?.rotulo ?? ""} · ` : ""}${(j.section ?? "").toUpperCase()} · ${j.title ?? ""}`}>
       <div className="grid gap-4 lg:grid-cols-[270px_1fr]">
@@ -564,15 +663,20 @@ function CartaoJob({ j, cfg, busy, dicionario, previa }: { j: Job; cfg: VideoCon
               <Field label={`Título do vídeo (até ${VIDEO.limites.tituloCurto})`}>
                 <input name="titulo_curto" defaultValue={r.titulo_curto} maxLength={VIDEO.limites.tituloCurto} className={inputCls} />
               </Field>
-              <CapaEscolha j={j} />
-              <CenasEditor j={j} r={r} max={perfil.cena} previa={previa} busy={busy} />
+              {videos.length > 0 ? (
+                <FormatoTela valor={formato} onChange={setFormato} videos={videos} topo={topo} onTopo={(i) => { setTopo(i); setEnqTopo(j.focus[`t:${i}`] ?? "centre"); }} enquadramento={enqTopo} onEnquadramento={setEnqTopo} />
+              ) : (
+                <input type="hidden" name="layout" value={r.layout ?? ""} />
+              )}
+              <CapaEscolha j={j} dividido={dividido} topo={topo} enqTopo={enqTopo} ssCena1={r.cenas[0]?.ss ?? null} />
+              <CenasEditor j={j} r={r} max={perfil.cena} previa={previa} busy={busy} dividido={dividido} topo={topo} />
               <div className="flex flex-wrap items-center gap-2 border border-dashed border-line-soft p-2">
                 <span className="text-xs text-muted">A imagem não combina com o texto? Envie outra ({j.images.length} no vídeo):</span>
                 <input type="file" name="file" accept="image/jpeg,image/png,image/webp,image/avif" className="max-w-full text-xs text-body" />
                 <Button name="intent" value="img_add" disabled={busy}>Enviar imagem (salva o roteiro)</Button>
               </div>
               <div className="flex flex-col gap-2 border border-dashed border-line-soft p-2">
-                <span className="text-xs text-muted">Envie aqui o arquivo do trailer/vídeo (material que você pode usar). O sistema recorta cortes curtos de até 4,5 s, só com a sua narração (o áudio do vídeo não entra), no máximo 40% do vídeo, com o crédito na tela.</span>
+                <span className="text-xs text-muted">Envie aqui o arquivo do trailer/vídeo (material que você pode usar). O sistema recorta cortes curtos de até 4,5 s, só com a sua narração (o áudio do vídeo não entra), com o crédito na tela. Ao enviar, o vídeo vertical passa para tela dividida (o vídeo em cima o tempo todo, a imagem da matéria embaixo); na tela cheia, o vídeo entra só nas cenas que você escolher.</span>
                 <div className="flex flex-wrap items-center gap-2">
                   <input type="file" name="video" accept="video/mp4,video/webm" className="max-w-full text-xs text-body" />
                   <input name="credito" placeholder="Crédito (ex.: Bandai Namco)" maxLength={60} className={`${inputCls} max-w-[240px]`} />

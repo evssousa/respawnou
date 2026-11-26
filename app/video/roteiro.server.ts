@@ -151,9 +151,13 @@ export function validarRoteiro(r: unknown, nImagens: number, secao = "", fatos: 
     }
     if (typeof x.item === "number" && Number.isInteger(x.item) && x.item >= 0 && x.item < 50 && cena.cartao) cena.item = x.item;
     if (typeof x.ss === "number" && Number.isFinite(x.ss) && x.ss >= 0 && x.ss < 36000) cena.ss = Number(x.ss.toFixed(2));
+    if (typeof x.baixo === "number" && Number.isInteger(x.baixo) && x.baixo >= 0 && x.baixo < nImagens) cena.baixo = x.baixo;
     cenas.push(cena);
   }
   const roteiro: Roteiro = { gancho, cenas, titulo_curto: titulo };
+  // Formato da tela (tela dividida): vale para roteiro antigo e novo.
+  if (o.layout === "dividido" || o.layout === "cheio") roteiro.layout = o.layout;
+  if (typeof o.topo === "number" && Number.isInteger(o.topo) && o.topo >= 0 && o.topo < nImagens) roteiro.topo = o.topo;
   if (novo) {
     roteiro.v = 2;
     roteiro.ganchos = ganchos;

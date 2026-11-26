@@ -1,8 +1,8 @@
 # Vídeo vertical em tela dividida (vídeo enviado em cima, imagem da matéria embaixo, legenda no meio)
 
-Status: 📝 plano (2026-11-26). Nada implementado. Executor: seguir os passos **DV1 a DV11 na ordem**, sem pular o
-"Pronto quando" de cada um. Base obrigatória: `docs/modulo-video.md` (núcleo × do site) e as regras de
-`docs/video-melhorias.md` ("Restrições que valem para todos os passos").
+Status: ✅ **DV1 a DV10 implementados e testados localmente (2026-11-26)**; DV11 com docs e build feitos, falta o 1º vídeo
+real na VPS. Perguntas respondidas: "ok as recomendações" (ver `decisoes.md`). Base: `docs/modulo-video.md` (núcleo × do
+site) e as regras de `docs/video-melhorias.md`.
 
 ## Objetivo
 

@@ -36,6 +36,40 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!item || item.src.startsWith("arte:") || item.src.startsWith("yt:") || /\.(mp4|webm)$/i.test(item.src)) return new Response("Essa opção não é uma imagem.", { status: 422 });
   const pedido = q.get("foco");
   const foco = pedido === "inteira" ? "inteira" : pedido ? focoValido(pedido) : String(job.focus[String(alvo)] ?? "auto");
+  const cab = { "Content-Type": "image/jpeg", "Cache-Control": "private, no-store, max-age=0", "CDN-Cache-Control": "no-store", Vary: "Cookie" };
+  const secao = () => rotuloDaSerie(job.serie ?? "") || (SOCIAL.rotuloSecao[job.secao_post] ?? job.secao_post.toUpperCase());
+  if (q.get("layout") === "dividido") {
+    // Tela dividida: em cima o quadro do vídeo mais próximo do ponto escolhido, embaixo a imagem (9:8), divisória e título da capa.
+    try {
+      const pb = q.get("focob");
+      const focoB = pb === "inteira" ? "inteira" : pb ? focoValido(pb) : String(job.focus[`b:${alvo}`] ?? "auto");
+      const baixo = (await enquadrarVertical(await lerImagem(item.src), 1080, 960, focoB, 82)).jpeg;
+      const iv = Number(q.get("topo"));
+      const video = Number.isInteger(iv) ? job.images[iv] : undefined;
+      const ss = Number(q.get("ss"));
+      const trechos = video?.trechos ?? [];
+      const quadro = q.get("ss") && Number.isFinite(ss) ? trechos.reduce<(typeof trechos)[number] | undefined>((a, t) => (!a || Math.abs(t.ss - ss) < Math.abs(a.ss - ss) ? t : a), undefined) : trechos[0];
+      const inteiro = q.get("focot") === "inteira";
+      let cima: Buffer;
+      if (quadro) {
+        const b = await lerImagem(quadro.thumb);
+        cima = inteiro ? (await enquadrarVertical(b, 1080, 960, "inteira", 82)).jpeg : await sharp(b).resize(1080, 960, { fit: "cover", position: q.get("focot") === "west" ? "west" : q.get("focot") === "east" ? "east" : "centre" }).jpeg({ quality: 82 }).toBuffer();
+      } else {
+        const svg = Buffer.from(`<svg width="1080" height="960"><rect width="1080" height="960" fill="#111611"/><text x="540" y="500" font-size="96" fill="#8a9787" text-anchor="middle" font-family="sans-serif">VÍDEO</text></svg>`);
+        cima = await sharp(svg).jpeg({ quality: 82 }).toBuffer();
+      }
+      const quadros = await gerarQuadros({ titulo: job.titulo_post, secao: secao(), cta: VIDEO.ctaCartao, dividido: true });
+      const cheio = await sharp({ create: { width: 1080, height: 1920, channels: 3, background: "#060807" } })
+        .composite([{ input: cima, top: 0, left: 0 }, { input: baixo, top: 960, left: 0 }, { input: quadros.moldura, top: 0, left: 0 }, { input: quadros.divisoria!, top: 880, left: 0 }, { input: quadros.aberturaCapa!, top: 0, left: 0 }])
+        .jpeg({ quality: 88 })
+        .toBuffer();
+      const out = await sharp(cheio).resize(540, 960).jpeg({ quality: 82 }).toBuffer();
+      return new Response(new Uint8Array(out), { headers: cab });
+    } catch (err) {
+      console.warn("[video] prévia dividida falhou:", String((err as Error)?.message ?? err));
+      return new Response(`Não gerou: ${String((err as Error)?.message ?? err)}`, { status: 422 });
+    }
+  }
   try {
     const { jpeg } = await enquadrarVertical(await lerImagem(item.src), 1080, 1920, foco, 82);
     const quadros = await gerarQuadros({ titulo: job.titulo_post, secao: rotuloDaSerie(job.serie ?? "") || (SOCIAL.rotuloSecao[job.secao_post] ?? job.secao_post.toUpperCase()), cta: VIDEO.ctaCartao });

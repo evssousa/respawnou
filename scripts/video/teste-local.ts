@@ -23,6 +23,8 @@ const arg = (n: string) => {
 };
 const perfil = arg("perfil") === "longo" ? "longo" : "curto";
 const manter = process.argv.includes("--manter");
+// --dividido: tela dividida (liga --video sozinho). --topo west|east|inteira troca o enquadramento do vídeo de cima.
+const dividido = process.argv.includes("--dividido");
 const FIX = resolve("scripts/video/fixtures");
 
 async function imagens(): Promise<string[]> {
@@ -68,7 +70,9 @@ function pacote(urls: string[], iVideo = -1): PacoteVideo {
   const nSerie = serie === "top5" ? 5 : serie === "gratis" ? 3 : serie === "semana" ? 3 : n;
   const cenas: CenaRoteiro[] = Array.from({ length: tipoSerie ? nSerie : n }, (_, i) => ({
     fala: tipoSerie ? `${i + 1}. ${FALA} ${i + 1}` : (ESPECIAIS[i] ?? `${FALA} ${i + 1}`),
-    imagem: iVideo >= 0 && (i >= 1 || false) && (process.argv.includes("--video-todas") || i <= 2) ? iVideo : i % urls.length,
+    imagem: !dividido && iVideo >= 0 && (i >= 1 || false) && (process.argv.includes("--video-todas") || i <= 2) ? iVideo : i % 8,
+    // --dividido: cenas 3 e 4 com a imagem 2 embaixo (mesmo grupo); as demais com a padrão (capa).
+    ...(dividido && (i === 2 || i === 3) ? { baixo: 2 } : {}),
     ...(iVideo >= 0 && (i === 1 || i === 2) && arg("ss") ? { ss: Number(arg("ss")) } : {}),
     ...(tipoSerie ? { cartao: tipoSerie, item: i } : CARTAO[i] ? { cartao: CARTAO[i] } : {}),
   }));
@@ -81,8 +85,14 @@ function pacote(urls: string[], iVideo = -1): PacoteVideo {
     id: 7,
     titulo: "Teste local do gerador de vídeo",
     secao: serie ? (MARCA.video.series[serie === "semana" ? "lancamentos-semana" : serie === "gratis" ? "gratis-semana" : serie]?.rotulo ?? "SÉRIE") : "NOTÍCIAS",
-    roteiro: { gancho, cenas, titulo_curto: "TESTE" },
-    imagens: urls.map((u, i) => ({ src: i === iVideo ? "/teste/video0.mp4" : `/teste/${i}.jpg`, url: u, foco: "auto" })),
+    roteiro: { gancho, cenas, titulo_curto: "TESTE", ...(dividido ? { layout: "dividido" as const, topo: iVideo } : {}) },
+    imagens: urls.map((u, i) => ({
+      src: i === iVideo ? "/teste/video0.mp4" : `/teste/${i}.jpg`,
+      url: u,
+      foco: "auto",
+      ...(i === iVideo ? { alt: "Vídeo: Estúdio de Teste", focoTopo: arg("topo") ?? "centre" } : {}),
+      ...(dividido && i === 2 ? { focoBaixo: "30,50" } : {}),
+    })),
     voz: "x",
     modelo: "m",
     velocidade: 1,
@@ -124,7 +134,7 @@ const marca = (proxima: string) => {
 const total0 = Date.now();
 const urls = await imagens();
 let iVideo = -1;
-if (process.argv.includes("--video")) {
+if (process.argv.includes("--video") || dividido) {
   urls.push(await videoDeTeste(await caminhoFfmpeg()));
   iVideo = urls.length - 1;
 }
@@ -137,6 +147,15 @@ const ff = await caminhoFfmpeg();
 const info = spawnSync(ff, ["-hide_banner", "-i", r.mp4], { encoding: "utf8" }).stderr;
 console.log(info.split("\n").filter((l) => /Duration|Video:|Audio:/.test(l)).map((l) => "  " + l.trim()).join("\n"));
 for (const s of [1, 5, r.duracao / 2, Math.max(0, r.duracao - 1)]) spawnSync(ff, ["-y", "-loglevel", "error", "-ss", s.toFixed(2), "-i", r.mp4, "-frames:v", "1", join(base, `quadro_${s.toFixed(0)}s.png`)]);
+if (dividido) {
+  // O vídeo de cima tem que estar rodando já no começo: compara a faixa y 300–900 em 0 s e 0,5 s.
+  for (const s of ["0.0", "0.5"]) spawnSync(ff, ["-y", "-loglevel", "error", "-ss", s, "-i", r.mp4, "-frames:v", "1", join(base, `quadro_${s}s.png`)]);
+  const faixa = (s: string) => sharp(join(base, `quadro_${s}s.png`)).extract({ left: 0, top: 300, width: 1080, height: 600 }).raw().toBuffer();
+  const [a, b] = await Promise.all([faixa("0.0"), faixa("0.5")]);
+  let soma = 0;
+  for (let k = 0; k < a.length; k++) soma += Math.abs(a[k] - b[k]);
+  console.log(`  topo mudou entre 0 s e 0,5 s: ${soma / a.length > 2 ? "sim" : "não"} (diferença média ${(soma / a.length).toFixed(1)})`);
+}
 console.log(`\nMP4 e quadros em: ${base}`);
 if (!manter) console.log("(use --manter para não apagar; a pasta está em tmp e some sozinha)");
 else void rm;

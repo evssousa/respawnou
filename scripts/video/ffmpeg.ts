@@ -2,6 +2,7 @@
 // Montagem do vídeo com ffmpeg: clipes com Ken Burns (zoompan) ligados por transições animadas (xfade), moldura com a marca,
 // cartão de abertura que entra deslizando e sai com fade, barra de progresso, legenda ASS queimada e só a narração no áudio.
 // Aqui só se monta o comando; quem roda é o gerador (app/video/gerador.server.ts).
+import { filtroPassada1Dividida } from "./dividido";
 
 export const FPS = 30;
 /** Duração de cada transição (s). */
@@ -45,6 +46,12 @@ export interface PlanoMontagem {
   trilha?: { arquivo: string; bpm: number; /** volume da música (0 a 1; padrão 0,3) */ volume?: number; /** razão do sidechain: quanto a música abaixa na fala (padrão 9) */ razao?: number };
   /** Efeitos sonoros dos cartões (efeitos.wav): somam depois do abaixamento da música, com volume próprio. */
   efeitos?: { arquivo: string; volume: number };
+  /** Tela dividida: o topo já vem pronto (topo.mp4, 1080×960) e as imagens de baixo (1620×1440) entram com zoom lento. */
+  dividido?: { topo: string; fimCenas: number; baixo: { img: string; ini: number; dur: number }[] };
+  /** Sem o cartão de abertura (o vídeo começa já com as cenas). */
+  semAbertura?: boolean;
+  /** PNG 1080×160 sobreposto em y 880 até o fechamento (faixa da divisa). */
+  divisoria?: string;
 }
 
 /** Instantes (s) em que cada transição está no meio: serve para posicionar os "whooshes" da trilha. */
@@ -103,7 +110,9 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   const partes: string[] = [];
   const rotulos: string[] = [];
   let idx = 0;
-  if (etapa !== 2) clips.forEach((c, k) => {
+  // Tela dividida: o filtro das cenas é outro (topo pronto + imagens de baixo + vstack + fechamento).
+  if (etapa !== 2 && plano.dividido) partes.push(filtroPassada1Dividida({ ...plano.dividido, fechamento: { arquivo: arq.fechamento, ini: fechamento.ini, dur: fechamento.dur } }));
+  if (etapa !== 2 && !plano.dividido) clips.forEach((c, k) => {
     // A transição fica centrada na fronteira da fala: o clipe começa T/2 antes do seu início e sobra T/2 depois do fim.
     const dur = c.dur + TRANSICAO;
     if (c.video?.pronto) {
@@ -136,7 +145,7 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
     partes.push(`${fonte},zoompan=z='${m.z}':x='${m.x}':y='${m.y}':d=${quadros}:s=1080x1920:fps=${FPS},setsar=1,format=yuv420p,settb=AVTB[c${k}]`);
     rotulos.push(`[c${k}]`);
   });
-  if (etapa !== 2) {
+  if (etapa !== 2 && !plano.dividido) {
   const qFech = Math.max(1, Math.round((fechamento.dur + TRANSICAO / 2) * FPS));
   partes.push(`movie=${arq.fechamento},scale=1080:1920,setsar=1,format=yuv420p,loop=loop=${qFech - 1}:size=1,setpts=N/${FPS}/TB,fps=${FPS},settb=AVTB[cf]`);
   rotulos.push("[cf]");
@@ -174,7 +183,7 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   partes.push(`movie=${arq.molduraTopo},format=yuva420p[mtopo]`);
   partes.push(`movie=${arq.molduraBase},format=yuva420p[mbase]`);
   const qAbert = Math.max(1, Math.round(fimAbertura * FPS));
-  partes.push(`movie=${arq.abertura},format=yuva420p,loop=loop=${qAbert - 1}:size=1,setpts=N/${FPS}/TB,fade=t=out:st=${s3(Math.max(0, fimAbertura - 0.3))}:d=0.3:alpha=1[abert]`);
+  if (!plano.semAbertura) partes.push(`movie=${arq.abertura},format=yuva420p,loop=loop=${qAbert - 1}:size=1,setpts=N/${FPS}/TB,fade=t=out:st=${s3(Math.max(0, fimAbertura - 0.3))}:d=0.3:alpha=1[abert]`);
   // Cor mais viva, vinheta e um pulso de brilho a cada batida da trilha (só durante as cenas).
   const B = plano.trilha ? 60 / plano.trilha.bpm : 0;
   const pulso = plano.trilha ? `:brightness='0.035*exp(-7*mod(t,${s3(B)}))'` : "";
@@ -185,6 +194,12 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
   // Cartões de dados (um por vez): sobem 48 px desacelerando em 0,3 s com fade de entrada e saem com fade de 0,2 s. Ficam abaixo
   // da abertura e da legenda (a legenda é sempre a última camada).
   let camada = "v1";
+  // Tela dividida: faixa da divisa por cima das molduras e abaixo dos cartões e da legenda.
+  if (plano.divisoria) {
+    partes.push(`movie=${plano.divisoria},format=yuva420p[div]`);
+    partes.push(`[v1][div]overlay=0:880:enable='lt(t,${s3(fechamento.ini)})':eof_action=repeat[v1d]`);
+    camada = "v1d";
+  }
   (plano.cartoes ?? []).forEach((c, k) => {
     const q = Math.max(1, Math.round(c.fim * FPS));
     partes.push(`movie=${c.arquivo},format=yuva420p,loop=loop=${q - 1}:size=1,setpts=N/${FPS}/TB,fade=t=in:st=${s3(c.ini)}:d=0.25:alpha=1,fade=t=out:st=${s3(Math.max(c.ini, c.fim - 0.2))}:d=0.2:alpha=1[ct${k}]`);
@@ -192,7 +207,8 @@ export function montar(plano: PlanoMontagem): { args: string[]; filtro: string }
     camada = `vc${k}`;
   });
   // Cartão de abertura: entra deslizando pela esquerda (desacelerando) e some com fade no fim do gancho.
-  partes.push(`[${camada}][abert]overlay=x='-1080*pow(1-min(t/0.45,1),2)':y=940:eval=frame:enable='lt(t,${s3(fimAbertura)})':eof_action=pass[v2]`);
+  if (plano.semAbertura) partes.push(`[${camada}]null[v2]`);
+  else partes.push(`[${camada}][abert]overlay=x='-1080*pow(1-min(t/0.45,1),2)':y=940:eval=frame:enable='lt(t,${s3(fimAbertura)})':eof_action=pass[v2]`);
   // Barra de progresso (abaixo da zona do topo do app).
   partes.push(`color=c=0x${(plano.corBarra ?? "#c8ff2e").replace("#", "")}:s=1080x8:r=${FPS}:d=${s3(total)}[barra];[v2][barra]overlay=x='-w+w*t/${s3(total)}':y=226:eval=frame:enable='lt(t,${s3(fechamento.ini)})'[v3]`);
   partes.push(`[v3]subtitles=${arq.legenda}:fontsdir=fonts,format=yuv420p[vout]`);

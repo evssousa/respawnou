@@ -171,8 +171,12 @@ const limpa = (t: string) => t.replace(/[{}\\]/g, "").toLocaleUpperCase("pt-BR")
  */
 export function gerarAss(
   palavrasCenas: Palavra[],
-  opts: { margemV?: number; creditos?: { ini: number; fim: number; texto: string }[]; cores?: { texto: string; destaque: string; contorno: string; alerta?: string }; fonte?: string; termos?: string[] } = {},
+  opts: { margemV?: number; creditos?: { ini: number; fim: number; texto: string }[]; cores?: { texto: string; destaque: string; contorno: string; alerta?: string }; fonte?: string; termos?: string[]; /** "meio" = tela dividida: legenda centrada na divisa (y 960) e crédito no alto à esquerda. */ posicao?: "baixo" | "meio" } = {},
 ): string {
+  const meio = opts.posicao === "meio";
+  // Contorno um pouco mais grosso no meio (separa o texto da faixa verde e das duas imagens).
+  const b6 = meio ? "\\bord7" : "\\bord6";
+  const b8 = meio ? "\\bord9" : "\\bord8";
   const cor = { alerta: "#ffb020", ...(opts.cores ?? { texto: "#eef3ea", destaque: "#c8ff2e", contorno: "#060807" }) };
   const fonte = opts.fonte ?? "Anton";
   const est = (hex: string) => corAss(hex).slice(0, -1); // nas linhas Style a cor não leva o "&" final
@@ -182,9 +186,9 @@ export function gerarAss(
   const indice = new Map<Palavra, number>(palavrasCenas.map((p, i) => [p, i]));
   // Tags de cada palavra (cada uma define cor, escala e contorno inteiros, para não herdar da anterior).
   const tag = (c: ClasseLegenda, vez: boolean) => {
-    if (c === "numero") return vez ? `{\\c${corAss(cor.alerta)}\\bord8\\fscx138\\fscy138\\t(0,140,\\fscx112\\fscy112)}` : `{\\c${corAss(cor.alerta)}\\bord6\\fscx112\\fscy112}`;
-    if (c === "nome") return vez ? `{\\c${corAss(cor.destaque)}\\bord6\\fscx118\\fscy118\\t(0,120,\\fscx100\\fscy100)}` : `{\\c${corAss(cor.destaque)}\\bord6\\fscx100\\fscy100}`;
-    return vez ? `{\\c${corAss(cor.destaque)}\\bord6\\fscx122\\fscy122\\t(0,120,\\fscx100\\fscy100)}` : `{\\c${corAss(cor.texto)}\\bord6\\fscx100\\fscy100}`;
+    if (c === "numero") return vez ? `{\\c${corAss(cor.alerta)}${b8}\\fscx138\\fscy138\\t(0,140,\\fscx112\\fscy112)}` : `{\\c${corAss(cor.alerta)}${b6}\\fscx112\\fscy112}`;
+    if (c === "nome") return vez ? `{\\c${corAss(cor.destaque)}${b6}\\fscx118\\fscy118\\t(0,120,\\fscx100\\fscy100)}` : `{\\c${corAss(cor.destaque)}${b6}\\fscx100\\fscy100}`;
+    return vez ? `{\\c${corAss(cor.destaque)}${b6}\\fscx122\\fscy122\\t(0,120,\\fscx100\\fscy100)}` : `{\\c${corAss(cor.texto)}${b6}\\fscx100\\fscy100}`;
   };
   for (let pi = 0; pi < pags.length; pi++) {
     const pag = pags[pi];
@@ -208,8 +212,13 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cred,${fonte},38,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,2,0,1,3,0,1,48,48,330,1
-Style: Pal,${fonte},92,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,0,0,1,6,0,2,64,164,${opts.margemV ?? 480},1
+${
+    meio
+      ? `Style: Cred,${fonte},30,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,2,0,1,3,0,7,64,48,312,1
+Style: Pal,${fonte},84,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,0,0,1,7,0,5,64,164,0,1`
+      : `Style: Cred,${fonte},38,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,2,0,1,3,0,1,48,48,330,1
+Style: Pal,${fonte},92,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,0,0,1,6,0,2,64,164,${opts.margemV ?? 480},1`
+  }
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

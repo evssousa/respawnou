@@ -2,7 +2,16 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
-## 2026-11-26 — Vídeo vertical em tela dividida (plano `video-tela-dividida.md`; propostas, falta o dono responder as perguntas)
+## 2026-11-26 — Vídeo vertical em tela dividida (plano `video-tela-dividida.md`; implementado no mesmo dia)
+
+- **Respostas do dono (2026-11-26): "ok as recomendações"** para as 6 perguntas: (1) vídeo de terceiros na meia tela o
+  tempo todo, sem o teto de 40%, só material oficial e crédito fixo; (2) sem título no vídeo, só na capa; (3) troca da
+  imagem de baixo com fade de 0,35 s; (4) cortes de até 4,5 s; (5) um vídeo só por Reel (alternar vários fica para depois);
+  (6) 50/50.
+- **Ajuste na implementação:** no painel, a imagem de baixo de uma cena SEM imagem própria segue a padrão e é alinhada na
+  caixa da capa (o alinhamento por cena só aparece quando a cena escolhe outra imagem); os enquadramentos `b:`/`t:` já
+  salvos são preservados ao salvar (o formulário não precisa mandar todos). Na capa, o título centrado na divisa não leva o
+  degradê de fundo (deixava uma borda reta).
 
 - **Pedido do dono:** com vídeo enviado, o Reel fica dividido ao meio (vídeo em cima, capa ou imagens da matéria embaixo,
   legenda no meio) e começa já com as cenas rodando, para prender quem assiste no primeiro segundo.
