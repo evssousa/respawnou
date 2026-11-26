@@ -2,6 +2,18 @@
 
 Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 
+## 2026-11-26 — Instagram: posts duplicados/triplicados (corrigido)
+
+- **Causa:** a Meta às vezes publica o post e mesmo assim devolve erro no `media_publish` (no caso: "Application request
+  limit reached", código 4). A fila marcava a linha como `failed` (erro de limite não conta tentativa) e, 1 h depois, criava
+  um contêiner NOVO e publicava de novo, sem fim. Vistos nas matérias 88, 89 e 90 (feed). O botão de Reels tinha o mesmo
+  risco ao clicar de novo depois de "falhou".
+- **Correção (`app/social/server/fila.server.ts`, `conferirContainer`):** antes de cada nova tentativa, e logo depois de um
+  erro, confere o status do contêiner da tentativa anterior; `PUBLISHED` = marca a linha como publicada e não envia de novo.
+  Sem conseguir conferir (ex.: limite da API), espera 30 min. Linhas presas em `sending` usam a mesma regra (antes voltavam
+  para `pending` se a legenda não fosse achada). Reels: a mesma conferência para `falhou` e depois de erro.
+- **Não dá para apagar posts pela API:** os repetidos que já saíram o dono apaga à mão no app do Instagram.
+
 ## 2026-11-26 — Vídeo vertical em tela dividida (plano `video-tela-dividida.md`; implementado no mesmo dia)
 
 - **Respostas do dono (2026-11-26): "ok as recomendações"** para as 6 perguntas: (1) vídeo de terceiros na meia tela o

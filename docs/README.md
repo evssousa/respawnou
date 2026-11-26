@@ -130,6 +130,8 @@ Em ordem (atualizado em 2026-11-22):
 
 ## Pendências suas
 
+- **Instagram, posts repetidos (2026-11-26):** apagar à mão no app do Instagram as cópias repetidas (vistas nas matérias 88, 89 e 90; deixar só uma de cada). A causa foi corrigida (ver `decisoes.md`): a fila agora confere se a tentativa anterior já publicou antes de postar de novo.
+
 - **Vídeos em tela dividida:** gerar o 1º vídeo real com um trailer oficial (abrir o vídeo em rascunho → enviar o vídeo com o crédito → conferir "Formato da tela", a imagem de baixo e a prévia → aprovar) e assistir no celular: o primeiro segundo prende? a legenda lê bem na faixa? o crédito aparece? Só use material oficial (trailer, imprensa), porque o vídeo fica na tela o tempo todo.
 - **Migração para a VPS:** (1) gerar um vídeo real na VPS (ver tempo e voz); (2) em 7 dias, apagar `projetos\_migracao\respawnou-*.sql`. Vídeos agora montam em segundos: o aviso sobre `pthread_create` e o gráfico de processos da Hostinger não valem mais.
 - **Vídeos em produção (2026-11-24):** gerar vídeos reais e conferir voz (animada, pausas, pronúncias), tempo de montagem, cada série (Grátis, Lançamentos, Review, Top 5) e o botão "Publicar no Instagram (Reels)". Se aparecer erro, copiar a mensagem inteira. Se `pthread_create` voltar, olhar no hPanel o gráfico de processos da conta.
