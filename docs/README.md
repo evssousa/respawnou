@@ -126,9 +126,7 @@ Em ordem (atualizado em 2026-11-22):
 
 ## Pendências suas
 
-- **Migração para a VPS (`migracao-vps.md`):** (1) preencher as 9 linhas vazias de `projetos\_segredos
-espawnou-vps.env` com os **mesmos** valores de hoje (a `SOCIAL_KEY` tem de ser a mesma, senão é preciso colar o token do Instagram de novo); (2) dump do ensaio pelo phpMyAdmin em `projetos\_migracao
-espawnou-ensaio.sql`; (3) depois do ensaio, entrar no `/admin` do endereço temporário; (4) na virada, o dump final; (5) o ok final para apagar o site antigo. Até a virada, não gerar vídeo nem aprovar roteiro no site antigo durante a janela combinada.
+- **Migração para a VPS (`migracao-vps.md`):** (1) preencher as 9 linhas vazias de `projetos\_segredos\respawnou-vps.env` com os **mesmos** valores de hoje (a `SOCIAL_KEY` tem de ser a mesma, senão é preciso colar o token do Instagram de novo); (2) dump do ensaio pelo phpMyAdmin em `projetos\_migracao\respawnou-ensaio.sql`; (3) depois do ensaio, entrar no `/admin` do endereço temporário; (4) na virada, o dump final; (5) o ok final para apagar o site antigo. Até a virada, não gerar vídeo nem aprovar roteiro no site antigo durante a janela combinada.
 - **Vídeos em produção (2026-11-24):** gerar vídeos reais e conferir voz (animada, pausas, pronúncias), tempo de montagem, cada série (Grátis, Lançamentos, Review, Top 5) e o botão "Publicar no Instagram (Reels)". Se aparecer erro, copiar a mensagem inteira. Se `pthread_create` voltar, olhar no hPanel o gráfico de processos da conta.
 - **AdSense:** acompanhar a resposta; conferir no Search Console o sitemap e as páginas indexadas; revisar e publicar a peça da quinta (`pauta-semana`).
 - **Vídeos, melhorias (`video-melhorias.md`):** (1) decidir a série "Lançamentos da semana": roteiro criado na segunda e você aprova no mesmo dia (recomendado; exceção à regra qui/sáb/dom) ou série desligada por padrão; (2) depois da etapa 1, se o painel avisar que o token não tem permissão de estatísticas, gerar o token de novo marcando a permissão de insights e colar em `/admin/instagram`.
