@@ -197,3 +197,26 @@ Começar aos **:52** de uma hora (depois do `coletar` das :30 e antes do das :00
 - B9.7 adiantado: `teste-local.ts` (voz falsa) no container: vídeo de 35 s montado em **36 s** (na Hostinger eram
   minutos), pico de ~930 MB no container, criasite respondendo em 0,06 s (máx. 0,11 s) durante a montagem, 0 erros.
 - **Esperando o dono:** preencher o `.env` e o dump do ensaio (B5.1).
+
+**2026-11-26, ensaio (Claude; dono preencheu o `.env` e fez o dump)**
+- B5: origem `11.8.9-MariaDB-log` (igual ao alvo). Dump de 11,6 MB, sem `USE`/`CREATE DATABASE`/`DEFINER`/`uca1400`/
+  `DROP TABLE`; importado em 2 s: 84 posts (todos publicados, o mais novo de 15:05 UTC), 3.590 feed_items, 150 games,
+  44 social_posts (1 pendente), 12 video_jobs (4 prontos, 8 descartados, nenhum aprovado), 1.341 cron_runs; migration 017.
+- B6: 343 caminhos (293 de capas, 30 do Instagram, 20 de vídeo); 342 baixados (108 MB). O que falta
+  (`/media/video/uploads/2026/11/v21-7695eab8.mp4`) dá 404 também no site antigo (vídeo enviado já apagado lá).
+- B3: 15 variáveis no app (sem `SOCIAL_KEY` e `ELEVENLABS_API_KEY`, que entram na virada). Formatos conferidos sem
+  mostrar valores.
+- **Incidente e lição:** o app novo do respawnou declarou o middleware `redirect-to-https` sem `permanent=true`, e o
+  criasite o declara com `permanent=true` (lição 4). O Traefik viu o mesmo nome com duas configurações, descartou o
+  middleware e **todo http de todos os apps passou a dar 503** (o `http://criasite.app` de 15:44 a 16:02 UTC; o https
+  seguiu normal). Correção: o respawnou também com `permanent=true` (rótulos próprios). **Todo app novo na VPS tem de
+  nascer com `redirect-to-https.redirectscheme.permanent=true`** e conferir depois `http://criasite.app/x` → 301.
+- B9 ✅: 23 páginas com 200 (todas as seções, ficha, plataforma, Arcade, busca, RSS) e 404 certo; sitemap 143 = 143;
+  `robots.txt` e `ads.txt` iguais; canonical `https://respawnou.com.br/`; títulos da home iguais; 342/343 mídias com 200 e
+  `immutable`; MP4 com `Range` → 206; HTML em Brotli; `/admin` e `/api` com `no-store` e noindex; http → https 301;
+  robô: `diag` (Gemini, YouTube e IGDB ok), `jogos`, `ofertas`, `publicar?dry=1` (gerou sem gravar) e `coletar` (6 novos,
+  0 erros; nada postado no Instagram, fila de vídeos igual); vídeo montado no container (acima); deploy com 16
+  requisições seguidas, todas 200; TTFB da home 0,26 s na VPS contra 0,35 s na Hostinger; RAM: app 67 MB parado,
+  total 1,58 GB de 3,9 GB. IP real: o respawnou não tem a rota `cabecalhos`; o Traefik é o mesmo do criasite (conferido lá);
+  a conferência fica pelas visitas (item 9, dono).
+- Falta do ensaio (dono): entrar no `/admin` do endereço temporário e ver `/admin/visitas` "Hoje" subir.
