@@ -127,7 +127,7 @@ Em ordem (atualizado em 2026-11-22):
 
 ## Pendências suas
 
-- **Migração para a VPS:** (1) dar o ok para apagar o site antigo do Cloud Startup; (2) gerar um vídeo real na VPS (ver tempo e voz); (3) em 7 dias, apagar `projetos\_migracaoespawnou-*.sql`. Vídeos agora montam em segundos: o aviso sobre `pthread_create` e o gráfico de processos da Hostinger não valem mais.
+- **Migração para a VPS:** (1) dar o ok para apagar o site antigo do Cloud Startup; (2) gerar um vídeo real na VPS (ver tempo e voz); (3) em 7 dias, apagar `projetos\_migracao\respawnou-*.sql`. Vídeos agora montam em segundos: o aviso sobre `pthread_create` e o gráfico de processos da Hostinger não valem mais.
 - **Vídeos em produção (2026-11-24):** gerar vídeos reais e conferir voz (animada, pausas, pronúncias), tempo de montagem, cada série (Grátis, Lançamentos, Review, Top 5) e o botão "Publicar no Instagram (Reels)". Se aparecer erro, copiar a mensagem inteira. Se `pthread_create` voltar, olhar no hPanel o gráfico de processos da conta.
 - **AdSense:** acompanhar a resposta; conferir no Search Console o sitemap e as páginas indexadas; revisar e publicar a peça da quinta (`pauta-semana`).
 - **Vídeos, melhorias (`video-melhorias.md`):** (1) decidir a série "Lançamentos da semana": roteiro criado na segunda e você aprova no mesmo dia (recomendado; exceção à regra qui/sáb/dom) ou série desligada por padrão; (2) depois da etapa 1, se o painel avisar que o token não tem permissão de estatísticas, gerar o token de novo marcando a permissão de insights e colar em `/admin/instagram`.
