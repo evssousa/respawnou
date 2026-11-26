@@ -215,7 +215,7 @@ Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour,
 ${
     meio
       ? `Style: Cred,${fonte},30,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,2,0,1,3,0,7,64,48,312,1
-Style: Pal,${fonte},84,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,0,0,1,7,0,5,64,164,0,1`
+Style: Pal,${fonte},96,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,0,0,1,7,0,5,64,64,0,1`
       : `Style: Cred,${fonte},38,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,2,0,1,3,0,1,48,48,330,1
 Style: Pal,${fonte},92,${est(cor.texto)},${est(cor.texto)},${est(cor.contorno)},&H00000000,0,0,0,0,100,100,0,0,1,6,0,2,64,164,${opts.margemV ?? 480},1`
   }

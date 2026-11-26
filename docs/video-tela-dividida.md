@@ -86,7 +86,7 @@ Sem migration: tudo fica no JSON de `video_jobs.script` e `video_jobs.focus`.
 | Barra de progresso | — | 226 | 1080×8 | Igual a hoje |
 | Crédito do vídeo | 64 | 312 | Anton 30 | Estilo `Cred` no modo meio |
 | Divisória (PNG) | 0 | 880 | 1080×160 | Sombra 880–956, faixa verde 956–964, sombra 964–1040 |
-| Legenda (centro do bloco) | 540 | 960 | Anton 84, até 2 linhas (~190 px: ~865–1055) | ASS alinhamento 5 |
+| Legenda (centro do bloco) | 540 | 960 | Anton 96, até 2 linhas (~220 px: ~850–1070) | ASS alinhamento 5, margens 64/64 (ajuste de 2026-11-26) |
 | Moldura base | 0 | 1100 | 1080×820 | Igual a hoje |
 | Cartões de dados | 24 | 1060 | 932 × (altura do tipo + 80) | Caixa visível de 1100 até ≤ 1500 (requisitos/grátis: 400 + 40 de folga) |
 | Título (só na capa) | 40 | 700 | painel 900 de largura | `Abertura` com `topo = 700` |

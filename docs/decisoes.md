@@ -12,6 +12,9 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
   caixa da capa (o alinhamento por cena só aparece quando a cena escolhe outra imagem); os enquadramentos `b:`/`t:` já
   salvos são preservados ao salvar (o formulário não precisa mandar todos). Na capa, o título centrado na divisa não leva o
   degradê de fundo (deixava uma borda reta).
+- **Depois do 1º vídeo real (2026-11-26), a pedido do dono:** legenda da tela dividida maior (Anton 84 → 96) e centrada
+  de verdade (margens 64/64; antes 64/164, que a deixava ~50 px à esquerda). A margem maior à direita era para os botões
+  do app, mas no meio da tela eles não atrapalham.
 
 - **Pedido do dono:** com vídeo enviado, o Reel fica dividido ao meio (vídeo em cima, capa ou imagens da matéria embaixo,
   legenda no meio) e começa já com as cenas rodando, para prender quem assiste no primeiro segundo.

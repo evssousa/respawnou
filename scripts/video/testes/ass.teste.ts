@@ -11,7 +11,7 @@ assert.ok(simples.includes("\\c&H002EFFC8&"), "palavra atual em verde-limão");
 assert.ok(/Style: Pal,.*,1,6,0,2,64,164,480,1/.test(simples), "tela cheia: legenda embaixo como antes");
 // tela dividida: legenda centrada na divisa, crédito no alto à esquerda
 const meio = gerarAss([{ texto: "Olá", ini: 0, fim: 0.5 }], { posicao: "meio", creditos: [{ ini: 0, fim: 1, texto: "Vídeo: X" }] });
-assert.ok(/Style: Pal,.*,1,7,0,5,64,164,0,1/.test(meio), "meio: alinhamento 5");
+assert.ok(/Style: Pal,Anton,96,.*,1,7,0,5,64,64,0,1/.test(meio), "meio: alinhamento 5, 96 px, margens iguais (centrada)");
 assert.ok(/Style: Cred,.*,1,3,0,7,64,48,312,1/.test(meio), "meio: crédito no alto à esquerda");
 assert.ok(meio.includes("\\bord9") || meio.includes("\\bord7"), "meio: contorno mais grosso");
 assert.ok(!meio.includes("\\bord6"));
