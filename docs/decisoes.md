@@ -15,6 +15,10 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
 - **Depois do 1º vídeo real (2026-11-26), a pedido do dono:** legenda da tela dividida maior (Anton 84 → 96) e centrada
   de verdade (margens 64/64; antes 64/164, que a deixava ~50 px à esquerda). A margem maior à direita era para os botões
   do app, mas no meio da tela eles não atrapalham.
+- **2º ajuste do dono (2026-11-26):** legenda ainda maior (96 → 112; cartões de dados descem de y 1060 para 1100 para não
+  encostar nela) e **capa do Reel NÃO dividida**: a imagem da capa em tela cheia (enquadramento 9:16 dela) com moldura e
+  título, igual à capa da tela cheia. No painel, a caixa da capa mostra duas prévias (capa do Reel e 1ª tela do vídeo) e
+  dois alinhamentos (capa 9:16 e embaixo 9:8). A 1ª tela dividida não tem título (só a capa tem).
 
 - **Pedido do dono:** com vídeo enviado, o Reel fica dividido ao meio (vídeo em cima, capa ou imagens da matéria embaixo,
   legenda no meio) e começa já com as cenas rodando, para prender quem assiste no primeiro segundo.

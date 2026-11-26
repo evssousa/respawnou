@@ -169,7 +169,9 @@ export async function action({ request }: Route.ActionArgs) {
         const atual = await obterJob(id);
         for (const [k, v] of Object.entries(atual?.focus ?? {})) if (k.startsWith("b:") || k.startsWith("t:")) focus[k] = v;
         const focoDe = (fo: string) => (fo === "inteira" ? ("inteira" as Foco) : focoValido(fo));
-        const baixoPadrao = Number(f.get("baixo_padrao"));
+        // Só existe na tela dividida (Number(null) seria 0: daí o NaN quando o campo não vem).
+        const bpTxt = String(f.get("baixo_padrao") ?? "");
+        const baixoPadrao = bpTxt !== "" ? Number(bpTxt) : Number.NaN;
         for (let i = 0; f.has(`fala_${i}`); i++) {
           const imagem = Number(f.get(`img_${i}`));
           const cartao = String(f.get(`cartao_${i}`) ?? "");
@@ -195,7 +197,8 @@ export async function action({ request }: Route.ActionArgs) {
         if (f.get("capa") !== "" && Number.isInteger(capa) && capa >= 0) focus["_capa"] = String(capa) as Foco;
         // Enquadramento da imagem da capa (feito na própria caixa da capa); vale para essa imagem em todo o vídeo.
         const capaFoco = String(f.get("capa_foco") ?? "");
-        const idxCapa = f.get("capa") !== "" && Number.isInteger(capa) && capa >= 0 ? capa : cenas[0]?.imagem;
+        // Capa automática: na tela cheia é a imagem da 1ª cena; na tela dividida, a imagem padrão de baixo (baixo_padrao).
+        const idxCapa = f.get("capa") !== "" && Number.isInteger(capa) && capa >= 0 ? capa : Number.isInteger(baixoPadrao) ? baixoPadrao : cenas[0]?.imagem;
         if (capaFoco && Number.isInteger(idxCapa)) focus[String(idxCapa)] = capaFoco === "inteira" ? ("inteira" as Foco) : focoValido(capaFoco);
         // Roteiro novo (v2): ganchos, pergunta, destaques e cartões precisam voltar do formulário, senão somem ao salvar.
         const v2 = f.has("ganchos_json");
@@ -277,11 +280,70 @@ function Copiavel({ titulo, texto }: { titulo: string; texto: string }) {
 
 type Job = Extract<Route.ComponentProps["loaderData"], { semBanco: false }>["jobs"][number];
 
-/** Escolha da imagem da capa/abertura com a prévia da 1ª tela (imagem enquadrada + moldura + cartão de título), montada pelo servidor. */
+type Previa = { url: string | null; erro: string | null; carregando: boolean };
+
+/**
+ * Busca uma prévia montada pelo servidor (sem cache) e devolve o estado: a imagem sempre acompanha a escolha e qualquer erro aparece
+ * escrito. O carimbo de tempo vai no caminho (a CDN pode ignorar a query).
+ */
+function usePrevia(jobId: number, indice: string, query: string, v: number, ativo = true): Previa {
+  const [prev, setPrev] = useState<Previa>({ url: null, erro: null, carregando: true });
+  useEffect(() => {
+    if (!ativo) return;
+    let vivo = true;
+    let objeto: string | null = null;
+    setPrev((p) => ({ ...p, carregando: true, erro: null }));
+    fetch(`/admin/videos/capa/${jobId}/${indice}/${Date.now()}-${v}?${query}`, { cache: "no-store", credentials: "same-origin" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error((await r.text()).slice(0, 160) || `HTTP ${r.status}`);
+        const b = await r.blob();
+        if (!/^image\//.test(b.type)) throw new Error("A resposta não era uma imagem (sessão expirada? recarregue a página).");
+        objeto = URL.createObjectURL(b);
+        if (vivo) setPrev({ url: objeto, erro: null, carregando: false });
+      })
+      .catch((e) => vivo && setPrev({ url: null, erro: String(e?.message ?? e), carregando: false }));
+    return () => {
+      vivo = false;
+      if (objeto) setTimeout(() => URL.revokeObjectURL(objeto!), 5000);
+    };
+  }, [jobId, indice, query, v, ativo]);
+  return prev;
+}
+
+function CaixaPrevia({ prev, alt, rotulo }: { prev: Previa; alt: string; rotulo: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {prev.url && !prev.erro ? (
+        <img src={prev.url} alt={alt} width={160} height={284} className={`aspect-[9/16] w-[160px] border border-line bg-ink object-cover ${prev.carregando ? "opacity-50" : ""}`} />
+      ) : (
+        <div className="flex aspect-[9/16] w-[160px] items-center justify-center border border-line p-2 text-center text-xs text-muted">{prev.erro ?? "Carregando prévia…"}</div>
+      )}
+      <span className="font-mono text-[11px] text-muted">{prev.carregando ? "Atualizando…" : rotulo}</span>
+    </div>
+  );
+}
+
+const btnCls = "min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc";
+
+function SelectFoco({ valor, onChange, rotulo, comAuto = true }: { valor: string; onChange: (v: string) => void; rotulo: string; comAuto?: boolean }) {
+  return (
+    <select value={valor} onChange={(e) => onChange(e.target.value)} aria-label={rotulo} className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
+      {ehFocoManual(valor) && <option value={valor}>{`Manual (${valor.replace(",", "% / ")}%)`}</option>}
+      <option value="inteira">Imagem inteira (fundo desfocado)</option>
+      {comAuto && <option value="auto">Automático</option>}
+      {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
+    </select>
+  );
+}
+
+/**
+ * Escolha da imagem da capa. Tela cheia: a capa é também a 1ª imagem do vídeo (prévia da 1ª tela com o título). Tela dividida: a
+ * mesma imagem é a capa do Reel (tela cheia, 9:16, NÃO dividida) e a imagem padrão da metade de baixo (9:8): duas prévias e dois
+ * alinhamentos.
+ */
 function CapaEscolha({ j, dividido, topo, enqTopo, ssCena1 }: { j: Job; dividido: boolean; topo: number; enqTopo: string; ssCena1: number | null }) {
   const [sel, setSel] = useState<string>(j.focus["_capa"] ?? "");
   const [v, setV] = useState(0);
-  const [prev, setPrev] = useState<{ url: string | null; erro: string | null; carregando: boolean; indice: string }>({ url: null, erro: null, carregando: true, indice: "" });
   // Automático: tela cheia = a imagem da 1ª cena; tela dividida = a 1ª imagem utilizável (a capa da matéria), como no gerador.
   const usavel = (s?: string) => !!s && !s.startsWith("arte:") && !s.startsWith("yt:") && !ehVideoSrc(s);
   const primeira = Math.max(0, j.images.findIndex((x) => usavel(x.src)));
@@ -289,73 +351,59 @@ function CapaEscolha({ j, dividido, topo, enqTopo, ssCena1 }: { j: Job; dividido
   const indice = sel !== "" ? sel : automatica;
   const [foco, setFoco] = useState<string>(j.focus[indice] ?? "auto");
   const [focoB, setFocoB] = useState<string>(j.focus[`b:${indice}`] ?? "auto");
-  const [alinhando, setAlinhando] = useState(false);
+  const [alinhando, setAlinhando] = useState<"capa" | "baixo" | null>(null);
   const real = j.images[Number(indice)]?.src;
   const imagemReal = usavel(real);
-  const focoAtual = dividido ? focoB : foco;
-  const setFocoAtual = dividido ? setFocoB : setFoco;
-  const extra = dividido ? `&layout=dividido&focob=${encodeURIComponent(focoB)}&topo=${topo}&focot=${encodeURIComponent(enqTopo)}${ssCena1 != null ? `&ss=${ssCena1}` : ""}` : "";
-  // Busca a prévia por fetch (sem cache) e mostra o resultado: assim a imagem sempre acompanha a escolha e qualquer erro aparece escrito.
-  useEffect(() => {
-    let vivo = true;
-    let objeto: string | null = null;
-    setPrev((p) => ({ ...p, carregando: true, erro: null }));
-    fetch(`/admin/videos/capa/${j.id}/${indice}/${Date.now()}-${v}?foco=${encodeURIComponent(foco)}${extra}`, { cache: "no-store", credentials: "same-origin" })
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.text()).slice(0, 160) || `HTTP ${r.status}`);
-        const b = await r.blob();
-        if (!/^image\//.test(b.type)) throw new Error("A resposta não era uma imagem (sessão expirada? recarregue a página).");
-        objeto = URL.createObjectURL(b);
-        if (vivo) setPrev({ url: objeto, erro: null, carregando: false, indice });
-      })
-      .catch((e) => vivo && setPrev({ url: null, erro: String(e?.message ?? e), carregando: false, indice }));
-    return () => {
-      vivo = false;
-      if (objeto) setTimeout(() => URL.revokeObjectURL(objeto!), 5000);
-    };
-  }, [indice, v, j.id, foco, extra]);
+  // Prévia da capa (tela cheia, com o título) e, na tela dividida, prévia da 1ª tela do vídeo.
+  const prevCapa = usePrevia(j.id, indice, `foco=${encodeURIComponent(foco)}`, v);
+  const queryTela = dividido ? `foco=${encodeURIComponent(foco)}&layout=dividido&focob=${encodeURIComponent(focoB)}&topo=${topo}&focot=${encodeURIComponent(enqTopo)}${ssCena1 != null ? `&ss=${ssCena1}` : ""}` : "";
+  const prevTela = usePrevia(j.id, indice, queryTela, v, dividido);
   return (
     <>
-    <Field label={dividido ? "Imagem de baixo (padrão) e da capa" : "Imagem da capa e da abertura (a 1ª imagem do vídeo)"}>
+    <Field label={dividido ? "Imagem da capa e de baixo (padrão)" : "Imagem da capa e da abertura (a 1ª imagem do vídeo)"}>
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex min-w-[220px] flex-1 flex-col gap-2">
           <input type="hidden" name="capa" value={sel} />
-          <EscolherImagem opcoes={j.images} valor={sel} onChange={(x) => { setSel(x); const n = x !== "" ? x : automatica; setFoco(j.focus[n] ?? "auto"); setFocoB(j.focus[`b:${n}`] ?? "auto"); }} rotulo={dividido ? "Escolha a imagem de baixo e da capa" : "Escolha a imagem da capa e da abertura"} permitirAutomatica={dividido ? "a capa da matéria" : "a imagem da 1ª cena"} semVideo />
-          {/* Na tela dividida com a capa automática, o índice aqui não é o da 1ª cena: o foco 9:16 não vai (senão gravaria na imagem errada). */}
-          {(!dividido || sel !== "") && <input type="hidden" name="capa_foco" value={foco} />}
+          <EscolherImagem opcoes={j.images} valor={sel} onChange={(x) => { setSel(x); const n = x !== "" ? x : automatica; setFoco(j.focus[n] ?? "auto"); setFocoB(j.focus[`b:${n}`] ?? "auto"); }} rotulo={dividido ? "Escolha a imagem da capa e de baixo" : "Escolha a imagem da capa e da abertura"} permitirAutomatica={dividido ? "a capa da matéria" : "a imagem da 1ª cena"} semVideo />
+          <input type="hidden" name="capa_foco" value={foco} />
           {dividido && <input type="hidden" name="capa_focob" value={focoB} />}
           {dividido && <input type="hidden" name="baixo_padrao" value={indice} />}
+          {dividido ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-24 font-mono text-[11px] font-bold uppercase text-body">Capa</span>
+                <SelectFoco valor={foco} onChange={setFoco} rotulo="Enquadramento da capa" />
+                {imagemReal && <button type="button" className={btnCls} onClick={() => setAlinhando("capa")}>Alinhar capa</button>}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="w-24 font-mono text-[11px] font-bold uppercase text-body">Embaixo</span>
+                <SelectFoco valor={focoB} onChange={setFocoB} rotulo="Enquadramento da imagem de baixo" />
+                {imagemReal && <button type="button" className={btnCls} onClick={() => setAlinhando("baixo")}>Alinhar embaixo</button>}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <SelectFoco valor={foco} onChange={setFoco} rotulo="Enquadramento da capa" />
+              {imagemReal && <button type="button" className={btnCls} onClick={() => setAlinhando("capa")}>Mover e alinhar</button>}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
-            <select value={focoAtual} onChange={(e) => setFocoAtual(e.target.value)} aria-label={dividido ? "Enquadramento da imagem de baixo" : "Enquadramento da capa"} className="min-h-9 border border-line bg-ink px-2 text-xs text-paper">
-              {ehFocoManual(focoAtual) && <option value={focoAtual}>{`Manual (${focoAtual.replace(",", "% / ")}%)`}</option>}
-              <option value="inteira">Imagem inteira (fundo desfocado)</option>
-              <option value="auto">Automático</option>
-              {FOCOS.map((x) => <option key={x} value={x}>{`Recorte: ${ROTULO_FOCO[x]}`}</option>)}
-            </select>
-            {imagemReal && <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setAlinhando(true)}>{dividido ? "Alinhar embaixo" : "Mover e alinhar"}</button>}
-            <button type="button" className="min-h-9 border border-line-soft px-3 font-mono text-xs font-bold text-paper hover:border-acc" onClick={() => setV(v + 1)}>Atualizar prévia</button>
+            <button type="button" className={btnCls} onClick={() => setV(v + 1)}>Atualizar prévia</button>
           </div>
           <p className="text-[11px] text-muted">
             {dividido
-              ? "Esta imagem fica embaixo em todas as cenas que não têm imagem própria. A prévia mostra a 1ª tela do vídeo. O que importa da imagem deve ficar no alto (o pé da tela é coberto pelo app)."
+              ? "A capa do Reel é esta imagem em tela cheia, com o título (não é dividida). A mesma imagem fica embaixo nas cenas que não têm imagem própria; o que importa dela deve ficar no alto (o pé da tela é coberto pelo app). Clique em Salvar roteiro para guardar."
               : 'Use "Mover e alinhar" para arrastar a imagem até o encaixe certo; a prévia já usa o que você escolheu. Clique em Salvar roteiro para guardar. O enquadramento vale para essa imagem em todo o vídeo.'}
           </p>
         </div>
-        <div className="flex flex-col gap-1">
-          {prev.url && !prev.erro ? (
-            <img src={prev.url} alt="Prévia da primeira tela do vídeo" width={180} height={320} className={`aspect-[9/16] w-[180px] border border-line bg-ink object-cover ${prev.carregando ? "opacity-50" : ""}`} />
-          ) : (
-            <div className="flex aspect-[9/16] w-[180px] items-center justify-center border border-line p-2 text-center text-xs text-muted">{prev.erro ?? "Carregando prévia…"}</div>
-          )}
-          <span className="font-mono text-[11px] text-muted">{prev.carregando ? "Atualizando…" : `Prévia da imagem ${Number(prev.indice) + 1}`}</span>
+        <div className="flex flex-wrap gap-3">
+          <CaixaPrevia prev={prevCapa} alt="Prévia da capa do vídeo" rotulo={dividido ? "Capa do Reel" : `Prévia da imagem ${Number(indice) + 1}`} />
+          {dividido && <CaixaPrevia prev={prevTela} alt="Prévia da primeira tela do vídeo" rotulo="1ª tela do vídeo" />}
         </div>
       </div>
     </Field>
-    {alinhando && imagemReal && (dividido ? (
-      <AlinharImagem src={real!} aspecto={ASPECTO_BAIXO} inicial={focoB} titulo="PARTE DE BAIXO · enquadramento (1080×960)" onSalvar={(f) => { setFocoB(f); setAlinhando(false); }} onFechar={() => setAlinhando(false)} />
-    ) : (
-      <AlinharImagem src={real!} aspecto={9 / 16} inicial={foco} titulo="CAPA E ABERTURA · enquadramento (9:16)" onSalvar={(f) => { setFoco(f); setAlinhando(false); }} onFechar={() => setAlinhando(false)} />
-    ))}
+    {alinhando === "baixo" && imagemReal && <AlinharImagem src={real!} aspecto={ASPECTO_BAIXO} inicial={focoB} titulo="PARTE DE BAIXO · enquadramento (1080×960)" onSalvar={(f) => { setFocoB(f); setAlinhando(null); }} onFechar={() => setAlinhando(null)} />}
+    {alinhando === "capa" && imagemReal && <AlinharImagem src={real!} aspecto={9 / 16} inicial={foco} titulo={dividido ? "CAPA DO REEL · enquadramento (9:16)" : "CAPA E ABERTURA · enquadramento (9:16)"} onSalvar={(f) => { setFoco(f); setAlinhando(null); }} onFechar={() => setAlinhando(null)} />}
     </>
   );
 }

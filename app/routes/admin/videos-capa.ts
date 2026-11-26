@@ -39,7 +39,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const cab = { "Content-Type": "image/jpeg", "Cache-Control": "private, no-store, max-age=0", "CDN-Cache-Control": "no-store", Vary: "Cookie" };
   const secao = () => rotuloDaSerie(job.serie ?? "") || (SOCIAL.rotuloSecao[job.secao_post] ?? job.secao_post.toUpperCase());
   if (q.get("layout") === "dividido") {
-    // Tela dividida: em cima o quadro do vídeo mais próximo do ponto escolhido, embaixo a imagem (9:8), divisória e título da capa.
+    // Tela dividida: a 1ª tela do vídeo (quadro do vídeo mais próximo do ponto escolhido em cima, imagem 9:8 embaixo, divisória;
+    // sem título, como no vídeo). A capa do Reel é a prévia sem `layout` (tela cheia).
     try {
       const pb = q.get("focob");
       const focoB = pb === "inteira" ? "inteira" : pb ? focoValido(pb) : String(job.focus[`b:${alvo}`] ?? "auto");
@@ -60,7 +61,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       }
       const quadros = await gerarQuadros({ titulo: job.titulo_post, secao: secao(), cta: VIDEO.ctaCartao, dividido: true });
       const cheio = await sharp({ create: { width: 1080, height: 1920, channels: 3, background: "#060807" } })
-        .composite([{ input: cima, top: 0, left: 0 }, { input: baixo, top: 960, left: 0 }, { input: quadros.moldura, top: 0, left: 0 }, { input: quadros.divisoria!, top: 880, left: 0 }, { input: quadros.aberturaCapa!, top: 0, left: 0 }])
+        .composite([{ input: cima, top: 0, left: 0 }, { input: baixo, top: 960, left: 0 }, { input: quadros.moldura, top: 0, left: 0 }, { input: quadros.divisoria!, top: 880, left: 0 }])
         .jpeg({ quality: 88 })
         .toBuffer();
       const out = await sharp(cheio).resize(540, 960).jpeg({ quality: 82 }).toBuffer();

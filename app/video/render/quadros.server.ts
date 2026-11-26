@@ -11,9 +11,8 @@ export interface Quadros {
   moldura: Buffer;
   abertura: Buffer;
   fechamento: Buffer;
-  /** Só na tela dividida: faixa da divisa (1080×160) e o título da capa centrado na divisa. */
+  /** Só na tela dividida: faixa da divisa (1080×160). A capa do Reel não é dividida (usa `abertura`). */
   divisoria?: Buffer;
-  aberturaCapa?: Buffer;
 }
 
 export async function gerarQuadros(p: { titulo: string; secao: string; cta: string; pergunta?: string | null; dividido?: boolean }): Promise<Quadros> {
@@ -23,9 +22,6 @@ export async function gerarQuadros(p: { titulo: string; secao: string; cta: stri
     abertura: await renderizarPng(createElement(Abertura, { titulo: p.titulo, secao: p.secao }), TAM),
     fechamento: await renderizarPng(createElement(Fechamento, { logoGrande, grade, cta: p.cta, pergunta: p.pergunta ?? null }), TAM),
   };
-  if (p.dividido) {
-    q.divisoria = await renderizarPng(createElement(Divisoria), { largura: 1080, altura: 160 });
-    q.aberturaCapa = await renderizarPng(createElement(Abertura, { titulo: p.titulo, secao: p.secao, topo: 700 }), TAM);
-  }
+  if (p.dividido) q.divisoria = await renderizarPng(createElement(Divisoria), { largura: 1080, altura: 160 });
   return q;
 }

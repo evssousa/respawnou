@@ -727,21 +727,12 @@ async function gerarDividido(c: { p: PacoteVideo; dir: string; o: OpcoesGerador;
     o,
   );
 
-  // 8) Capa: a 1ª tela dividida (quadro do vídeo + imagem padrão) com moldura, divisória e o título centrado na divisa.
+  // 8) Capa: NÃO dividida (pedido do dono). A imagem da capa em tela cheia (enquadramento 9:16 dela) + moldura + cartão de título,
+  //    igual à capa da tela cheia.
   o.fase?.("capa");
   o.progresso?.(97, "Capa");
-  await rodar(ff, ["-y", "-hide_banner", "-loglevel", "error", "-ss", "0.4", "-i", "topo.mp4", "-frames:v", "1", "capa_topo.jpg"], dir);
-  const cima = await sharp(join(dir, "capa_topo.jpg")).resize(1080, 960, { fit: "cover" }).toBuffer();
-  const baixo = await sharp(join(dir, `baixo${padrao}.jpg`)).resize(1080, 960, { fit: "cover" }).toBuffer();
-  const capa = await sharp({ create: { width: 1080, height: 1920, channels: 3, background: MARCA.cores.fundo } })
-    .composite([
-      { input: cima, top: 0, left: 0 },
-      { input: baixo, top: 960, left: 0 },
-      { input: q.moldura, top: 0, left: 0 },
-      { input: q.divisoria!, top: DIVIDIDO.divisoria.y, left: 0 },
-      { input: q.aberturaCapa!, top: 0, left: 0 },
-    ])
-    .jpeg({ quality: 88 })
-    .toBuffer();
+  const imgCapa = p.imagens[padrao];
+  const { jpeg: fundoCapa } = await enquadrarVertical(await baixar(imgCapa.url), 1080, 1920, imgCapa.foco || "auto");
+  const capa = await sharp(fundoCapa).composite([{ input: q.moldura }, { input: q.abertura }]).jpeg({ quality: 88 }).toBuffer();
   return { mp4: join(dir, "saida.mp4"), capa, chars: c.falado.length, duracao: seg.total };
 }

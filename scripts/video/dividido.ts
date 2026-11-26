@@ -8,7 +8,7 @@ export const DIVIDIDO = {
   /** Imagem de baixo preparada maior que a saída (1,5×) para o zoom lento não "tremer". */
   prepBaixo: { w: 1620, h: 1440 },
   divisoria: { y: 880, h: 160 },
-  cartaoY: 1060,
+  cartaoY: 1100,
   creditoY: 312,
   /** Zoom da respiração da imagem de baixo (1 → 1 + zoomBaixo, alternando o sentido por troca). */
   zoomBaixo: 0.05,
