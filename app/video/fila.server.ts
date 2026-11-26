@@ -331,9 +331,10 @@ export async function publicarReel(id: number): Promise<string> {
   const job = linha(j);
   if (job.ig_status === "publicado") return "Este vídeo já foi publicado no Instagram.";
   const { containerStatus, publicarReel: enviarReel, classificar } = await import("~/social/server/instagram.server");
-  // Envio travado (processo caiu): se o Instagram já publicou aquele contêiner, não envia de novo.
+  // Envio travado ou que "falhou": se o Instagram já publicou aquele contêiner, não envia de novo (a Meta às vezes publica e mesmo
+  // assim devolve erro; sem isto o Reel saía duplicado ao clicar de novo).
   const antigo = typeof j.ig_container_id === "string" ? j.ig_container_id : "";
-  if (job.ig_status === "enviando" && antigo) {
+  if ((job.ig_status === "enviando" || job.ig_status === "falhou") && antigo) {
     try {
       if ((await containerStatus(antigo, token)) === "PUBLISHED") {
         await exec("UPDATE video_jobs SET ig_status = 'publicado', ig_published_at = UTC_TIMESTAMP(), ig_error = NULL WHERE id = ?", [id]);
@@ -364,6 +365,12 @@ export async function publicarReel(id: number): Promise<string> {
       await exec("UPDATE video_jobs SET ig_status = 'publicado', ig_media_id = ?, ig_permalink = ?, ig_published_at = UTC_TIMESTAMP(), ig_error = NULL WHERE id = ?", [res.mediaId, res.link, id]);
     } catch (err) {
       const msg = String((err as Error)?.message ?? err).slice(0, 450);
+      // Deu erro, mas o contêiner pode ter sido publicado mesmo assim: confere antes de marcar como falha.
+      const [cj] = await query<{ ig_container_id: string | null }>("SELECT ig_container_id FROM video_jobs WHERE id = ?", [id]);
+      if (cj?.ig_container_id && (await containerStatus(cj.ig_container_id, token).catch(() => "")) === "PUBLISHED") {
+        await exec("UPDATE video_jobs SET ig_status = 'publicado', ig_published_at = UTC_TIMESTAMP(), ig_error = NULL WHERE id = ?", [id]);
+        return;
+      }
       if (classificar(err).acao === "token") await marcarTokenInvalido("Token do Instagram inválido: gere outro e cole em /admin/instagram.");
       await exec("UPDATE video_jobs SET ig_status = 'falhou', ig_error = ? WHERE id = ?", [msg, id]);
     }

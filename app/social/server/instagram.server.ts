@@ -157,7 +157,7 @@ export async function publicarReel(opts: { contaId: string; token: string; video
 export const semPermissao = (e: unknown) => e instanceof ErroInstagram && (e.codigo === 10 || e.codigo === 200 || e.subcodigo === 2108006);
 
 /** Últimas mídias (para achar um post que já foi publicado quando o processo caiu no meio). */
-export const ultimasMidias = (token: string) => chamar<{ data: { id: string; caption?: string; permalink?: string }[] }>("/me/media", token, { params: { fields: "id,caption,permalink,timestamp", limit: 5 } });
+export const ultimasMidias = (token: string) => chamar<{ data: { id: string; caption?: string; permalink?: string }[] }>("/me/media", token, { params: { fields: "id,caption,permalink,timestamp", limit: 15 } });
 
 /** Renova o token de longa duração (vale mais 60 dias). */
 export async function renovar(token: string) {

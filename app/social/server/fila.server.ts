@@ -138,8 +138,38 @@ async function carregar(id: number): Promise<LinhaFila | null> {
   return l ?? null;
 }
 
+/**
+ * A tentativa anterior desta linha já criou um contêiner: ele foi publicado? A Meta às vezes PUBLICA e mesmo assim devolve erro
+ * (ex.: "Application request limit reached" no media_publish); sem esta conferência o post saía de novo a cada nova tentativa
+ * (posts duplicados e triplicados em 2026-11-26).
+ * "sim" = já está no Instagram (a linha é marcada como publicada); "nao" = pode enviar; "incerto" = não deu para conferir agora.
+ */
+async function conferirContainer(l: LinhaFila, token: string | null): Promise<"sim" | "nao" | "incerto"> {
+  if (!l.container_id) return "nao";
+  if (!token) return "incerto";
+  let status: string;
+  try {
+    status = await containerStatus(l.container_id, token);
+  } catch {
+    return "incerto";
+  }
+  if (status !== "PUBLISHED") return "nao";
+  // Acha a mídia pela legenda (só para guardar o link); Story não tem legenda: o contêiner publicado basta.
+  const m = l.kind === "story" ? undefined : (await ultimasMidias(token).catch(() => ({ data: [] as { id: string; caption?: string; permalink?: string }[] }))).data.find((x) => (x.caption ?? "").slice(0, 40) === (l.caption ?? "").slice(0, 40));
+  await exec("UPDATE social_posts SET status = 'published', media_id = COALESCE(?, media_id), permalink = COALESCE(?, permalink), published_at = COALESCE(published_at, UTC_TIMESTAMP()), locked_at = NULL, error = NULL WHERE id = ?", [m?.id ?? null, m?.permalink ?? null, l.id]);
+  console.warn(`[social] linha ${l.id}: o contêiner da tentativa anterior já estava publicado; não envia de novo`);
+  return "sim";
+}
+
 /** Envia uma linha já travada (status sending). Atualiza o estado conforme o resultado. */
 async function enviar(l: LinhaFila, conta: Conta, token: string): Promise<void> {
+  // Nova tentativa: confere antes se a anterior não chegou a publicar (senão o post sai duplicado).
+  const antes = await conferirContainer(l, token);
+  if (antes === "sim") return;
+  if (antes === "incerto") {
+    await exec("UPDATE social_posts SET status = 'failed', error = ?, next_try_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE), locked_at = NULL WHERE id = ?", ["não deu para conferir se a tentativa anterior foi publicada; confiro de novo em 30 min", l.id]);
+    return;
+  }
   try {
     if (!imagensDe(l.images).length || (l.kind === "feed" && !l.caption)) {
       await gerar(l);
@@ -165,6 +195,9 @@ async function enviar(l: LinhaFila, conta: Conta, token: string): Promise<void> 
     await exec("UPDATE social_posts SET status = 'published', media_id = ?, permalink = ?, published_at = UTC_TIMESTAMP(), locked_at = NULL, error = NULL WHERE id = ?", [r.mediaId, r.link, l.id]);
   } catch (err) {
     const msg = String((err as Error)?.message ?? err).slice(0, 400);
+    // Deu erro, mas o contêiner desta tentativa pode ter sido publicado mesmo assim: confere já (se não der, a próxima tentativa confere).
+    const atual = await carregar(l.id);
+    if (atual?.container_id && atual.container_id !== l.container_id && (await conferirContainer(atual, token)) === "sim") return;
     const c = classificar(err);
     if (c.acao === "token") {
       await marcarTokenInvalido("Token do Instagram inválido: gere outro e cole em /admin/instagram.");
@@ -191,26 +224,11 @@ async function enviar(l: LinhaFila, conta: Conta, token: string): Promise<void> 
 async function recuperarPresas(token: string | null): Promise<void> {
   const presas = await query<LinhaFila>("SELECT * FROM social_posts WHERE status = 'sending' AND locked_at < UTC_TIMESTAMP() - INTERVAL 15 MINUTE");
   for (const l of presas) {
-    let publicada = false;
-    if (l.container_id && token) {
-      try {
-        if ((await containerStatus(l.container_id, token)) === "PUBLISHED") {
-          if (l.kind === "story") {
-            // Story não tem legenda para achar a mídia: o contêiner publicado basta.
-            await exec("UPDATE social_posts SET status = 'published', published_at = UTC_TIMESTAMP(), locked_at = NULL WHERE id = ?", [l.id]);
-            continue;
-          }
-          const m = (await ultimasMidias(token)).data.find((x) => (x.caption ?? "").slice(0, 40) === (l.caption ?? "").slice(0, 40));
-          if (m) {
-            await exec("UPDATE social_posts SET status = 'published', media_id = ?, permalink = ?, published_at = UTC_TIMESTAMP(), locked_at = NULL WHERE id = ?", [m.id, m.permalink ?? null, l.id]);
-            publicada = true;
-          }
-        }
-      } catch {
-        /* tenta de novo no próximo tick */
-      }
-    }
-    if (!publicada) await exec("UPDATE social_posts SET status = 'pending', locked_at = NULL WHERE id = ?", [l.id]);
+    const r = await conferirContainer(l, token);
+    if (r === "sim") continue;
+    // Não publicada: volta para a fila. Sem como conferir agora: espera 30 min (o envio confere de novo antes de postar).
+    if (r === "nao") await exec("UPDATE social_posts SET status = 'pending', locked_at = NULL WHERE id = ?", [l.id]);
+    else await exec("UPDATE social_posts SET status = 'failed', next_try_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE), locked_at = NULL WHERE id = ?", [l.id]);
   }
 }
 
