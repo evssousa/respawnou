@@ -67,6 +67,8 @@ export default [
   route("api/cron/:job", "routes/cron.ts"),
   // Contador de visitas: o navegador avisa (POST) depois que cada página abre. /api/view é o endereço antigo (só responde 204).
   route("api/v", "routes/api.v.ts"),
+  // Resumo das visitas para o Escritório Claude (protegido pelo CRON_TOKEN).
+  route("api/escritorio/:what", "routes/api.escritorio.ts"),
   route("api/view", "routes/view.ts"),
 
   route("*", "routes/not-found.tsx"),
