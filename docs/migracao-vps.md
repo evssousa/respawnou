@@ -185,3 +185,15 @@ Começar aos **:52** de uma hora (depois do `coletar` das :30 e antes do das :00
 
 **2026-11-26 (Claude)**
 - B1: levantamento feito (Parte F). VPS com folga (1,37 GB de 3,9 GB usados, disco 24%).
+- B2: `Dockerfile` e `.dockerignore` no repo, comentários atualizados (commit `0185a5d`).
+- B3: `projetos\_segredos\respawnou-vps.env` gerado (DB, `CRON_TOKEN`, `SESSION_SECRET` novos); faltam as 9 linhas do
+  dono. Envio por `scratchpad\envs-respawnou.mjs` (sem `virada`: deixa `SOCIAL_KEY` e `ELEVENLABS_API_KEY` de fora).
+  As 8 geradas já estão no app.
+- B4: banco e usuário `respawnou` criados (grants só em `respawnou.*`).
+- B7: projeto `respawnou` (uuid `blfkbzst4dslgir3m9s7ohn5`), app `respawnou` (uuid **`flq1qcdivqix2fwh8rrqtshq`**),
+  Dockerfile, porta 3000, healthcheck `/robots.txt`, 1.280 MB, `cpu_shares` 512, domínio só o temporário com noindex,
+  pasta `/srv/sites/respawnou/media` → `/data/media`. 1º build: ~1 min, imagem de 696 MB; healthy; as 17 migrations
+  rodaram no banco vazio (o dump do ensaio substitui tudo com `DROP DATABASE`).
+- B9.7 adiantado: `teste-local.ts` (voz falsa) no container: vídeo de 35 s montado em **36 s** (na Hostinger eram
+  minutos), pico de ~930 MB no container, criasite respondendo em 0,06 s (máx. 0,11 s) durante a montagem, 0 erros.
+- **Esperando o dono:** preencher o `.env` e o dump do ensaio (B5.1).
