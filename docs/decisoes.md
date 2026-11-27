@@ -13,6 +13,11 @@ Mais recente no topo. Cada decisão diz o que foi decidido, quando e por quê.
   Sem conseguir conferir (ex.: limite da API), espera 30 min. Linhas presas em `sending` usam a mesma regra (antes voltavam
   para `pending` se a legenda não fosse achada). Reels: a mesma conferência para `falhou` e depois de erro.
 - **Não dá para apagar posts pela API:** os repetidos que já saíram o dono apaga à mão no app do Instagram.
+- **Segunda trava (mesmo dia, depois de novas cópias):** antes de enviar um post do feed, confere também se já existe no
+  perfil um post com a mesma legenda (60 primeiros caracteres); se existe, marca como publicado. Pega o caso em que o
+  contêiner guardado é de outra tentativa ou não aparece como PUBLISHED. Logs `[social]` em cada envio, publicação e erro
+  (`docker logs` do app) para diagnosticar se acontecer de novo. As linhas de feed das matérias 88 a 91 (apagadas pelo
+  "Zerar fila") foram regravadas como publicadas, com o id real de cada post.
 
 ## 2026-11-26 — Vídeo vertical em tela dividida (plano `video-tela-dividida.md`; implementado no mesmo dia)
 
