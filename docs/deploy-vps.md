@@ -26,6 +26,13 @@ se um app o declarar diferente, todo http da VPS dá 503. Para trocar domínio: 
 domínio, deixar o Coolify gerar os rótulos, aplicar de novo as duas linhas `permanent=true`, desligar o automático e
 conferir `curl -sI http://criasite.app/x` → 301.
 
+**Deploy sem certificado provisório (lição 14 de `criasite/docs/migracao-vps.md`, 2026-11-27):** num deploy, o container
+antigo e o novo ficam no ar juntos por alguns minutos. Se um roteador com o **mesmo nome** tem configuração diferente nos
+dois (regra, middlewares, TLS), o Traefik descarta o roteador e o site responde com o certificado provisório do Traefik
+("não seguro") até o antigo sair (~4 min). Deploy comum (rótulos iguais) não tem esse problema (medido em 27/11: zero
+segundos). Tirar um domínio só apaga roteadores e é seguro. Para **mudar** um roteador existente, dar a ele um nome novo
+(ex.: `https-0-<uuid>` → `https-0b-<uuid>`, junto com o `service`), para os dois conviverem durante o deploy.
+
 ## Comandos úteis (SSH `root@189.24.17.85`, chave `~/.ssh/criasite_vps`)
 
 - Logs do app: `docker logs --since 1h $(docker ps -qf name=flq1qcdivqix2fwh8rrqtshq)`
