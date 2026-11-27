@@ -20,6 +20,7 @@ e o que vem a seguir.
 | [arcade.md](arcade.md) | Arcade: jogos de passatempo próprios em /arcade |
 | [crescimento.md](crescimento.md) | Plano de crescimento orgânico (custo zero): SEO do Arcade, fichas de jogos, evergreen, Discover, divulgação |
 | [crescimento-rapido.md](crescimento-rapido.md) | Estratégia de crescimento rápido (seguidores, visitas, receita, rotina, equipe) e modelo para criar sites novos; vale para todos os sites |
+| [patrocinado-decisoes.md](patrocinado-decisoes.md) | Matérias patrocinadas: decisões do dono (2026-11-27), entrada do plano dos 4 sites (respawnou piloto) |
 | [deploy-hostinger.md](deploy-hostinger.md) | Domínio, site Node.js, SSL, e-mail, variáveis (Hostinger Cloud Startup, de onde o site está saindo) |
 | [deploy-vps.md](deploy-vps.md) | **Onde o site roda hoje:** VPS com Coolify (app, banco, mídia, tarefas, rótulos do proxy, comandos) |
 | [migracao-vps.md](migracao-vps.md) | Migração para a VPS (Coolify), 2026-11-26: específico do site, ensaio, virada, volta e andamento |
@@ -127,6 +128,8 @@ Em ordem (atualizado em 2026-11-22):
    Arcade e parcerias com estúdios/lançamentos), regras de conteúdo patrocinado, versão para baixar/imprimir e contato.
    Outra fonte de renda, vale para todos os sites. **Decisão (2026-11-15): só depois do AdSense ligado no respawnou.** Falta planejar (`planejador`, tem parte visual); o piloto é o criasite.
    Cuidado: não misturar com as regras do AdSense (`adsense.md`).
+
+7. **Matérias patrocinadas (2026-11-27):** planejar com o `planejador` a partir de [patrocinado-decisoes.md](patrocinado-decisoes.md) (G, um plano para os 4 sites; respawnou piloto, depois animeprofile). Marcado para domingo 29/11 depois das 15h (reset do uso).
 
 ## Pendências suas
 
