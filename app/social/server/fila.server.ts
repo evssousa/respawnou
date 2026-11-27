@@ -145,26 +145,46 @@ async function carregar(id: number): Promise<LinhaFila | null> {
  * "sim" = já está no Instagram (a linha é marcada como publicada); "nao" = pode enviar; "incerto" = não deu para conferir agora.
  */
 async function conferirContainer(l: LinhaFila, token: string | null): Promise<"sim" | "nao" | "incerto"> {
-  if (!l.container_id) return "nao";
-  if (!token) return "incerto";
-  let status: string;
-  try {
-    status = await containerStatus(l.container_id, token);
-  } catch {
-    return "incerto";
+  const legenda = (l.caption ?? "").trim().slice(0, 60);
+  const mesmaLegenda = (x: { caption?: string }) => legenda.length >= 20 && (x.caption ?? "").trim().slice(0, 60) === legenda;
+  const marcar = async (m: { id: string; permalink?: string } | undefined, como: string) => {
+    await exec("UPDATE social_posts SET status = 'published', media_id = COALESCE(?, media_id), permalink = COALESCE(?, permalink), published_at = COALESCE(published_at, UTC_TIMESTAMP()), locked_at = NULL, error = NULL WHERE id = ?", [m?.id ?? null, m?.permalink ?? null, l.id]);
+    console.warn(`[social] linha ${l.id} (matéria ${l.post_id}, ${l.kind}): já estava no Instagram (${como}); não envia de novo`);
+  };
+  if (!token) return l.container_id ? "incerto" : "nao";
+  // 1) O contêiner da tentativa anterior foi publicado?
+  if (l.container_id) {
+    try {
+      if ((await containerStatus(l.container_id, token)) === "PUBLISHED") {
+        const m = l.kind === "story" ? undefined : (await ultimasMidias(token).catch(() => ({ data: [] as { id: string; caption?: string; permalink?: string }[] }))).data.find(mesmaLegenda);
+        await marcar(m, "contêiner publicado");
+        return "sim";
+      }
+    } catch {
+      return "incerto";
+    }
   }
-  if (status !== "PUBLISHED") return "nao";
-  // Acha a mídia pela legenda (só para guardar o link); Story não tem legenda: o contêiner publicado basta.
-  const m = l.kind === "story" ? undefined : (await ultimasMidias(token).catch(() => ({ data: [] as { id: string; caption?: string; permalink?: string }[] }))).data.find((x) => (x.caption ?? "").slice(0, 40) === (l.caption ?? "").slice(0, 40));
-  await exec("UPDATE social_posts SET status = 'published', media_id = COALESCE(?, media_id), permalink = COALESCE(?, permalink), published_at = COALESCE(published_at, UTC_TIMESTAMP()), locked_at = NULL, error = NULL WHERE id = ?", [m?.id ?? null, m?.permalink ?? null, l.id]);
-  console.warn(`[social] linha ${l.id}: o contêiner da tentativa anterior já estava publicado; não envia de novo`);
-  return "sim";
+  // 2) Feed: já existe no perfil um post com a mesma legenda? Pega o que o item 1 não pega (contêiner de uma tentativa mais antiga,
+  //    status que não virou PUBLISHED). Uma chamada só por envio.
+  if (l.kind === "feed" && legenda.length >= 20) {
+    try {
+      const m = (await ultimasMidias(token)).data.find(mesmaLegenda);
+      if (m) {
+        await marcar(m, "mesma legenda no perfil");
+        return "sim";
+      }
+    } catch {
+      return l.container_id || l.attempts > 0 ? "incerto" : "nao";
+    }
+  }
+  return "nao";
 }
 
 /** Envia uma linha já travada (status sending). Atualiza o estado conforme o resultado. */
 async function enviar(l: LinhaFila, conta: Conta, token: string): Promise<void> {
   // Nova tentativa: confere antes se a anterior não chegou a publicar (senão o post sai duplicado).
   const antes = await conferirContainer(l, token);
+  console.log(`[social] enviar linha ${l.id} (matéria ${l.post_id}, ${l.kind}, tentativa ${l.attempts + 1}): conferência antes = ${antes}`);
   if (antes === "sim") return;
   if (antes === "incerto") {
     await exec("UPDATE social_posts SET status = 'failed', error = ?, next_try_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE), locked_at = NULL WHERE id = ?", ["não deu para conferir se a tentativa anterior foi publicada; confiro de novo em 30 min", l.id]);
@@ -193,11 +213,14 @@ async function enviar(l: LinhaFila, conta: Conta, token: string): Promise<void> 
         ? await publicarStory({ contaId: conta.account_id!, token, imagem: imgs[0], aoCriarContainer })
         : await publicar({ contaId: conta.account_id!, token, imagens: imgs, legenda: l.caption!, aoCriarContainer });
     await exec("UPDATE social_posts SET status = 'published', media_id = ?, permalink = ?, published_at = UTC_TIMESTAMP(), locked_at = NULL, error = NULL WHERE id = ?", [r.mediaId, r.link, l.id]);
+    console.log(`[social] publicado: linha ${l.id} (matéria ${l.post_id}, ${l.kind}) mídia ${r.mediaId}`);
   } catch (err) {
     const msg = String((err as Error)?.message ?? err).slice(0, 400);
-    // Deu erro, mas o contêiner desta tentativa pode ter sido publicado mesmo assim: confere já (se não der, a próxima tentativa confere).
+    // Deu erro, mas esta tentativa pode ter publicado mesmo assim: confere já (se não der, a próxima tentativa confere antes de enviar).
     const atual = await carregar(l.id);
-    if (atual?.container_id && atual.container_id !== l.container_id && (await conferirContainer(atual, token)) === "sim") return;
+    const conf = atual ? await conferirContainer(atual, token) : "nao";
+    console.warn(`[social] erro na linha ${l.id} (matéria ${l.post_id}, ${l.kind}): ${msg.slice(0, 160)} | conferência depois do erro: ${conf}`);
+    if (conf === "sim") return;
     const c = classificar(err);
     if (c.acao === "token") {
       await marcarTokenInvalido("Token do Instagram inválido: gere outro e cole em /admin/instagram.");
